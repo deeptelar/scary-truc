@@ -110,6 +110,34 @@ class Maze private constructor(
         return dir to total
     }
 
+    /**
+     * The same maze after midnight: some walls have moved. The dooms, the candy and the gate stay,
+     * every cell can still be reached, and from every start there is still a way out without a doom.
+     */
+    fun shifted(): Maze {
+        val random = Random(seed xor 0x5EED)
+        val east = Array(width) { east[it].copyOf() }
+        val south = Array(width) { south[it].copyOf() }
+        val after = Maze(seed, width, height, east, south)
+        after.starts = starts
+        after.lair = lair
+        after.dooms = dooms
+        after.candy = candy
+        val deadly = dooms.map { it.at }.toSet()
+        var moved = 0
+        repeat(400) {
+            if (moved == width * height / 8) return after
+            val pos = Pos(random.nextInt(width), random.nextInt(height))
+            val dir = if (random.nextBoolean()) Dir.EAST else Dir.SOUTH
+            if (pos + dir !in this) return@repeat
+            val walls = if (dir == Dir.EAST) east else south
+            walls[pos.x][pos.y] = !walls[pos.x][pos.y]
+            val fine = after.distances(gate).size == width * height && starts.all { gate in after.distances(it, deadly) }
+            if (fine) moved++ else walls[pos.x][pos.y] = !walls[pos.x][pos.y]
+        }
+        return after
+    }
+
     companion object {
         const val WIDTH: Int = 11
         const val HEIGHT: Int = 8

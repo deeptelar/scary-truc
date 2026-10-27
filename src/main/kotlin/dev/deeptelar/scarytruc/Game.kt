@@ -8,6 +8,9 @@ import dev.deeptelar.telar.MemoryCheckpointer
 import dev.deeptelar.telar.NodeRef
 import dev.deeptelar.telar.START
 import dev.deeptelar.telar.StateGraph
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
 
 const val THINK: String = "think"
@@ -16,17 +19,18 @@ const val ACT: String = "act"
 /**
  * A night as a Telar graph. `think` asks every lost agent where it means to go, all at once, and
  * `act` walks them there, after the player answered. The run pauses before `act` on every turn:
- * the agents decided, and the player sees it before it happens.
+ * the agents decided, and the player sees it before it happens. [mazeOf] is the maze of a night's
+ * turn, which changes at midnight.
  */
-fun nightGraph(maze: Maze, brain: Brain): CompiledGraph<Night> =
+fun nightGraph(mazeOf: (Night) -> Maze, brain: Brain): CompiledGraph<Night> =
     StateGraph<Night> {
         val think =
             node(
                 THINK,
                 forEach = { night -> night.lost },
-                work = { night, agent -> brain.decide(night, maze, agent) },
+                work = { night, agent -> brain.decide(night, mazeOf(night), agent) },
             ) { night, moves -> night.copy(moves = moves) }
-        val act = node(ACT) { night -> night.act(maze) }
+        val act = node(ACT) { night -> night.act(mazeOf(night)) }
         START then think then act
         conditionalEdge(act, targets = setOf(think, NodeRef.END)) { night -> if (night.over) NodeRef.END else think }
     }.compile()
@@ -42,11 +46,17 @@ fun nightGraph(maze: Maze, brain: Brain): CompiledGraph<Night> =
 class NightRun(
     val plan: Plan,
     seed: Long,
-    brain: Brain,
+    private val brain: Brain,
     private val seen: (Night) -> Unit = {},
 ) {
-    val maze: Maze = plan.maze(seed)
-    private val graph = nightGraph(maze, brain)
+    private val before: Maze = plan.maze(seed)
+    private val after: Maze = before.shifted()
+
+    /** The maze of [night]: after midnight, its walls have moved. */
+    fun mazeOf(night: Night): Maze = if (night.afterMidnight) after else before
+
+    val maze: Maze get() = mazeOf(night)
+    private val graph = nightGraph(::mazeOf, brain)
     private val checkpointer = MemoryCheckpointer<Night>()
     private var thread = 0
 
@@ -54,7 +64,7 @@ class NightRun(
         get() = GraphConfig(threadId = "night-$thread", checkpointer = checkpointer, interruptBefore = setOf(ACT))
 
     /** The night as the player sees it: where the run paused, with the treat or trick placed since. */
-    var night: Night = Night.begin(plan, maze)
+    var night: Night = Night.begin(plan, before)
         private set
 
     /** The start of every turn so far, the first one first: where a marigold can go back to. */
@@ -73,10 +83,27 @@ class NightRun(
         return true
     }
 
+    /**
+     * Those who can hear or smell what the player just put at [pos] decide again, with it in their
+     * senses: they take the scream or the sweet smell their own way.
+     */
+    suspend fun rethink(pos: Pos): Night {
+        val maze = maze
+        val steps = maze.distances(pos)
+        val near = night.lost.filter { (steps[it.at] ?: 99) <= SMELL }
+        if (near.isEmpty()) return night
+        val then = night
+        val again = coroutineScope { near.map { agent -> async { brain.decide(then, maze, agent) } }.awaitAll() }
+        night = night.copy(moves = night.moves.map { move -> again.firstOrNull { it.role == move.role } ?: move })
+        seen(night)
+        return night
+    }
+
     /** Takes back the treat or trick placed this turn, and its candy. */
     fun takeBack(pos: Pos): Boolean {
         val mark = night.markAt(pos) ?: return false
         if (past.last().state.markAt(pos) == mark) return false
+        // What they decided after seeing it stands: a scare can't be taken back.
         night = night.copy(marks = night.marks - mark, candy = night.candy + mark.kind.cost, played = false)
         return true
     }
@@ -85,7 +112,12 @@ class NightRun(
     suspend fun next(): Night {
         if (night.over) return night
         val answered = night
-        night = follow(graph.streamResume(config) { it.copy(marks = answered.marks, candy = answered.candy, played = answered.played) })
+        night =
+            follow(
+                graph.streamResume(config) {
+                    it.copy(marks = answered.marks, candy = answered.candy, played = answered.played, moves = answered.moves)
+                },
+            )
         if (!night.over) past = past + listOfNotNull(checkpointer.load(config.threadId))
         return night
     }

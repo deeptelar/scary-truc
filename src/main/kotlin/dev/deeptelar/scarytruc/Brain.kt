@@ -22,12 +22,15 @@ object Instinct : Brain {
         val ways = senses(night, maze, agent)
         val role = agent.role
         fun near(steps: Int?) = if (steps == null) 0.0 else 1.0 / steps
+        // Fear sharpens with lost nerve, and each scream heard scares less than the one before.
+        val fear = 0.4 + (100 - agent.nerve) / 100.0
+        val numb = 1.0 / (1 + agent.screams * 0.5)
         val scored =
             ways.map { way ->
                 val score =
                     role.treat * near(way.treat) +
-                        role.trick * near(way.trick) +
-                        role.hollow * near(way.hollow) +
+                        role.trick * fear * numb * near(way.trick) +
+                        role.hollow * fear * near(way.hollow) +
                         role.air * (if (way.air) 1.0 else 0.0) +
                         (if (way.gate != null) 10.0 else 0.0) +
                         role.novelty * (if (way.been == 0) 1.0 else -0.3 * way.been) -
@@ -107,6 +110,7 @@ class Gemma(
             "${role.nature} You know only what you sense. Somewhere there is a gate out, and at dawn the maze keeps whoever is still inside. " +
             (if (night.hollow != null) "Something called the Hollow hunts the crew. " else "") +
             "Some corridors kill whoever walks in, though you cannot tell which. " +
+            "How you take a scream or a sweet smell is up to you, by your nature and your nerve. " +
             "Standing still wastes the night: stay only when every way looks deadly. " +
             "Stay in character: short, scared or stubborn, never a helpful assistant.\n"
 }

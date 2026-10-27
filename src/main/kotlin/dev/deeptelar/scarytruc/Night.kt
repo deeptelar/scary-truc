@@ -4,14 +4,16 @@ import kotlinx.serialization.Serializable
 import kotlin.random.Random
 
 /**
- * The four agents of the crew. Gemma plays their [nature]; [rule] is how they react to the
- * player's treats and tricks, always the same, so that the player can plan with it. The weights
- * are their instinct, for a night without Gemma: how a direction pulls (positive) or pushes them.
+ * The four agents of the crew. Gemma plays their [nature], and decides how they take the player's
+ * treats and tricks; [trait] says it in a few words for the player. Each starts the night with
+ * [nerve]. The weights are their instinct, for a night without Gemma: how a direction pulls
+ * (positive) or pushes them.
  */
 enum class Role(
     val title: String,
     val nature: String,
-    val rule: String,
+    val trait: String,
+    val nerve: Int,
     val treat: Double,
     val trick: Double,
     val hollow: Double,
@@ -21,26 +23,26 @@ enum class Role(
     PLANNER(
         "Planner",
         "You are methodical. You trust fresh air and hate walking where you have already been. Sweets tempt you, but a plan is a plan.",
-        "Tricked, runs back a step. Eats a treat next to it.",
-        treat = 1.5, trick = -4.0, hollow = -12.0, novelty = 2.0, air = 4.0,
+        "Methodical. Follows fresh air.",
+        nerve = 70, treat = 1.5, trick = -4.0, hollow = -12.0, novelty = 2.0, air = 4.0,
     ),
     SCOUT(
         "Scout",
-        "You are curious and jumpy. You love corridors nobody has seen. A scream makes you run the other way at once.",
-        "Tricked, panics and runs back TWO steps. Eats a treat next to it.",
-        treat = 1.5, trick = -8.0, hollow = -10.0, novelty = 4.0, air = 1.0,
+        "You are curious and jumpy. You love corridors nobody has seen. A scream makes you want to run the other way.",
+        "Jumpy. Loves corridors nobody has seen.",
+        nerve = 45, treat = 1.5, trick = -8.0, hollow = -10.0, novelty = 4.0, air = 1.0,
     ),
     CODER(
         "Coder",
         "You are always hungry, above all for sweets, and a little reckless. You would follow candy into any dark corridor.",
-        "Tricked, runs back a step. Smells a treat TWO steps away and goes for it.",
-        treat = 5.0, trick = -3.0, hollow = -8.0, novelty = 1.0, air = 1.0,
+        "Always hungry. Reckless for sweets.",
+        nerve = 60, treat = 5.0, trick = -3.0, hollow = -8.0, novelty = 1.0, air = 1.0,
     ),
     CRITIC(
         "Critic",
         "You are brave and contrary. Sweets left in a haunted maze are obviously a trap. Screams are cheap tricks that make you curious. Only the Hollow scares you.",
-        "The opposite: walks INTO a trick next to it. Runs back from a treat.",
-        treat = -3.0, trick = 1.5, hollow = -12.0, novelty = 2.0, air = 2.0,
+        "Contrary. Distrusts treats, curious about screams.",
+        nerve = 85, treat = -3.0, trick = 1.5, hollow = -12.0, novelty = 2.0, air = 2.0,
     ),
 }
 
@@ -51,12 +53,18 @@ data class Agent(
     val role: Role,
     val at: Pos,
     val fate: Fate = Fate.LOST,
-    /** The cells it walked, oldest first, which it remembers and can run back along. */
+    /** The cells it walked, oldest first, which it remembers. */
     val trail: List<Pos> = listOf(at),
     /** What it said last: on the ofrenda, its last words. */
     val words: String = "",
     /** What killed it. */
     val death: String? = null,
+    /** How brave it still is, from 0 to 100. Below [PANIC] it may bolt anywhere. */
+    val nerve: Int = role.nerve,
+    /** How many screams it heard tonight: each scares it less than the one before. */
+    val screams: Int = 0,
+    /** For how many more turns its lantern is out. */
+    val dark: Int = 0,
 )
 
 enum class MarkKind(val cost: Int) { TREAT(1), TRICK(2) }
@@ -65,8 +73,9 @@ enum class MarkKind(val cost: Int) { TREAT(1), TRICK(2) }
 @Serializable
 data class Mark(val at: Pos, val kind: MarkKind, val age: Int = 0)
 
+/** The Hollow sleeps in its lair until something wakes it: someone near, a scream, or midnight. */
 @Serializable
-data class Hollow(val at: Pos, val eating: Int = 0)
+data class Hollow(val at: Pos, val eating: Int = 0, val awake: Boolean = false)
 
 /** Where an agent means to go this turn, or to stay when [go] is `null`, and what it says. */
 @Serializable
@@ -92,12 +101,18 @@ data class Night(
     val played: Boolean = false,
     /** Every cell a lantern has lit tonight: the player sees these, and nothing else. */
     val seen: Set<Pos> = emptySet(),
+    /** Every cell a lantern has shone on from right next to it: only there does a doom show. */
+    val near: Set<Pos> = emptySet(),
     val moves: List<Move> = emptyList(),
     val log: List<String> = emptyList(),
 ) {
     val lost: List<Agent> get() = crew.filter { it.fate == Fate.LOST }
     val over: Boolean get() = lost.isEmpty() || turn >= dawn
     val saved: Int get() = crew.count { it.fate == Fate.SAVED }
+
+    /** Half the night: the maze moves, and the Hollow wakes and stops resting. */
+    val midnight: Int get() = dawn / 2
+    val afterMidnight: Boolean get() = turn >= midnight
 
     fun markAt(pos: Pos): Mark? = marks.firstOrNull { it.at == pos }
 
@@ -108,8 +123,9 @@ data class Night(
         return copy(marks = marks + Mark(pos, kind), candy = candy - kind.cost, played = true)
     }
 
-    /** The cells the lanterns of the lost light now, [LANTERN] steps around each. */
-    fun lit(maze: Maze): Set<Pos> = lost.flatMap { agent -> maze.distances(agent.at).filterValues { it <= LANTERN }.keys }.toSet()
+    /** The cells the lanterns that still burn light now, [steps] around each. */
+    fun lit(maze: Maze, steps: Int = LANTERN): Set<Pos> =
+        lost.filter { it.dark == 0 }.flatMap { agent -> maze.distances(agent.at).filterValues { it <= steps }.keys }.toSet()
 
     companion object {
         const val TRICK_TURNS: Int = 3
@@ -128,15 +144,15 @@ data class Night(
                     lostCandy = maze.candy,
                     log = listOf(if (plan.crew.size == 1) "Night falls. The ${plan.crew.single().title} wakes up in the maze." else "Night falls. The crew wakes up in the maze, each one alone."),
                 )
-            return night.copy(seen = night.lit(maze))
+            return night.copy(seen = night.lit(maze), near = night.lit(maze, 1))
         }
     }
 }
 
 /**
- * The turn after the crew chose [Night.moves] and the player answered: everyone reacts to the
- * treats and tricks by its [Role.rule] and walks, the dooms and the Hollow take whom they reach,
- * and the night is a turn older.
+ * The turn after the crew chose [Night.moves] and the player answered: everyone walks where it
+ * chose, unless it panics, the dooms and the Hollow take whom they reach, nerves fray or mend, and
+ * the night is a turn older. [maze] is the maze of this turn: after midnight, the shifted one.
  */
 fun Night.act(maze: Maze): Night {
     val log = mutableListOf<String>()
@@ -144,23 +160,34 @@ fun Night.act(maze: Maze): Night {
     var hollow = hollow
     var candy = candy
     var lostCandy = lostCandy
+    fun chance(salt: Int) = Random(seed * 31 + turn * 131L + salt).nextDouble()
+
     val crew =
         crew.map { agent ->
             if (agent.fate != Fate.LOST) return@map agent
             val move = moves.firstOrNull { it.role == agent.role }
-            val (path, reaction) = react(maze, agent, move?.go, marks)
-            val to = path.lastOrNull() ?: agent.at
-            var walked = agent.copy(at = to, trail = (agent.trail + path).takeLast(TRAIL), words = reaction ?: move?.says ?: agent.words)
-            // Running into the Hollow is death, unless it is busy feeding on someone else.
-            val caught = path.firstOrNull { it == hollow?.at && hollow?.eating == 0 }
-            val doom = path.firstNotNullOfOrNull { maze.doomAt(it) }
+            var go = move?.go?.takeIf { maze.canGo(agent.at, it) }
+            var words = move?.says ?: agent.words
+            // Out of nerve, it may bolt down any corridor, whatever it meant to do.
+            if (agent.nerve < PANIC && chance(agent.role.ordinal) < 0.5) {
+                val exits = maze.exits(agent.at)
+                if (exits.isNotEmpty()) {
+                    go = exits[(chance(agent.role.ordinal + 10) * exits.size).toInt()]
+                    words = PANIC_LINES[(chance(agent.role.ordinal + 20) * PANIC_LINES.size).toInt()]
+                    log += "${agent.role.title} panics and runs."
+                }
+            }
+            val to = go?.let { agent.at + it } ?: agent.at
+            var walked = agent.copy(at = to, trail = (agent.trail + to).takeLast(TRAIL), words = words)
+            val doom = maze.doomAt(to)
             when {
-                caught != null -> {
-                    walked = walked.copy(at = caught, fate = Fate.DEAD, death = "the Hollow")
+                // Running into the Hollow is death, unless it sleeps or is busy feeding.
+                hollow != null && to == hollow.at && hollow.awake && hollow.eating == 0 -> {
+                    walked = walked.copy(fate = Fate.DEAD, death = "the Hollow")
                     log += "${agent.role.title} ran into the Hollow."
                 }
                 doom != null -> {
-                    walked = walked.copy(at = doom.at, fate = Fate.DEAD, death = doom.kind.word)
+                    walked = walked.copy(fate = Fate.DEAD, death = doom.kind.word)
                     log += "${agent.role.title} walked into ${doom.kind.word}."
                 }
                 to == maze.gate -> {
@@ -171,6 +198,7 @@ fun Night.act(maze: Maze): Night {
             if (walked.fate == Fate.LOST) {
                 marks.firstOrNull { it.at == to && it.kind == MarkKind.TREAT }?.let {
                     marks = marks - it
+                    walked = walked.copy(nerve = (walked.nerve + 15).coerceAtMost(100))
                     log += "${agent.role.title} ate the treat."
                 }
                 if (to in lostCandy) {
@@ -182,25 +210,32 @@ fun Night.act(maze: Maze): Night {
             walked
         }.toMutableList()
 
-    // The Hollow eats a treat it finds and rests over it; otherwise it hunts the nearest living
-    // agent it senses, or the nearest treat when that is closer: a treat is also a lure. It stops
-    // to listen every third turn, which is how a running agent gets away, and never walks into a
-    // trick.
     if (hollow != null) {
-        if (hollow.eating > 0) {
+        val barred = setOf(maze.gate) + marks.filter { it.kind == MarkKind.TRICK }.map { it.at }
+        val away = maze.distances(hollow.at, avoid = barred)
+        val near = maze.distances(hollow.at)
+        val screams = marks.filter { it.kind == MarkKind.TRICK && it.age == 0 && (near[it.at] ?: 99) <= HOLLOW_HEARS }
+        if (!hollow.awake) {
+            // A scream, someone close, or midnight wakes it. It wakes this turn and hunts the next.
+            val close = crew.any { it.fate == Fate.LOST && (near[it.at] ?: 99) <= HOLLOW_SENSE }
+            if (screams.isNotEmpty() || close || turn + 1 >= midnight) {
+                hollow = hollow.copy(awake = true)
+                log += if (screams.isNotEmpty()) "The scream woke something up." else "Something wakes up in the maze."
+            }
+        } else if (hollow.eating > 0) {
             hollow = hollow.copy(eating = hollow.eating - 1)
-        } else if (turn % HOLLOW_PACE != HOLLOW_PACE - 1) {
-            // A jack-o'-lantern keeps it out, as they were carved to keep evil spirits out.
-            val barred = setOf(maze.gate) + marks.filter { it.kind == MarkKind.TRICK }.map { it.at }
-            val away = maze.distances(hollow.at, avoid = barred)
+        } else if (afterMidnight || turn % HOLLOW_PACE != HOLLOW_PACE - 1) {
+            // It goes for the nearest thing it senses: one of the crew, a treat, or a scream it
+            // heard from far. It never walks into a jack-o'-lantern: it waits next to it.
             val prey =
                 (crew.filter { it.fate == Fate.LOST }.map { it.at } + marks.filter { it.kind == MarkKind.TREAT }.map { it.at })
-                    .filter { it in away && away.getValue(it) <= HOLLOW_SENSE }
-                    .minByOrNull { away.getValue(it) }
-            // Nothing within reach of its senses: it roams, never on the gate.
+                    .filter { (away[it] ?: 99) <= HOLLOW_SENSE }
+                    .map { it to away.getValue(it) } +
+                    screams.map { it.at to near.getValue(it.at) }
+            val target = prey.minByOrNull { it.second }?.first
             val roam = maze.exits(hollow.at).filter { hollow.at + it !in barred }.randomOrNull(Random(seed * 13 + turn))
-            val dir = prey?.let { maze.way(hollow.at, it, avoid = barred)?.first } ?: roam
-            if (dir != null) hollow = hollow.copy(at = hollow.at + dir)
+            val dir = target?.let { maze.way(hollow.at, it, avoid = barred - it)?.first } ?: roam
+            if (dir != null && hollow.at + dir !in barred) hollow = hollow.copy(at = hollow.at + dir)
             marks.firstOrNull { it.at == hollow.at && it.kind == MarkKind.TREAT }?.let {
                 marks = marks - it
                 hollow = hollow.copy(eating = HOLLOW_EATS)
@@ -209,71 +244,52 @@ fun Night.act(maze: Maze): Night {
         }
         // It takes one, and feeds: the others get away while it does.
         val victim = crew.indexOfFirst { it.fate == Fate.LOST && it.at == hollow.at }
-        if (victim >= 0) {
+        if (victim >= 0 && hollow.awake) {
             log += "The Hollow took ${crew[victim].role.title}."
             crew[victim] = crew[victim].copy(fate = Fate.DEAD, death = "the Hollow")
             hollow = hollow.copy(eating = HOLLOW_FEEDS)
         }
     }
 
+    // Nerves: screams close by, the Hollow's breath and a friend's death fray them; a quiet turn mends them.
+    val died = crew.count { it.fate == Fate.DEAD } > this.crew.count { it.fate == Fate.DEAD }
+    crew.replaceAll { agent ->
+        if (agent.fate != Fate.LOST) return@replaceAll agent
+        val steps = maze.distances(agent.at)
+        val scream = marks.any { it.kind == MarkKind.TRICK && (steps[it.at] ?: 99) <= 2 }
+        val breath = hollow?.takeIf { it.awake }?.let { steps[it.at] }?.takeIf { it <= HEARING }
+        var nerve = agent.nerve
+        if (scream) nerve -= 16 / (1 + agent.screams)
+        if (breath != null) nerve -= if (breath <= 2) 20 else 10
+        if (died) nerve -= 15
+        if (!scream && breath == null && !died) nerve += 4
+        var dark = (agent.dark - 1).coerceAtLeast(0)
+        if (agent.dark == 0 && plan.hollow && chance(agent.role.ordinal + 40) < LANTERN_OUT) {
+            dark = 3
+            log += "${agent.role.title}'s lantern went out."
+        }
+        agent.copy(nerve = nerve.coerceIn(0, 100), screams = agent.screams + if (scream) 1 else 0, dark = dark)
+    }
+
     marks = marks.map { if (it.kind == MarkKind.TRICK) it.copy(age = it.age + 1) else it }
         .filter { it.kind == MarkKind.TREAT || it.age < Night.TRICK_TURNS }
     var next = copy(crew = crew, hollow = hollow, marks = marks, candy = candy, lostCandy = lostCandy, turn = turn + 1, played = false, moves = emptyList())
-    next = next.copy(seen = seen + next.lit(maze))
+    next = next.copy(seen = seen + next.lit(maze), near = near + next.lit(maze, 1))
+    if (next.turn == midnight && !next.over) log += "Midnight. The walls of the maze move."
     if (next.turn >= next.dawn && next.lost.isNotEmpty()) {
         log += "Dawn. The maze keeps ${next.lost.joinToString(" and ") { it.role.title }}."
     }
     return next.copy(log = (this.log + log).takeLast(LOG))
 }
 
-/**
- * Where [agent] walks this turn, cell by cell, when it meant to go [go] and finds [marks], and
- * what it shouts when a mark changed its mind.
- */
-fun react(maze: Maze, agent: Agent, go: Dir?, marks: List<Mark>): Pair<List<Pos>, String?> {
-    val here = agent.at
-    val target = go?.takeIf { maze.canGo(here, it) }?.let { here + it }
-    fun has(pos: Pos, kind: MarkKind) = marks.any { it.at == pos && it.kind == kind }
-    val next = maze.exits(here).map { here + it }
+const val PANIC: Int = 20
 
-    // Back along its own trail, the way it came, as far as it remembers.
-    fun back(steps: Int): List<Pos> {
-        val path = mutableListOf<Pos>()
-        var at = here
-        for (cell in agent.trail.dropLast(1).asReversed()) {
-            if (path.size == steps) break
-            if (cell == at) continue
-            if (maze.exits(at).none { at + it == cell }) break
-            path += cell
-            at = cell
-        }
-        return path
-    }
-
-    if (agent.role == Role.CRITIC) {
-        if (target != null && has(target, MarkKind.TREAT)) return back(1) to "Free candy? Obviously a trap."
-        next.firstOrNull { has(it, MarkKind.TRICK) }?.let { return listOf(it) to "A scream? Cheap trick. Let me see." }
-        return listOfNotNull(target) to null
-    }
-    if (target != null && has(target, MarkKind.TRICK)) {
-        return if (agent.role == Role.SCOUT) back(2) to "AAAH! Back, back, back!" else back(1) to "What was that?! No way."
-    }
-    if (agent.role == Role.CODER) {
-        val reach = maze.distances(here)
-        val treat = marks.filter { it.kind == MarkKind.TREAT && reach[it.at] in 1..2 }.minByOrNull { reach.getValue(it.at) }
-        if (treat != null) {
-            val step = maze.way(here, treat.at)!!.first
-            if (!has(here + step, MarkKind.TRICK)) return listOf(here + step) to "Caramel! Mine!"
-        }
-    } else {
-        next.firstOrNull { has(it, MarkKind.TREAT) }?.let { return listOf(it) to "Ooh, a treat." }
-    }
-    return listOfNotNull(target) to null
-}
-
+private val PANIC_LINES = listOf("RUN! RUN!", "I can't, I CAN'T!", "Get away from me!", "No no no no no!")
 private const val TRAIL = 40
 private const val LOG = 60
 private const val HOLLOW_EATS = 4
 private const val HOLLOW_FEEDS = 3
 private const val HOLLOW_PACE = 3
 private const val HOLLOW_SENSE = 5
+private const val HOLLOW_HEARS = 9
+private const val LANTERN_OUT = 0.05

@@ -21,28 +21,28 @@ enum class Plan(
 ) {
     FIRST(
         "Night 1: the Scout",
-        listOf(Role.SCOUT), 6, 4, dooms = 1, hollow = false, candy = 4, lostCandy = 0, marigolds = 0, dawn = 24, seed = 2,
-        hint = "The Scout can't see the skull. You can. Right click a cell to put a trick there (2 candies): nobody walks into a scream.",
+        listOf(Role.SCOUT), 6, 5, dooms = 2, hollow = false, candy = 4, lostCandy = 0, marigolds = 0, dawn = 24, seed = 64,
+        hint = "The Scout can't see the skulls, and you see one only when a lantern is right next to it. The night doesn't wait: every few seconds the Scout walks. Right click puts a trick (2 candies): a scream where it was going. It usually turns back. Space pauses.",
     ),
     SECOND(
         "Night 2: the Coder",
-        listOf(Role.SCOUT, Role.CODER), 7, 5, dooms = 2, hollow = false, candy = 3, lostCandy = 2, marigolds = 0, dawn = 28, seed = 1078,
-        hint = "Left click is a treat (1 candy): whoever stands next to it goes to eat it. The Coder smells one two steps away. Lost candy lies in dead ends: walk someone there to refill your bag.",
+        listOf(Role.SCOUT, Role.CODER), 7, 5, dooms = 3, hollow = false, candy = 3, lostCandy = 2, marigolds = 0, dawn = 28, seed = 1074,
+        hint = "Left click puts a treat (1 candy). It smells sweet: the hungry Coder may go for it, a wary one may not. Lost candy lies in dead ends. At midnight the walls move.",
     ),
     THIRD(
         "Night 3: the Hollow",
-        listOf(Role.PLANNER, Role.SCOUT, Role.CODER), 8, 6, dooms = 2, hollow = true, candy = 5, lostCandy = 2, marigolds = 0, dawn = 38, seed = 2104,
-        hint = "Something hunts them: the Hollow. You see it only in their light; the edges redden as it nears. A treat lures it and keeps it eating. A trick is a jack-o'-lantern: it never walks into one.",
+        listOf(Role.PLANNER, Role.SCOUT, Role.CODER), 8, 6, dooms = 2, hollow = true, candy = 5, lostCandy = 2, marigolds = 0, dawn = 38, seed = 2180,
+        hint = "The Hollow sleeps until something wakes it: someone close, midnight, or a scream. Every trick is loud. A treat lures it and keeps it eating. It never walks into a jack-o'-lantern.",
     ),
     FOURTH(
         "Night 4: the Critic",
-        Role.entries, 9, 6, dooms = 3, hollow = true, candy = 6, lostCandy = 3, marigolds = 0, dawn = 42, seed = 3292,
-        hint = "The Critic does the opposite of everyone: it walks into a scream next to it, and runs back from a treat.",
+        Role.entries, 9, 6, dooms = 3, hollow = true, candy = 6, lostCandy = 3, marigolds = 0, dawn = 42, seed = 3145,
+        hint = "The Critic distrusts treats and goes to see what screamed. Nerves fray with every scare: below 20, anyone may bolt down any corridor.",
     ),
     FIFTH(
         "Night 5: Tots Sants",
-        Role.entries, 10, 7, dooms = 4, hollow = true, candy = 6, lostCandy = 3, marigolds = 1, dawn = 46, seed = 4248,
-        hint = "One marigold tonight: after a death, it brings the night back to an earlier turn.",
+        Role.entries, 10, 7, dooms = 4, hollow = true, candy = 6, lostCandy = 3, marigolds = 1, dawn = 46, seed = 4158,
+        hint = "Lanterns can go out: then you see only their eyes. One marigold tonight: after a death, it brings the night back to an earlier turn.",
     ),
     ENDLESS(
         "Endless nights",

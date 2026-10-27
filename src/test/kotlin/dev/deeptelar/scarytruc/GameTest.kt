@@ -35,9 +35,9 @@ class GameTest {
         runTest {
             val run = NightRun(Plan.FIRST, 2, Instinct)
             run.begin()
-            val cell = run.night.seen.first { it != run.maze.start && it != run.maze.gate }
+            val cell = run.night.seen.first { it !in run.maze.starts && it != run.maze.gate }
             assertTrue(run.place(cell, MarkKind.TREAT))
-            assertFalse(run.place(run.night.seen.last { it != cell && it != run.maze.start }, MarkKind.TREAT), "one a turn")
+            assertFalse(run.place(run.night.seen.last { it != cell && it !in run.maze.starts }, MarkKind.TREAT), "one a turn")
             assertTrue(run.takeBack(cell))
             assertTrue(run.place(cell, MarkKind.TRICK))
             val after = run.next()
@@ -73,6 +73,26 @@ class GameTest {
             val run = NightRun(Plan.FOURTH, 3292, Instinct) { seen += it }
             run.begin()
             assertEquals((1..4).toList(), seen.map { it.moves.size }.filter { it > 0 }.take(4))
+        }
+
+    @Test
+    fun aTrickMakesThoseWhoHearItDecideAgainWithGemma() =
+        runTest {
+            val model =
+                ScriptedChatModel {
+                    says("""{"go": "stay", "says": "Waiting."}""")
+                    says("""{"go": "stay", "says": "What was THAT?"}""")
+                    says("""{"go": "stay", "says": "Still here."}""")
+                }
+            val run = NightRun(Plan.FIRST, 2, Gemma(model))
+            run.begin()
+            val scout = run.night.crew.single()
+            val cell = run.night.seen.first { it != scout.at }
+            assertTrue(run.place(cell, MarkKind.TRICK))
+            val after = run.rethink(cell)
+            assertEquals("What was THAT?", after.moves.single().says)
+            assertTrue(model.requests.last().messages.last().toString().lowercase().contains("scream"))
+            assertEquals("What was THAT?", run.next().crew.single().words, "the walk uses the new decision")
         }
 
     @Test

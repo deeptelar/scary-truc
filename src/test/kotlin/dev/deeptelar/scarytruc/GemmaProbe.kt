@@ -16,7 +16,14 @@ class GemmaProbe {
         val run = NightRun(Plan.FOURTH, 3292, Gemma(model) { if (it != null) println("PROBE trouble $it") })
         run.begin()
         run.night.moves.forEach { println("PROBE   intent ${it.role.title} ${it.go}: \"${it.says}\"") }
-        repeat(8) { t ->
+        repeat(6) { t ->
+            // A scream on the cell each one means to walk into, in turn: how do they take it?
+            val target = run.night.moves.getOrNull(t % run.night.moves.size)?.let { m -> run.night.lost.firstOrNull { it.role == m.role }?.let { a -> m.go?.let { a.at + it } } }
+            if (target != null && run.place(target, MarkKind.TRICK)) {
+                val before = run.night.moves
+                val after = run.rethink(target).moves
+                after.zip(before).filter { it.first != it.second }.forEach { (a, b) -> println("PROBE   SCREAM ${a.role.title}: ${b.go} -> ${a.go}: \"${a.says}\" nerve ${run.night.crew.first { it.role == a.role }.nerve}") }
+            }
                         val took = measureTime { run.next() }
             println("PROBE turn ${t + 1} took $took")
             run.night.crew.forEach { println("PROBE   ${it.role.title} at ${it.at} ${it.fate}") }

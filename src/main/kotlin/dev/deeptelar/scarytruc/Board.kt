@@ -74,9 +74,11 @@ fun Board(
             // What the lanterns do not light now is a memory: darker.
             if (pos !in lit) drawRect(Ink.dark.copy(alpha = 0.55f), corner, Size(cell, cell))
         }
-        for (agent in night.lost) {
+        // The lanterns flicker; one that went out lights nothing.
+        for (agent in night.lost.filter { it.dark == 0 }) {
             val at = layout.center(agent.at)
-            drawCircle(Brush.radialGradient(listOf(Ink.candle.copy(alpha = 0.22f), Color.Transparent), at, cell * 2f), cell * 2f, at)
+            val flicker = 0.18f + 0.06f * flicker(frame, agent.role.ordinal)
+            drawCircle(Brush.radialGradient(listOf(Ink.candle.copy(alpha = flicker), Color.Transparent), at, cell * 2f), cell * 2f, at)
         }
         drawWalls(maze, layout, night.seen)
 
@@ -85,7 +87,7 @@ fun Board(
         drawCircle(Brush.radialGradient(listOf(Ink.candle.copy(alpha = glow), Color.Transparent), layout.center(maze.gate), cell * 1.3f), cell * 1.3f, layout.center(maze.gate))
         draw(Sprites.gate, layout.center(maze.gate), px)
 
-        for (doom in maze.dooms.filter { it.at in night.seen }) {
+        for (doom in maze.dooms.filter { it.at in night.near }) {
             drawCircle(Brush.radialGradient(listOf(Ink.red.copy(alpha = 0.45f), Color.Transparent), layout.center(doom.at), cell * 0.6f), cell * 0.6f, layout.center(doom.at))
             draw(Sprites.skull, layout.center(doom.at), px * 0.8f, alpha = 0.9f)
         }
@@ -108,7 +110,7 @@ fun Board(
             if (hollow.at in lit) {
                 val at = layout.center(hollow.at)
                 drawCircle(Brush.radialGradient(listOf(Color(0xCC5A0000), Color.Transparent), at, cell * 0.8f), cell * 0.8f, at)
-                draw(Sprites.hollow, at, px * 0.95f)
+                draw(if (hollow.awake) Sprites.hollow else Sprites.sleeping, at, px * 0.95f)
             }
         }
 
@@ -126,9 +128,17 @@ fun Board(
             arrow(spot(agent), dir, cell, agent.role.color)
         }
         for (agent in night.lost) {
-            val scared = night.marks.any { it.kind == MarkKind.TRICK && near(it.at, agent.at) }
+            val size = if (places.getValue(agent.at).size == 1) px else px * 0.6f
+            if (agent.dark > 0) {
+                // In the dark, only its eyes.
+                draw(Sprites.eyes, spot(agent), size)
+                continue
+            }
+            val scared = agent.nerve < 45 || night.marks.any { it.kind == MarkKind.TRICK && near(it.at, agent.at) }
             val sprite = if (scared) Sprites.scared else Sprites.agent
-            draw(sprite.tinted(agent.role.color), spot(agent), if (places.getValue(agent.at).size == 1) px else px * 0.6f)
+            // Out of nerve, it shakes.
+            val shake = if (agent.nerve < PANIC) Offset(if (frame % 2 == 0) px else -px, 0f) else Offset.Zero
+            draw(sprite.tinted(agent.role.color), spot(agent) + shake, size)
         }
         // What they say, above them; when several share a cell, one above the other.
         for ((pos, here) in places) {
@@ -157,6 +167,9 @@ fun Board(
 }
 
 private fun near(a: Pos, b: Pos) = abs(a.x - b.x) + abs(a.y - b.y) <= 1
+
+/** From 0 to 1, changing every frame in a way that looks like a flame, different for each [seed]. */
+private fun flicker(frame: Int, seed: Int): Float = ((frame * 7919 + seed * 104729) % 97) / 97f
 
 /** An arrow from [from] a little over half a cell towards [dir]. */
 private fun DrawScope.arrow(from: Offset, dir: Dir, cell: Float, color: Color) {

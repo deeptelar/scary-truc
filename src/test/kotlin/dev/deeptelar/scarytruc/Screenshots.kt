@@ -14,11 +14,12 @@ import kotlin.test.Test
  */
 class Screenshots {
     @Test fun shots() = runBlocking {
+        Sound.on = false
         val out = File(System.getProperty("shots") ?: return@runBlocking)
         val plan = Plan.entries[(System.getProperty("night") ?: "5").toInt() - 1]
         val seed = System.getProperty("seed")?.toLong()
         val turns = (System.getProperty("turns") ?: "0,6,14").split(",").map { it.toInt() }
-        val model = GameModel(CoroutineScope(Dispatchers.Default), { Instinct }, gemma = false, plan = plan, seed = seed)
+        val model = GameModel(CoroutineScope(Dispatchers.Default), { Instinct }, gemma = false, plan = plan, seed = seed, clock = false)
         while (model.thinking) delay(10)
         var done = 0
         for (t in turns) {

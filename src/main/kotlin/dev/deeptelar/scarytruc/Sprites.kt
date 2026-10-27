@@ -95,6 +95,26 @@ object Sprites {
             mapOf('k' to Color(0xFF000000), 'r' to Color(0xFFFF2A2A), '.' to Color.Transparent),
         )
 
+    /** The Hollow asleep: its eyes closed. */
+    val sleeping =
+        Sprite(
+            hollow.rows.map { it.replace('r', 'c') },
+            mapOf('k' to Color(0xFF000000), 'c' to Color(0xFF5A1010)),
+        )
+
+    /** One of the crew whose lantern went out: two eyes in the dark. */
+    val eyes =
+        Sprite(
+            listOf(
+                "........",
+                "........",
+                "..e..e..",
+                "........",
+                "........",
+            ),
+            mapOf('e' to Color(0xFFE8E4F0)),
+        )
+
     val treat =
         Sprite(
             listOf(

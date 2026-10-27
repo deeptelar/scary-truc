@@ -1,7 +1,10 @@
 package dev.deeptelar.scarytruc
 
+import kotlinx.coroutines.runBlocking
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertNotEquals
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
@@ -13,20 +16,13 @@ class NightTest {
     private fun quiet(vararg crew: Agent, marks: List<Mark> = emptyList(), moves: List<Move> = emptyList()) =
         Night.begin(plan, maze).copy(crew = crew.toList(), hollow = null, marks = marks, moves = moves, lostCandy = emptyList())
 
-    /** A corridor of three cells walked in a row: where an agent came from, where it is, and where it means to go. */
-    private val corridor: Triple<Pos, Pos, Dir> =
+    /** A cell with two ways out and no doom on it or next to it, and one of its ways. */
+    private val corridor: Pair<Pos, Dir> =
         maze.cells.firstNotNullOf { here ->
             val exits = maze.exits(here)
-            if (exits.size < 2 || maze.doomAt(here) != null) return@firstNotNullOf null
-            val (from, to) = exits
-            val ahead = here + to
-            if (maze.doomAt(here + from) != null || maze.doomAt(ahead) != null || ahead == maze.gate || here + from == maze.gate) null else Triple(here + from, here, to)
+            val safe = exits.all { maze.doomAt(here + it) == null && here + it != maze.gate }
+            if (exits.size >= 2 && safe && maze.doomAt(here) == null && here != maze.lair) here to exits.first() else null
         }
-
-    private fun walker(role: Role): Agent {
-        val (from, here, _) = corridor
-        return Agent(role, here, trail = listOf(from, here))
-    }
 
     @Test
     fun aDoomKillsWhoeverWalksIn() {
@@ -40,43 +36,36 @@ class NightTest {
     }
 
     @Test
-    fun aTrickWhereAnAgentMeansToGoSendsItBackTheWayItCame() {
-        val (from, here, go) = corridor
-        val trick = listOf(Mark(here + go, MarkKind.TRICK))
-        val planner = quiet(walker(Role.PLANNER), marks = trick, moves = listOf(Move(Role.PLANNER, go, "Onwards."))).act(maze).crew.single()
-        assertEquals(from, planner.at)
-        assertEquals("What was that?! No way.", planner.words)
-    }
-
-    @Test
-    fun theScoutRunsBackTwoStepsAndTheCriticWalksIntoTheScream() {
-        val (from, here, go) = corridor
-        val back = maze.exits(from).map { from + it }.first { it != here }
-        val scout = Agent(Role.SCOUT, here, trail = listOf(back, from, here))
-        val trick = listOf(Mark(here + go, MarkKind.TRICK))
-        val ran = quiet(scout, marks = trick, moves = listOf(Move(Role.SCOUT, go, "Onwards."))).act(maze).crew.single()
-        assertEquals(back, ran.at)
-
-        val critic = quiet(walker(Role.CRITIC), marks = listOf(Mark(from, MarkKind.TRICK)), moves = listOf(Move(Role.CRITIC, go, "Onwards."))).act(maze).crew.single()
-        assertEquals(from, critic.at, "the Critic goes to see the trick instead")
-    }
-
-    @Test
-    fun aTreatNextToAnAgentPullsItAndIsEaten() {
-        val (from, here, go) = corridor
-        val night = quiet(walker(Role.PLANNER), marks = listOf(Mark(from, MarkKind.TREAT)), moves = listOf(Move(Role.PLANNER, go, "Onwards.")))
+    fun theCrewWalksWhereItChoseAndATreatOnTheWayIsEaten() {
+        val (here, go) = corridor
+        val night = quiet(Agent(Role.PLANNER, here), marks = listOf(Mark(here + go, MarkKind.TREAT)), moves = listOf(Move(Role.PLANNER, go, "Onwards.")))
         val after = night.act(maze)
-        assertEquals(from, after.crew.single().at)
+        assertEquals(here + go, after.crew.single().at)
         assertTrue(after.marks.isEmpty())
-        assertEquals(1, after.turn)
+        assertTrue(after.crew.single().nerve > Role.PLANNER.nerve, "a sweet calms")
     }
 
     @Test
-    fun theCriticRunsBackFromATreat() {
-        val (from, here, go) = corridor
-        val after = quiet(walker(Role.CRITIC), marks = listOf(Mark(here + go, MarkKind.TREAT)), moves = listOf(Move(Role.CRITIC, go, "Hm."))).act(maze)
-        assertEquals(from, after.crew.single().at)
-        assertEquals(1, after.marks.size)
+    fun screamsFrayNervesLessEachTimeAndQuietTurnsMendThem() {
+        val (here, go) = corridor
+        val scream = listOf(Mark(here + go, MarkKind.TRICK))
+        val first = quiet(Agent(Role.SCOUT, here), marks = scream).act(maze).crew.single()
+        assertEquals(Role.SCOUT.nerve - 16, first.nerve)
+        assertEquals(1, first.screams)
+        val second = quiet(first, marks = scream).act(maze).crew.single()
+        assertEquals(first.nerve - 8, second.nerve, "the second scream scares half as much")
+        assertEquals(second.nerve + 4, quiet(second).act(maze).crew.single().nerve)
+    }
+
+    @Test
+    fun outOfNerveAnAgentMayBoltWhereverItMeantToGo() {
+        val (here, go) = corridor
+        val bolts =
+            (0 until 40).count { turn ->
+                val night = quiet(Agent(Role.SCOUT, here, nerve = 5), moves = listOf(Move(Role.SCOUT, go, "Steady."))).copy(turn = turn)
+                "panics" in night.act(maze).log.last()
+            }
+        assertTrue(bolts in 10..30, "about half the turns, was $bolts of 40")
     }
 
     @Test
@@ -98,37 +87,87 @@ class NightTest {
     }
 
     @Test
-    fun theHollowHuntsTheNearestAgentAndATreatKeepsItBusy() {
-        val next = maze.lair + maze.exits(maze.lair).first()
-        val hunted = Night.begin(plan, maze).copy(crew = listOf(Agent(Role.SCOUT, next)))
-        assertEquals(Fate.DEAD, hunted.act(maze).crew.single().fate)
+    fun theHollowSleepsUntilAScreamWakesItAndThenGoesToTheScream() {
+        val far = maze.cells.maxBy { maze.distances(maze.lair)[it] ?: 0 }
+        val asleep = Night.begin(plan, maze).copy(crew = listOf(Agent(Role.SCOUT, far)))
+        assertFalse(asleep.act(maze).hollow!!.awake, "nothing woke it")
+        val scream = maze.distances(maze.lair).entries.first { it.value == 4 }.key
+        val woken = asleep.copy(marks = listOf(Mark(scream, MarkKind.TRICK))).act(maze)
+        assertTrue(woken.hollow!!.awake)
+        assertEquals(maze.lair, woken.hollow!!.at, "it wakes this turn and hunts the next")
+        // Heard from afar, a fresh scream draws it.
+        val drawn = woken.copy(marks = listOf(Mark(scream, MarkKind.TRICK)), turn = 0).act(maze)
+        assertEquals(3, maze.distances(drawn.hollow!!.at).getValue(scream))
+    }
 
-        val lured = Night.begin(plan, maze).copy(crew = listOf(Agent(Role.SCOUT, maze.start)), marks = listOf(Mark(next, MarkKind.TREAT)))
-        val after = lured.act(maze)
-        assertEquals(next, after.hollow!!.at)
+    @Test
+    fun theAwakeHollowTakesOneAndATreatKeepsItBusy() {
+        val next = maze.exits(maze.lair).map { maze.lair + it }.first { maze.doomAt(it) == null }
+        val hunted = Night.begin(plan, maze).copy(crew = listOf(Agent(Role.SCOUT, next), Agent(Role.CODER, next)), hollow = Hollow(maze.lair, awake = true))
+        val after = hunted.act(maze)
+        assertEquals(1, after.crew.count { it.fate == Fate.DEAD }, "one, and it feeds")
         assertTrue(after.hollow!!.eating > 0)
-        assertEquals(next, after.act(maze).hollow!!.at)
+
+        val lured = Night.begin(plan, maze).copy(crew = listOf(Agent(Role.SCOUT, maze.start)), marks = listOf(Mark(next, MarkKind.TREAT)), hollow = Hollow(maze.lair, awake = true))
+        assertEquals(next, lured.act(maze).hollow!!.at)
+    }
+
+    @Test
+    fun aDoomShowsOnlyWhereALanternShoneFromNextToIt() {
+        val night = Night.begin(plan, maze)
+        assertTrue(night.near.all { cell -> night.lost.any { (maze.distances(it.at)[cell] ?: 9) <= 1 } })
+        assertTrue(night.seen.size > night.near.size)
+    }
+
+    @Test
+    fun atMidnightTheWallsMoveButEveryoneCanStillGetOut() {
+        for (seed in 1L..40L) {
+            val before = Plan.FIFTH.maze(seed)
+            val after = before.shifted()
+            val changed = before.cells.count { cell -> before.exits(cell) != after.exits(cell) }
+            assertTrue(changed > 0, "seed $seed")
+            assertEquals(after.cells.size, after.distances(after.gate).size)
+            val dooms = after.dooms.map { it.at }.toSet()
+            assertTrue(after.starts.all { after.gate in after.distances(it, dooms) })
+        }
     }
 
     @Test
     fun onePlayATurnPaidInCandyOnlyWhereALanternShone() {
         val night = Night.begin(plan, maze)
-        val cell = night.seen.first { it != maze.start }
+        val cell = night.seen.first { it !in maze.starts }
         val placed = night.place(maze, cell, MarkKind.TRICK)!!
         assertEquals(plan.candy - 2, placed.candy)
-        assertNull(placed.place(maze, night.seen.last { it != cell && it != maze.start }, MarkKind.TREAT), "one a turn")
+        assertNull(placed.place(maze, night.seen.last { it != cell && it !in maze.starts }, MarkKind.TREAT), "one a turn")
         assertNull(night.place(maze, maze.cells.first { it !in night.seen }, MarkKind.TREAT), "in the dark")
         assertNull(night.place(maze, maze.start, MarkKind.TREAT), "the crew stands there")
         assertNull(night.copy(candy = 1).place(maze, cell, MarkKind.TRICK), "too few candies")
     }
 
     @Test
-    fun theSensesTellATrickAndATreatApart() {
-        val (_, here, go) = corridor
-        val night = quiet(walker(Role.SCOUT), marks = listOf(Mark(here + go, MarkKind.TRICK)))
-        val way = senses(night, maze, night.crew.single()).single { it.dir == go }
-        assertEquals(1, way.trick)
-        assertNull(way.treat)
-        assertTrue(describe(listOf(way), night, night.crew.single()).contains("a scream"))
+    fun theSensesTellNerveDarknessAndAScreamRightThere() {
+        val (here, go) = corridor
+        val night = quiet(Agent(Role.SCOUT, here, nerve = 10, dark = 2), marks = listOf(Mark(here + go, MarkKind.TRICK)))
+        val agent = night.crew.single()
+        val text = describe(senses(night, maze, agent), night, agent)
+        assertTrue("A SCREAM right there" in text)
+        assertTrue("breaking" in text)
+        assertTrue("lantern has gone out" in text)
     }
+
+    @Test
+    fun scaredInstinctAvoidsTheScreamMoreThanCalmInstinct() =
+        runBlocking {
+            val (here, go) = corridor
+            val scream = listOf(Mark(here + go, MarkKind.TRICK))
+            val avoided =
+                listOf(90, 10).map { nerve ->
+                    (0 until 30).count { turn ->
+                        val night = quiet(Agent(Role.CODER, here, nerve = nerve), marks = scream).copy(turn = turn)
+                        Instinct.decide(night, maze, night.crew.single()).go != go
+                    }
+                }
+            assertTrue(avoided[1] >= avoided[0], "scared $avoided")
+            assertNotEquals(0, avoided[1])
+        }
 }

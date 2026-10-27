@@ -106,14 +106,26 @@ private fun Side(model: GameModel, frame: Int, modifier: Modifier) {
             if (model.thinking) {
                 PixelText(if (model.gemma) "Gemma is deciding for the crew…" else "The crew is deciding…", size = SMALL, color = Ink.faint)
                 PixelProgress(frame)
-            } else {
+            } else if (model.paused) {
                 PixelText(
-                    if (night.played) "Done. Click it again to take it back." else "The arrows are what they mean to do. Answer with one treat or trick, or none.",
+                    if (night.turn == 0) "The arrows are what they mean to do. Once the night starts, they walk every few seconds: answer in time." else "Paused.",
                     size = SMALL,
                     color = Ink.candle,
                     maxLines = 3,
                 )
-                PixelButton("Let them walk", Ink.orange, onClick = model::next, modifier = Modifier.fillMaxWidth())
+                PixelButton(if (night.turn == 0) "Start the night (Space)" else "Go on (Space)", Ink.orange, onClick = { model.pause(false) }, modifier = Modifier.fillMaxWidth())
+            } else {
+                PixelText(
+                    if (night.played) "Done. Click it again to take it back." else "One treat or trick before they walk, or none.",
+                    size = SMALL,
+                    color = Ink.candle,
+                    maxLines = 2,
+                )
+                Fuse(model.waited)
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    PixelButton("Walk now (Enter)", Ink.orange, onClick = model::next, small = true)
+                    PixelButton("Pause (Space)", Ink.paperDark, onClick = { model.pause(true) }, small = true)
+                }
             }
         }
         if (night.marigolds > 0 && model.turnsBack.isNotEmpty() && !model.thinking && night.crew.any { it.fate == Fate.DEAD }) {
@@ -127,6 +139,38 @@ private fun Side(model: GameModel, frame: Int, modifier: Modifier) {
         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
             for (line in night.log.takeLast(4)) PixelText(line, size = SMALL, color = Ink.faint, maxLines = 2)
         }
+    }
+}
+
+/** The time left to answer: a fuse that burns down, red at the end. */
+@Composable
+private fun Fuse(waited: Float) {
+    Box(
+        Modifier.fillMaxWidth().height(14.dp).pixelBox(Ink.field, raised = false).drawBehind {
+            val left = (1 - waited).coerceIn(0f, 1f)
+            val color = if (left < 0.35f) Ink.red else Ink.candle
+            drawRect(color, size = size.copy(width = size.width * left))
+        },
+    )
+}
+
+/** How brave one of the crew still is: a bar that goes red when it may panic. */
+@Composable
+private fun Nerve(nerve: Int) {
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        PixelText("nerve", size = SMALL, color = Ink.faint)
+        Box(
+            Modifier.width(120.dp).height(8.dp).drawBehind {
+                drawRect(Ink.field)
+                val color = when {
+                    nerve < PANIC -> Ink.red
+                    nerve < 45 -> Ink.orange
+                    else -> Ink.green
+                }
+                drawRect(color, size = size.copy(width = size.width * nerve / 100f))
+            },
+        )
+        if (nerve < PANIC) PixelText("may panic", size = SMALL, color = Ink.red)
     }
 }
 
@@ -152,7 +196,10 @@ private fun CrewRow(agent: Agent, night: Night) {
                     else -> null
                 }
             PixelText(agent.role.title + (state?.let { ": $it" } ?: ""), color = agent.role.color, maxLines = 1)
-            if (agent.fate == Fate.LOST && !night.over) PixelText(agent.role.rule, size = SMALL, color = Ink.faint, maxLines = 2)
+            if (agent.fate == Fate.LOST && !night.over) {
+                PixelText(agent.role.trait + if (agent.dark > 0) " Its lantern is out." else "", size = SMALL, color = Ink.faint, maxLines = 2)
+                Nerve(agent.nerve)
+            }
         }
     }
 }

@@ -30,7 +30,7 @@ import kotlin.time.Duration.Companion.seconds
 val modelName: String = System.getenv("SCARY_TRUC_MODEL") ?: "gemma4:12b"
 
 /**
- * `scary-truc [--night 1-6] [--seed N] [--instinct]`: opens a night in the maze. With Ollama running
+ * `scary-truc [--night 1-6] [--seed N] [--instinct] [--mute]`: opens a night in the maze. With Ollama running
  * and the model pulled, Gemma plays the crew; otherwise, or with `--instinct`, they follow their
  * instincts. The best night of each plan is kept in `~/.scary-truc/progress`.
  */
@@ -52,6 +52,8 @@ fun main(args: Array<String>) {
             parameters = buildJsonObject { put("reasoning_effort", "none") },
             timeout = 2.minutes,
         )
+    Sound.on = "--mute" !in args
+    Sound.start()
     val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     val home = Path.of(System.getProperty("user.home"), ".scary-truc")
     val game = GameModel(scope, { trouble -> if (gemma) Gemma(model, trouble = trouble) else Instinct }, gemma, plan, seed, home.resolve("progress"))
@@ -62,11 +64,25 @@ fun main(args: Array<String>) {
             state = state,
             title = "Scary Truc",
             onKeyEvent = { event ->
-                if (event.type == KeyEventType.KeyDown && (event.key == Key.Spacebar || event.key == Key.Enter)) {
-                    if (!game.night.over) game.next() else game.play(game.plan.next ?: Plan.ENDLESS)
-                    true
-                } else {
-                    false
+                when {
+                    event.type != KeyEventType.KeyDown -> false
+                    game.night.over && (event.key == Key.Spacebar || event.key == Key.Enter) -> {
+                        game.play(game.plan.next ?: Plan.ENDLESS)
+                        true
+                    }
+                    event.key == Key.Spacebar -> {
+                        game.pause()
+                        true
+                    }
+                    event.key == Key.Enter -> {
+                        game.next()
+                        true
+                    }
+                    event.key == Key.M -> {
+                        Sound.on = !Sound.on
+                        true
+                    }
+                    else -> false
                 }
             },
         ) {

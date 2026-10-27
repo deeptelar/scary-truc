@@ -19,6 +19,7 @@ data class Way(
     val trick: Int? = null,
     val hollow: Int? = null,
     val hollowSeen: Boolean = false,
+    val hollowAsleep: Boolean = false,
     val air: Boolean = false,
     val gate: Int? = null,
     val friends: List<Role> = emptyList(),
@@ -40,7 +41,8 @@ fun senses(night: Night, maze: Maze, agent: Agent): List<Way> {
     val hollow = noticed(listOfNotNull(night.hollow?.at), HEARING)
     val air = noticed(listOf(maze.gate), AIR)
     return maze.exits(here).map { dir ->
-        val sight = generateSequence(here + dir) { it + dir }.take(SIGHT)
+        // With its lantern out, it sees nothing: it only hears and smells.
+        val sight = generateSequence(here + dir) { it + dir }.take(if (agent.dark > 0) 0 else SIGHT)
             .withIndex().takeWhile { (i, pos) -> i == 0 || maze.canGo(pos + dir.opposite, dir) }
             .map { it.value }.toList()
         val seenHollow = sight.indexOf(night.hollow?.at).takeIf { it >= 0 }?.plus(1)
@@ -50,6 +52,7 @@ fun senses(night: Night, maze: Maze, agent: Agent): List<Way> {
             trick = tricks[dir],
             hollow = seenHollow ?: hollow[dir],
             hollowSeen = seenHollow != null,
+            hollowAsleep = night.hollow?.awake == false,
             air = dir in air,
             gate = sight.indexOf(maze.gate).takeIf { it >= 0 }?.plus(1),
             friends = night.crew.filter { it.fate == Fate.LOST && it.role != agent.role && it.at in sight }.map { it.role },
@@ -68,13 +71,32 @@ fun describe(ways: List<Way>, night: Night, agent: Agent): String =
         if (others.isNotEmpty()) append("With you here: ${others.joinToString { it.role.title }}.\n")
         val dead = night.crew.filter { it.fate == Fate.DEAD }
         if (dead.isNotEmpty()) append("Dead tonight: ${dead.joinToString { "${it.role.title} (${it.death})" }}.\n")
+        val mood =
+            when {
+                agent.nerve < PANIC -> "breaking: you could run anywhere"
+                agent.nerve < 45 -> "shaky"
+                else -> "steady"
+            }
+        append("Your nerve: ${agent.nerve} of 100, $mood.")
+        if (agent.screams > 0) append(" You heard ${agent.screams} screams tonight; each scares you a little less.")
+        append("\n")
+        if (agent.dark > 0) append("Your lantern has gone out. You see nothing; you can only hear and smell.\n")
+        if (night.afterMidnight) append("It is past midnight: the walls have moved.\n")
         if (ways.isEmpty()) append("There is no way out of this cell.\n")
         for (way in ways) {
             val things = mutableListOf<String>()
             way.gate?.let { things += "THE GATE OUT, $it steps away" }
             if (way.air) things += "fresh air blows from there"
-            way.hollow?.let { things += if (way.hollowSeen) "THE HOLLOW, you see it $it steps away" else "heavy breathing, $it steps away" }
-            way.trick?.let { things += "a scream and something white moving, $it steps away" }
+            way.hollow?.let {
+                things +=
+                    when {
+                        way.hollowSeen && way.hollowAsleep -> "THE HOLLOW, asleep, $it steps away"
+                        way.hollowSeen -> "THE HOLLOW, you see it $it steps away"
+                        way.hollowAsleep -> "slow breathing, like something asleep, $it steps away"
+                        else -> "heavy breathing, $it steps away"
+                    }
+            }
+            way.trick?.let { things += if (it == 1) "A SCREAM right there, and something white moving" else "a scream and something white moving, $it steps away" }
             way.treat?.let { things += "a sweet smell of caramel, $it steps away" }
             if (way.friends.isNotEmpty()) things += "you see ${way.friends.joinToString { it.title }}"
             if (way.ghosts.isNotEmpty()) things += "the ghost of ${way.ghosts.joinToString { it.title }} stands there"
