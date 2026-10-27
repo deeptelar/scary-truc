@@ -1,0 +1,167 @@
+package dev.deeptelar.scarytruc
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.delay
+
+/** The whole window: the maze on the left, the crew and the controls on the right. */
+@Composable
+fun Game(model: GameModel) {
+    var frame by remember { mutableIntStateOf(0) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            delay(100)
+            frame++
+        }
+    }
+    val night = model.night
+    Row(Modifier.fillMaxSize().background(Ink.dark).padding(16.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+        Box(Modifier.weight(1f).fillMaxHeight()) {
+            Board(model.maze, night, Modifier.fillMaxSize(), frame) { pos, secondary ->
+                model.click(pos, if (secondary) MarkKind.TRICK else MarkKind.TREAT)
+            }
+            if (night.over) Ofrenda(model, Modifier.align(Alignment.Center))
+        }
+        Side(model, frame, Modifier.width(380.dp).fillMaxHeight())
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun Side(model: GameModel, frame: Int, modifier: Modifier) {
+    val night = model.night
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        PixelText("SCARY TRUC", size = BIG, color = Ink.orange)
+        PixelText("Night ${model.maze.seed} · turn ${night.turn + 1} of ${night.dawn}", size = SMALL, color = Ink.faint)
+        Row(horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.CenterVertically) {
+            Supply(Sprites.treat, night.treats)
+            Supply(Sprites.trick, night.tricks)
+            Supply(Sprites.marigold, night.marigolds)
+        }
+        PixelText("Left click: treat, they come. Right click: trick, they flee.", size = SMALL, color = Ink.faint)
+
+        Column(Modifier.fillMaxWidth().pixelBox(Ink.paper).padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            for (agent in night.crew) CrewRow(agent, night)
+        }
+
+        if (!model.gemma) {
+            PixelText("Without Gemma: the crew follows its instincts.", size = SMALL, color = Ink.candle)
+        } else if (model.trouble != null) {
+            PixelText("Gemma did not answer, so instinct moved them: ${model.trouble}", size = SMALL, color = Ink.candle, maxLines = 3)
+        }
+        model.failure?.let { PixelText(it, size = SMALL, color = Ink.red, maxLines = 3) }
+
+        if (!night.over) {
+            if (model.thinking) {
+                PixelText(if (model.gemma) "The crew is thinking…" else "The crew moves…", size = SMALL, color = Ink.faint)
+                PixelProgress(frame)
+            } else {
+                PixelButton("Next turn", Ink.orange, onClick = model::next, modifier = Modifier.fillMaxWidth())
+            }
+        }
+        if (night.marigolds > 0 && model.turnsBack.isNotEmpty() && !model.thinking && night.crew.any { it.fate == Fate.DEAD }) {
+            PixelText("A marigold takes the night back to turn…", size = SMALL, color = Ink.marigold)
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                for (turn in model.turnsBack.take(8)) PixelButton("${turn + 1}", Ink.marigold, onClick = { model.remember(turn) }, small = true)
+            }
+        }
+
+        Spacer(Modifier.weight(1f))
+        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            for (line in night.log.takeLast(5)) PixelText(line, size = SMALL, color = Ink.faint, maxLines = 2)
+        }
+    }
+}
+
+@Composable
+private fun Supply(sprite: Sprite, count: Int) {
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        Box(Modifier.size(30.dp).drawBehind { draw(sprite, center, 3.dp.toPx()) })
+        PixelText("×$count", color = if (count == 0) Ink.off else Ink.text)
+    }
+}
+
+@Composable
+private fun CrewRow(agent: Agent, night: Night) {
+    Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.Top) {
+        val sprite = if (agent.fate == Fate.DEAD) Sprites.ghost else Sprites.agent.tinted(agent.role.color)
+        Box(Modifier.size(32.dp).drawBehind { draw(sprite, center, 3.5.dp.toPx(), if (agent.fate == Fate.DEAD) 0.6f else 1f) })
+        Column {
+            val state =
+                when {
+                    agent.fate == Fate.SAVED -> "out!"
+                    agent.fate == Fate.DEAD -> "taken by ${agent.death}"
+                    night.over -> "kept by the maze"
+                    else -> "lost"
+                }
+            PixelText("${agent.role.title}: $state", color = agent.role.color, maxLines = 1)
+            if (agent.words.isNotBlank()) PixelText("“${agent.words}”", size = SMALL, color = Ink.text, maxLines = 2)
+        }
+    }
+}
+
+/** The end of the night: an altar for the dead with their last words, and what to do next. */
+@Composable
+private fun Ofrenda(model: GameModel, modifier: Modifier) {
+    val night = model.night
+    val dead = night.crew.filter { it.fate == Fate.DEAD }
+    Column(
+        modifier.widthIn(max = 560.dp).pixelBox(Color(0xF0140E1C)).padding(24.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        val title =
+            when {
+                night.saved == night.crew.size -> "Everyone got out"
+                dead.isEmpty() -> "Dawn"
+                else -> "Ofrenda"
+            }
+        PixelText(title, size = BIG, color = Ink.marigold)
+        PixelText("${night.saved} of ${night.crew.size} out of the maze", color = Ink.text)
+        if (dead.isNotEmpty()) {
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                repeat(dead.size + 1) { i ->
+                    val sprite = if (i % 2 == 0) Sprites.candle else Sprites.marigold
+                    Box(Modifier.size(28.dp).drawBehind { draw(sprite, center, 3.dp.toPx()) })
+                }
+            }
+            for (agent in dead) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    PixelText("${agent.role.title}, taken by ${agent.death}", color = agent.role.color)
+                    if (agent.words.isNotBlank()) PixelText("Last words: “${agent.words}”", size = SMALL, color = Ink.text)
+                }
+            }
+        }
+        Spacer(Modifier.height(4.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            PixelButton("Same night again", Ink.paperDark, onClick = model::again, enabled = !model.thinking)
+            PixelButton("Another night", Ink.orange, onClick = model::another, enabled = !model.thinking)
+        }
+    }
+}
