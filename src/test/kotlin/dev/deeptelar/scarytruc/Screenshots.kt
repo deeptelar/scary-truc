@@ -15,19 +15,20 @@ import kotlin.test.Test
 class Screenshots {
     @Test fun shots() = runBlocking {
         val out = File(System.getProperty("shots") ?: return@runBlocking)
-        val seed = (System.getProperty("seed") ?: "7").toLong()
+        val plan = Plan.entries[(System.getProperty("night") ?: "5").toInt() - 1]
+        val seed = System.getProperty("seed")?.toLong()
         val turns = (System.getProperty("turns") ?: "0,6,14").split(",").map { it.toInt() }
-        val model = GameModel(CoroutineScope(Dispatchers.Default), seed, { Instinct }, gemma = false)
+        val model = GameModel(CoroutineScope(Dispatchers.Default), { Instinct }, gemma = false, plan = plan, seed = seed)
         while (model.thinking) delay(10)
         var done = 0
         for (t in turns) {
             while (done < t && !model.night.over) {
-                if (done == 2) { model.click(Pos(3, 1), MarkKind.TREAT); model.click(Pos(1, 3), MarkKind.TRICK) }
+                
                 model.next(); while (model.thinking) delay(10); done++
             }
             val scene = ImageComposeScene(1240, 800, Density(1f)) { Game(model) }
             repeat(3) { scene.render(it * 16_000_000L) }
-            File(out, "seed$seed-turn$t.png").writeBytes(scene.render(100_000_000L).encodeToData(EncodedImageFormat.PNG)!!.bytes)
+            File(out, "${plan.name.lowercase()}-${model.maze.seed}-turn$t.png").writeBytes(scene.render(100_000_000L).encodeToData(EncodedImageFormat.PNG)!!.bytes)
             scene.close()
         }
     }

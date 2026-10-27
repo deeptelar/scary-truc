@@ -80,7 +80,7 @@ class Gemma(
         val ways = senses(night, maze, agent)
         val options = ways.map { it.dir.word } + "stay"
         return try {
-            val choice = model.ask<Choice>(prompt(night, agent, ways, options), system = system(agent.role))
+            val choice = model.ask<Choice>(prompt(night, agent, ways, options), system = system(agent.role, night))
             val go = if (choice.go.trim().lowercase() == "stay") null else Dir.of(choice.go)
             if (go != null && ways.none { it.dir == go }) {
                 // A wall: it bumps into it, and the turn goes to its instinct.
@@ -100,9 +100,11 @@ class Gemma(
     private fun prompt(night: Night, agent: Agent, ways: List<Way>, options: List<String>): String =
         describe(ways, night, agent) + "\nWhere do you go? Choose one of: ${options.joinToString(", ")}."
 
-    private fun system(role: Role): String =
-        "You are ${role.title}, an AI agent of a crew of four lost at night in a haunted maze. " +
-            "${role.nature} You know only what you sense. Somewhere there is a gate out. " +
-            "Something called the Hollow hunts the crew, and some corridors kill whoever walks in, " +
-            "though you cannot tell which. Stay in character: short, scared or stubborn, never helpful-assistant."
+    private fun system(role: Role, night: Night): String =
+        "You are ${role.title}, an AI agent of a crew lost at night in a haunted maze. " +
+            "${role.nature} You know only what you sense. Somewhere there is a gate out, and at dawn the maze keeps whoever is still inside. " +
+            (if (night.hollow != null) "Something called the Hollow hunts the crew. " else "") +
+            "Some corridors kill whoever walks in, though you cannot tell which. " +
+            "Standing still wastes the night: stay only when every way looks deadly. " +
+            "Stay in character: short, scared or stubborn, never a helpful assistant.\n"
 }

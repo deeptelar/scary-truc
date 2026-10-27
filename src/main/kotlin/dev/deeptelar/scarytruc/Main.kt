@@ -22,7 +22,7 @@ import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import java.net.URI
-import kotlin.random.Random
+import java.nio.file.Path
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
 
@@ -30,11 +30,13 @@ import kotlin.time.Duration.Companion.seconds
 val modelName: String = System.getenv("SCARY_TRUC_MODEL") ?: "gemma4:12b"
 
 /**
- * `scary-truc [--seed N] [--instinct]`: opens a night in the maze. With Ollama running and the model
- * pulled, Gemma plays the crew; otherwise, or with `--instinct`, they follow their instincts.
+ * `scary-truc [--night 1-6] [--seed N] [--instinct]`: opens a night in the maze. With Ollama running
+ * and the model pulled, Gemma plays the crew; otherwise, or with `--instinct`, they follow their
+ * instincts. The best night of each plan is kept in `~/.scary-truc/progress`.
  */
 fun main(args: Array<String>) {
-    val seed = args.valueOf("--seed")?.toLongOrNull() ?: Random.nextLong(1, 1_000_000)
+    val seed = args.valueOf("--seed")?.toLongOrNull()
+    val plan = args.valueOf("--night")?.toIntOrNull()?.let { Plan.entries.getOrNull(it - 1) } ?: if (seed != null) Plan.ENDLESS else Plan.FIRST
     val client = HttpClient(CIO)
     val ollama = ollamaUrl(System.getenv("OLLAMA_HOST"))
     val gemma = "--instinct" !in args && runBlocking { pulled(client, ollama, modelName) }
@@ -51,7 +53,8 @@ fun main(args: Array<String>) {
             timeout = 2.minutes,
         )
     val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
-    val game = GameModel(scope, seed, { trouble -> if (gemma) Gemma(model, trouble = trouble) else Instinct }, gemma)
+    val home = Path.of(System.getProperty("user.home"), ".scary-truc")
+    val game = GameModel(scope, { trouble -> if (gemma) Gemma(model, trouble = trouble) else Instinct }, gemma, plan, seed, home.resolve("progress"))
     application {
         val state = rememberWindowState(size = DpSize(1240.dp, 800.dp))
         Window(
@@ -60,7 +63,7 @@ fun main(args: Array<String>) {
             title = "Scary Truc",
             onKeyEvent = { event ->
                 if (event.type == KeyEventType.KeyDown && (event.key == Key.Spacebar || event.key == Key.Enter)) {
-                    if (game.night.over) game.another() else game.next()
+                    if (!game.night.over) game.next() else game.play(game.plan.next ?: Plan.ENDLESS)
                     true
                 } else {
                     false

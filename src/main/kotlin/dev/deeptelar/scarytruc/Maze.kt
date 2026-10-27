@@ -56,6 +56,10 @@ class Maze private constructor(
     lateinit var dooms: List<Doom>
         private set
 
+    /** Where lost candy lies at nightfall: dead ends, so that a detour pays. */
+    lateinit var candy: List<Pos>
+        private set
+
     val cells: List<Pos> get() = (0 until height).flatMap { y -> (0 until width).map { x -> Pos(x, y) } }
 
     operator fun contains(pos: Pos): Boolean = pos.x in 0 until width && pos.y in 0 until height
@@ -104,7 +108,7 @@ class Maze private constructor(
         const val WIDTH: Int = 11
         const val HEIGHT: Int = 8
 
-        fun of(seed: Long, width: Int = WIDTH, height: Int = HEIGHT, dooms: Int = 4): Maze {
+        fun of(seed: Long, width: Int = WIDTH, height: Int = HEIGHT, dooms: Int = 4, candy: Int = 0): Maze {
             val random = Random(seed)
             val east = Array(width) { BooleanArray(height) }
             val south = Array(width) { BooleanArray(height) }
@@ -158,6 +162,9 @@ class Maze private constructor(
                 placed += Doom(cell, DoomKind.entries[placed.size % DoomKind.entries.size])
             }
             maze.dooms = placed
+            maze.candy =
+                maze.cells.filter { maze.exits(it).size == 1 && it != maze.start && it != maze.gate && maze.doomAt(it) == null }
+                    .sortedByDescending { fromStart.getValue(it) }.take(candy * 2).shuffled(random).take(candy)
             return maze
         }
 

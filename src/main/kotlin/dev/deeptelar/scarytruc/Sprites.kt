@@ -109,6 +109,22 @@ object Sprites {
             mapOf('y' to Ink.candle, 'o' to o, '#' to Color(0xFFE0457B), 'w' to Color.White),
         )
 
+    /** Candy corn: what the bag holds, and what lies lost in dead ends. */
+    val candy =
+        Sprite(
+            listOf(
+                "...ww...",
+                "..owwo..",
+                "..oooo..",
+                ".oooooo.",
+                ".yyyyyy.",
+                "oyyyyyyo",
+                "oyyyyyyo",
+                ".oooooo.",
+            ),
+            mapOf('w' to Color(0xFFFFF8E7), 'o' to Ink.orange, 'y' to Color(0xFFFFD23F)),
+        )
+
     val trick =
         Sprite(
             listOf(

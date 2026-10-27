@@ -37,13 +37,13 @@ fun senses(night: Night, maze: Maze, agent: Agent): List<Way> {
 
     val treats = noticed(night.marks.filter { it.kind == MarkKind.TREAT }.map { it.at }, SMELL)
     val tricks = noticed(night.marks.filter { it.kind == MarkKind.TRICK }.map { it.at }, HEARING)
-    val hollow = noticed(listOf(night.hollow.at), HEARING)
+    val hollow = noticed(listOfNotNull(night.hollow?.at), HEARING)
     val air = noticed(listOf(maze.gate), AIR)
     return maze.exits(here).map { dir ->
         val sight = generateSequence(here + dir) { it + dir }.take(SIGHT)
             .withIndex().takeWhile { (i, pos) -> i == 0 || maze.canGo(pos + dir.opposite, dir) }
             .map { it.value }.toList()
-        val seenHollow = sight.indexOf(night.hollow.at).takeIf { it >= 0 }?.plus(1)
+        val seenHollow = sight.indexOf(night.hollow?.at).takeIf { it >= 0 }?.plus(1)
         Way(
             dir = dir,
             treat = treats[dir],
@@ -64,7 +64,7 @@ fun senses(night: Night, maze: Maze, agent: Agent): List<Way> {
 fun describe(ways: List<Way>, night: Night, agent: Agent): String =
     buildString {
         val others = night.lost.filter { it.role != agent.role && it.at == agent.at }
-        append("It is turn ${night.turn + 1}; dawn comes at turn ${night.dawn}.\n")
+        append("It is turn ${night.turn + 1}; dawn comes after turn ${night.dawn}.\n")
         if (others.isNotEmpty()) append("With you here: ${others.joinToString { it.role.title }}.\n")
         val dead = night.crew.filter { it.fate == Fate.DEAD }
         if (dead.isNotEmpty()) append("Dead tonight: ${dead.joinToString { "${it.role.title} (${it.death})" }}.\n")
@@ -89,5 +89,5 @@ fun describe(ways: List<Way>, night: Night, agent: Agent): String =
 
 const val SMELL: Int = 5
 const val HEARING: Int = 4
-const val AIR: Int = 6
+const val AIR: Int = 14
 const val SIGHT: Int = 5

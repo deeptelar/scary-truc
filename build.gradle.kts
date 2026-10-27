@@ -37,5 +37,5 @@ application {
 
 // Off-screen pictures of the window, for the README: ./gradlew test --tests '*Screenshots*' -Pshots=DIR
 tasks.test {
-    listOf("shots", "seed", "turns").forEach { name -> providers.gradleProperty(name).orNull?.let { systemProperty(name, it) } }
+    listOf("shots", "seed", "turns", "night", "balance").forEach { name -> providers.gradleProperty(name).orNull?.let { systemProperty(name, it) } }
 }

@@ -11,60 +11,75 @@ import kotlin.test.assertTrue
 
 class GameTest {
     @Test
-    fun aNightPausesBeforeEveryTurnAndEndsByDawn() =
+    fun aNightPausesWithTheCrewsIntentsAndEndsByDawn() =
         runTest {
-            for (seed in 1L..30L) {
-                val run = NightRun(Maze.of(seed), Instinct)
-                assertEquals(0, run.begin().turn)
-                var turns = 0
-                while (!run.night.over) {
-                    run.next()
-                    turns++
+            for (plan in Plan.entries) {
+                for (seed in 1L..10L) {
+                    val run = NightRun(plan, plan.seed ?: seed, Instinct)
+                    val first = run.begin()
+                    assertEquals(0, first.turn)
+                    assertEquals(plan.crew.size, first.moves.size, "the crew decided before the pause")
+                    var turns = 0
+                    while (!run.night.over) {
+                        run.next()
+                        turns++
+                    }
+                    assertTrue(turns <= plan.dawn)
+                    assertEquals(turns, run.past.size, "a pause for every turn but the last")
                 }
-                assertTrue(turns <= Night.DAWN)
-                assertTrue(run.night.crew.none { it.fate == Fate.LOST } || run.night.turn == Night.DAWN, "seed $seed")
-                assertEquals(turns, run.past.size, "a pause for every turn that was not the last")
             }
         }
 
     @Test
-    fun marksPlacedBetweenTurnsReachTheNight() =
+    fun theTreatOrTrickOfATurnReachesTheWalk() =
         runTest {
-            val maze = Maze.of(5)
-            val run = NightRun(maze, Instinct)
+            val run = NightRun(Plan.FIRST, 2, Instinct)
             run.begin()
-            val cell = maze.cells.first { it != maze.start && it != maze.lair && it != maze.gate }
+            val cell = run.night.seen.first { it != run.maze.start && it != run.maze.gate }
             assertTrue(run.place(cell, MarkKind.TREAT))
+            assertFalse(run.place(run.night.seen.last { it != cell && it != run.maze.start }, MarkKind.TREAT), "one a turn")
             assertTrue(run.takeBack(cell))
-            assertTrue(run.place(cell, MarkKind.TREAT))
+            assertTrue(run.place(cell, MarkKind.TRICK))
             val after = run.next()
-            assertEquals(Night.TREATS - 1, after.treats)
+            assertEquals(Plan.FIRST.candy - 2, after.candy)
+            assertFalse(after.played)
             assertFalse(run.takeBack(cell), "a mark of an earlier turn stays")
         }
 
     @Test
-    fun aMarigoldTakesTheNightBackAndReplaysTheSameWay() =
+    fun aMarigoldTakesTheNightBackToTheSameDecisions() =
         runTest {
-            val maze = Maze.of(9)
-            val run = NightRun(maze, Instinct)
+            val run = NightRun(Plan.FIFTH, 4197, Instinct)
             run.begin()
             repeat(6) { run.next() }
             val atSix = run.night
+            val two = run.past.first { it.state.turn == 2 }.state
             val back = run.remember(2)
             assertEquals(2, back.turn)
-            assertEquals(Night.MARIGOLDS - 1, back.marigolds)
+            assertEquals(two.moves, back.moves, "paused before the walk, with the crew's decisions of then")
+            assertEquals(0, back.marigolds)
             assertEquals(3, run.past.size)
             repeat(4) { run.next() }
             // Instinct decides the same on the same turn, so the same crew walks the same way.
             assertEquals(atSix.crew, run.night.crew)
-            assertEquals(Night.MARIGOLDS - 1, run.night.marigolds)
+            val now = run.night
+            assertEquals(now, run.remember(1), "no marigold left")
+        }
+
+    @Test
+    fun intentsArriveOneByOneWhileTheCrewDecides() =
+        runTest {
+            val seen = mutableListOf<Night>()
+            val run = NightRun(Plan.FOURTH, 3298, Instinct) { seen += it }
+            run.begin()
+            assertEquals((1..4).toList(), seen.map { it.moves.size }.filter { it > 0 }.take(4))
         }
 
     @Test
     fun gemmaPlaysAnAgentAndItsWallsAndFailuresFallBackToInstinct() =
         runTest {
-            val maze = Maze.of(4)
-            val night = Night.begin(maze)
+            val maze = Plan.FIRST.maze()
+            val night = Night.begin(Plan.FIRST, maze)
             val agent = night.crew.first()
             val open = maze.exits(maze.start).first()
             val wall = Dir.entries.first { it !in maze.exits(maze.start) }
@@ -76,13 +91,13 @@ class GameTest {
                     fails("Ollama is not running")
                 }
             val gemma = Gemma(model) { trouble = it }
-            val first = gemma.decide(night, maze, agent)
-            assertEquals(Move(agent.role, open, "Fresh air, I think.", gemma = true), first)
+            assertEquals(Move(agent.role, open, "Fresh air, I think.", gemma = true), gemma.decide(night, maze, agent))
             assertNull(trouble)
             assertFalse(gemma.decide(night, maze, agent).gemma)
             assertFalse(gemma.decide(night, maze, agent).gemma)
             assertNotNull(trouble)
-            val prompt = model.requests.first()
-            assertTrue(prompt.system!!.contains(agent.role.nature))
+            val system = model.requests.first().system!!
+            assertTrue(system.contains(agent.role.nature))
+            assertFalse(system.contains("Hollow"), "the first night has no Hollow")
         }
 }
