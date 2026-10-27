@@ -36,8 +36,8 @@ data class Doom(val at: Pos, val kind: DoomKind)
  * The haunted maze of a night: the same [seed] always builds the same maze, so a night is saved by
  * its seed and a fork of it walks the same corridors.
  *
- * The crew starts at [start], top left, and is safe at [gate], bottom right. A [Doom] waits in some
- * corridors, but never on all the ways out: there is always a path from [start] to [gate] without one.
+ * The crew wakes up at [starts], scattered, and is safe at [gate], bottom right. A [Doom] waits in
+ * some corridors, but never on all the ways out: from every start there is a path to [gate] without one.
  */
 class Maze private constructor(
     val seed: Long,
@@ -47,11 +47,17 @@ class Maze private constructor(
     private val east: Array<BooleanArray>,
     private val south: Array<BooleanArray>,
 ) {
-    val start: Pos = Pos(0, 0)
     val gate: Pos = Pos(width - 1, height - 1)
 
-    /** Where the Hollow wakes up: the middle, far from the crew. */
-    val lair: Pos = Pos(width / 2, height / 2)
+    /** Where each of the crew wakes up, alone, far from the others and from the gate. */
+    lateinit var starts: List<Pos>
+        private set
+
+    val start: Pos get() = starts.first()
+
+    /** Where the Hollow wakes up: near the middle, but not next to any of the crew. */
+    lateinit var lair: Pos
+        private set
 
     lateinit var dooms: List<Doom>
         private set
@@ -108,7 +114,7 @@ class Maze private constructor(
         const val WIDTH: Int = 11
         const val HEIGHT: Int = 8
 
-        fun of(seed: Long, width: Int = WIDTH, height: Int = HEIGHT, dooms: Int = 4, candy: Int = 0): Maze {
+        fun of(seed: Long, width: Int = WIDTH, height: Int = HEIGHT, dooms: Int = 4, candy: Int = 0, crew: Int = 1): Maze {
             val random = Random(seed)
             val east = Array(width) { BooleanArray(height) }
             val south = Array(width) { BooleanArray(height) }
@@ -144,26 +150,47 @@ class Maze private constructor(
                 if (inside(pos + dir)) open(pos, dir)
             }
 
-            // Dooms in corridors away from the start, the gate and the lair. The first one on the
+            // The crew wakes up scattered: the first in the top left corner, each next one as far
+            // from the others as the maze allows, in the half of the maze away from the gate.
+            val fromGate = maze.distances(maze.gate)
+            val farthest = fromGate.values.max()
+            val starts = mutableListOf(Pos(0, 0))
+            val fromStarts = mutableListOf(maze.distances(Pos(0, 0)))
+            while (starts.size < crew) {
+                val next =
+                    maze.cells.filter { it !in starts && fromGate.getValue(it) * 2 >= farthest }
+                        .maxBy { cell -> fromStarts.minOf { it.getValue(cell) } + random.nextDouble() }
+                starts += next
+                fromStarts += maze.distances(next)
+            }
+            maze.starts = starts
+            fun fromCrew(cell: Pos) = fromStarts.minOf { it.getValue(cell) }
+            val center = Pos(width / 2, height / 2)
+            maze.lair =
+                maze.cells.filter { it != maze.gate && fromCrew(it) >= 4 }
+                    .minByOrNull { kotlin.math.abs(it.x - center.x) + kotlin.math.abs(it.y - center.y) }
+                    ?: maze.cells.filter { it != maze.gate }.maxBy { fromCrew(it) }
+
+            // Dooms in corridors away from the crew, the gate and the lair. The first one on the
             // shortest way out, because that is where the crew is most likely to walk.
             val placed = mutableListOf<Doom>()
             val fromStart = maze.distances(maze.start)
             val candidates =
                 maze.cells.filter {
-                    it != maze.gate && it != maze.lair && fromStart.getValue(it) >= 3 && maze.exits(it).size == 2
+                    it != maze.gate && it != maze.lair && fromCrew(it) >= 3 && maze.exits(it).size == 2
                 }.shuffled(random)
             val shortest = shortestPath(maze, maze.start, maze.gate)
             for (cell in listOfNotNull(candidates.firstOrNull { it in shortest }) + candidates) {
                 if (placed.size == dooms) break
                 if (placed.any { it.at == cell || distance(it.at, cell) < 3 }) continue
                 val avoid = placed.map { it.at }.toSet() + cell
-                if (maze.gate !in maze.distances(maze.start, avoid)) continue
+                if (starts.any { maze.gate !in maze.distances(it, avoid) }) continue
                 if (maze.lair !in maze.distances(maze.start, avoid)) continue
                 placed += Doom(cell, DoomKind.entries[placed.size % DoomKind.entries.size])
             }
             maze.dooms = placed
             maze.candy =
-                maze.cells.filter { maze.exits(it).size == 1 && it != maze.start && it != maze.gate && maze.doomAt(it) == null }
+                maze.cells.filter { maze.exits(it).size == 1 && it !in starts && it != maze.gate && maze.doomAt(it) == null }
                     .sortedByDescending { fromStart.getValue(it) }.take(candy * 2).shuffled(random).take(candy)
             return maze
         }

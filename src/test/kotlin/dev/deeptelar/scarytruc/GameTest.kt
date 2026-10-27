@@ -49,7 +49,7 @@ class GameTest {
     @Test
     fun aMarigoldTakesTheNightBackToTheSameDecisions() =
         runTest {
-            val run = NightRun(Plan.FIFTH, 4197, Instinct)
+            val run = NightRun(Plan.FIFTH, 4248, Instinct)
             run.begin()
             repeat(6) { run.next() }
             val atSix = run.night
@@ -70,7 +70,7 @@ class GameTest {
     fun intentsArriveOneByOneWhileTheCrewDecides() =
         runTest {
             val seen = mutableListOf<Night>()
-            val run = NightRun(Plan.FOURTH, 3298, Instinct) { seen += it }
+            val run = NightRun(Plan.FOURTH, 3292, Instinct) { seen += it }
             run.begin()
             assertEquals((1..4).toList(), seen.map { it.moves.size }.filter { it > 0 }.take(4))
         }

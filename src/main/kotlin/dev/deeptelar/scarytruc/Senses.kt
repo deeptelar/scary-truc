@@ -89,5 +89,5 @@ fun describe(ways: List<Way>, night: Night, agent: Agent): String =
 
 const val SMELL: Int = 5
 const val HEARING: Int = 4
-const val AIR: Int = 14
+const val AIR: Int = 8
 const val SIGHT: Int = 5

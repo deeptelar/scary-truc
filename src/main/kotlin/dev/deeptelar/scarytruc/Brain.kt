@@ -98,7 +98,9 @@ class Gemma(
     }
 
     private fun prompt(night: Night, agent: Agent, ways: List<Way>, options: List<String>): String =
-        describe(ways, night, agent) + "\nWhere do you go? Choose one of: ${options.joinToString(", ")}."
+        describe(ways, night, agent) +
+            (if (agent.words.isNotBlank()) "\nLast turn you said: \"${agent.words}\". Say something new." else "") +
+            "\nWhere do you go? Choose one of: ${options.joinToString(", ")}."
 
     private fun system(role: Role, night: Night): String =
         "You are ${role.title}, an AI agent of a crew lost at night in a haunted maze. " +

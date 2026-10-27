@@ -26,22 +26,22 @@ enum class Plan(
     ),
     SECOND(
         "Night 2: the Coder",
-        listOf(Role.SCOUT, Role.CODER), 7, 5, dooms = 2, hollow = false, candy = 3, lostCandy = 2, marigolds = 0, dawn = 28, seed = 1035,
+        listOf(Role.SCOUT, Role.CODER), 7, 5, dooms = 2, hollow = false, candy = 3, lostCandy = 2, marigolds = 0, dawn = 28, seed = 1078,
         hint = "Left click is a treat (1 candy): whoever stands next to it goes to eat it. The Coder smells one two steps away. Lost candy lies in dead ends: walk someone there to refill your bag.",
     ),
     THIRD(
         "Night 3: the Hollow",
-        listOf(Role.PLANNER, Role.SCOUT, Role.CODER), 8, 6, dooms = 2, hollow = true, candy = 5, lostCandy = 2, marigolds = 0, dawn = 38, seed = 2109,
+        listOf(Role.PLANNER, Role.SCOUT, Role.CODER), 8, 6, dooms = 2, hollow = true, candy = 5, lostCandy = 2, marigolds = 0, dawn = 38, seed = 2104,
         hint = "Something hunts them: the Hollow. You see it only in their light; the edges redden as it nears. A treat lures it and keeps it eating. A trick is a jack-o'-lantern: it never walks into one.",
     ),
     FOURTH(
         "Night 4: the Critic",
-        Role.entries, 9, 6, dooms = 3, hollow = true, candy = 6, lostCandy = 3, marigolds = 0, dawn = 42, seed = 3298,
+        Role.entries, 9, 6, dooms = 3, hollow = true, candy = 6, lostCandy = 3, marigolds = 0, dawn = 42, seed = 3292,
         hint = "The Critic does the opposite of everyone: it walks into a scream next to it, and runs back from a treat.",
     ),
     FIFTH(
         "Night 5: Tots Sants",
-        Role.entries, 10, 7, dooms = 4, hollow = true, candy = 6, lostCandy = 3, marigolds = 1, dawn = 46, seed = 4197,
+        Role.entries, 10, 7, dooms = 4, hollow = true, candy = 6, lostCandy = 3, marigolds = 1, dawn = 46, seed = 4248,
         hint = "One marigold tonight: after a death, it brings the night back to an earlier turn.",
     ),
     ENDLESS(
@@ -53,5 +53,5 @@ enum class Plan(
 
     val next: Plan? get() = entries.getOrNull(ordinal + 1)
 
-    fun maze(seed: Long = this.seed ?: 1): Maze = Maze.of(seed, width, height, dooms, lostCandy)
+    fun maze(seed: Long = this.seed ?: 1): Maze = Maze.of(seed, width, height, dooms, lostCandy, crew.size)
 }

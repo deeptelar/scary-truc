@@ -120,13 +120,13 @@ data class Night(
                 Night(
                     plan = plan,
                     seed = maze.seed,
-                    crew = plan.crew.map { Agent(it, maze.start) },
+                    crew = plan.crew.mapIndexed { i, role -> Agent(role, maze.starts[i]) },
                     hollow = if (plan.hollow) Hollow(maze.lair) else null,
                     dawn = plan.dawn,
                     candy = plan.candy,
                     marigolds = plan.marigolds,
                     lostCandy = maze.candy,
-                    log = listOf("Night falls. The crew wakes up in the maze."),
+                    log = listOf(if (plan.crew.size == 1) "Night falls. The ${plan.crew.single().title} wakes up in the maze." else "Night falls. The crew wakes up in the maze, each one alone."),
                 )
             return night.copy(seen = night.lit(maze))
         }
