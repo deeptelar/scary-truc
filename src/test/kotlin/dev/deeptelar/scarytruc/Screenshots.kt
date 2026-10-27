@@ -23,7 +23,8 @@ class Screenshots {
         while (model.thinking) delay(10)
         var done = 0
         for (t in turns) {
-            while (done < t && !model.night.over) {
+            // -Pturns=-1 stops on the first turn the Hollow whispers.
+            while ((t < 0 && model.night.whisper?.turn != model.night.turn || done < t) && !model.night.over) {
                 
                 model.next(); while (model.thinking) delay(10); done++
             }

@@ -56,7 +56,16 @@ fun main(args: Array<String>) {
     Sound.start()
     val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     val home = Path.of(System.getProperty("user.home"), ".scary-truc")
-    val game = GameModel(scope, { trouble -> if (gemma) Gemma(model, trouble = trouble) else Instinct }, gemma, plan, seed, home.resolve("progress"))
+    val game =
+        GameModel(
+            scope,
+            { trouble -> if (gemma) Gemma(model, trouble = trouble) else Instinct },
+            gemma,
+            if (gemma) GemmaWhispers(model) else Echoes,
+            plan,
+            seed,
+            home.resolve("progress"),
+        )
     application {
         val state = rememberWindowState(size = DpSize(1240.dp, 800.dp))
         Window(

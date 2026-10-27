@@ -65,10 +65,15 @@ fun Board(
         val px = cell / 12
         val lit = night.lit(maze)
 
+        // After midnight, the Otherworld: rust, grates and a red light.
+        val other = night.afterMidnight
         drawRect(Ink.dark)
         for (pos in night.seen) {
             val corner = layout.origin + Offset(pos.x * cell, pos.y * cell)
-            drawRect(Ink.floor, corner, Size(cell, cell))
+            drawRect(if (other) Ink.rust else Ink.floor, corner, Size(cell, cell))
+            if (other) {
+                for (bar in 1..3) drawRect(Ink.dark.copy(alpha = 0.6f), corner + Offset(0f, bar * cell / 4 - px / 2), Size(cell, px))
+            }
             drawRect(Ink.dark.copy(alpha = 0.35f), corner, Size(cell, px / 2))
             drawRect(Ink.dark.copy(alpha = 0.35f), corner, Size(px / 2, cell))
             // What the lanterns do not light now is a memory: darker.
@@ -78,9 +83,10 @@ fun Board(
         for (agent in night.lost.filter { it.dark == 0 }) {
             val at = layout.center(agent.at)
             val flicker = 0.18f + 0.06f * flicker(frame, agent.role.ordinal)
-            drawCircle(Brush.radialGradient(listOf(Ink.candle.copy(alpha = flicker), Color.Transparent), at, cell * 2f), cell * 2f, at)
+            val light = if (other) Ink.blood else Ink.candle
+            drawCircle(Brush.radialGradient(listOf(light.copy(alpha = flicker), Color.Transparent), at, cell * 2f), cell * 2f, at)
         }
-        drawWalls(maze, layout, night.seen)
+        drawWalls(maze, layout, night.seen, if (other) Ink.rustEdge else Ink.moon)
 
         // The gate is always in sight: the crew has to know there is a way out.
         val glow = 0.35f + 0.1f * ((frame % 20) / 10f).let { if (it > 1) 2 - it else it }
@@ -144,8 +150,22 @@ fun Board(
         for ((pos, here) in places) {
             here.forEachIndexed { i, agent ->
                 val words = night.moves.firstOrNull { it.role == agent.role }?.says ?: agent.words
-                if (words.isNotBlank()) bubble(text, words, layout.center(pos) - Offset(0f, cell * 0.55f + i * cell * 0.42f), cell, agent.role.color)
+                if (words.isNotBlank()) bubble(text, words, layout.center(pos) - Offset(0f, cell * 0.55f + i * cell * 0.42f), cell, agent.role.color, other)
             }
+        }
+
+        // What the Hollow whispered, this turn: red, unsteady, under the one it was for.
+        night.whisper?.takeIf { it.turn == night.turn }?.let { whisper ->
+            val agent = night.lost.firstOrNull { it.role == whisper.role } ?: return@let
+            val at = layout.center(agent.at)
+            drawCircle(Brush.radialGradient(listOf(Ink.red.copy(alpha = 0.5f), Color.Transparent), at, cell * 0.9f), cell * 0.9f, at)
+            val style = TextStyle(fontFamily = PixelFont, fontSize = (cell / 4.2f).coerceIn(12f, 18f).sp, color = Color(0xFFFF4A3A), textAlign = TextAlign.Center)
+            val laid = text.measure(whisper.text, style, constraints = Constraints(maxWidth = (cell * 3.6f).toInt()), maxLines = 3)
+            val jitter = Offset(flicker(frame, 3) * px - px / 2, flicker(frame, 5) * px - px / 2)
+            val left = (at.x - laid.size.width / 2).coerceIn(0f, size.width - laid.size.width)
+            val top = (at.y + cell * 0.55f).coerceAtMost(size.height - laid.size.height)
+            drawRect(Ink.dark.copy(alpha = 0.75f), Offset(left - px * 2, top - px), Size(laid.size.width + px * 4, laid.size.height + px * 2))
+            drawText(laid, topLeft = Offset(left, top) + jitter)
         }
 
         // The Hollow, felt before it is seen: red at the edges as it nears the nearest of the crew.
@@ -190,7 +210,7 @@ private fun DrawScope.arrow(from: Offset, dir: Dir, cell: Float, color: Color) {
 }
 
 /** A speech bubble with [words], its bottom at [bottom]. */
-private fun DrawScope.bubble(text: TextMeasurer, words: String, bottom: Offset, cell: Float, color: Color) {
+private fun DrawScope.bubble(text: TextMeasurer, words: String, bottom: Offset, cell: Float, color: Color, other: Boolean) {
     val style = TextStyle(fontFamily = PixelFont, fontSize = (cell / 5.2f).coerceIn(10f, 15f).sp, color = Ink.outline, textAlign = TextAlign.Center)
     val laid = text.measure(words, style, constraints = Constraints(maxWidth = (cell * 2.4f).toInt()), maxLines = 2)
     val pad = cell / 14
@@ -198,18 +218,18 @@ private fun DrawScope.bubble(text: TextMeasurer, words: String, bottom: Offset, 
     val h = laid.size.height + pad * 2
     val left = (bottom.x - w / 2).coerceIn(0f, size.width - w)
     val top = (bottom.y - h).coerceAtLeast(0f)
-    drawRoundRect(Ink.outline, Offset(left - 2, top - 2), Size(w + 4, h + 4), CornerRadius(pad))
-    drawRoundRect(Color(0xFFF3EBD8), Offset(left, top), Size(w, h), CornerRadius(pad))
+    drawRoundRect(if (other) Ink.red else Ink.outline, Offset(left - 2, top - 2), Size(w + 4, h + 4), CornerRadius(pad))
+    drawRoundRect(if (other) Color(0xFFE6C9BF) else Color(0xFFF3EBD8), Offset(left, top), Size(w, h), CornerRadius(pad))
     drawRect(color, Offset(left, top), Size(pad / 1.5f, h))
     drawText(laid, topLeft = Offset(left + pad, top + pad))
 }
 
-private fun DrawScope.drawWalls(maze: Maze, layout: Layout, seen: Set<Pos>) {
+private fun DrawScope.drawWalls(maze: Maze, layout: Layout, seen: Set<Pos>, edge: Color) {
     val cell = layout.cell
     val thick = cell / 5
     fun wall(at: Offset, size: Size) {
         drawRect(Ink.wall, at, size)
-        drawRect(Ink.moon, at, Size(size.width, thick / 3))
+        drawRect(edge, at, Size(size.width, thick / 3))
     }
     for (pos in maze.cells.filter { it in seen }) {
         val corner = layout.origin + Offset(pos.x * cell, pos.y * cell)

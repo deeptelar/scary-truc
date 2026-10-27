@@ -121,3 +121,65 @@ class GameTest {
             assertFalse(system.contains("Hollow"), "the first night has no Hollow")
         }
 }
+
+class WhisperTest {
+    private val plan = Plan.FIFTH
+    private val maze = plan.maze()
+
+    private fun nearHollow(awake: Boolean): Night {
+        val next = maze.exits(maze.lair).map { maze.lair + it }.first { maze.doomAt(it) == null }
+        val far = maze.cells.maxBy { maze.distances(maze.lair)[it] ?: 0 }
+        return Night.begin(plan, maze).copy(
+            crew = listOf(Agent(Role.CODER, maze.start.takeIf { it != next } ?: far), Agent(Role.CRITIC, next)),
+            hollow = Hollow(maze.lair, awake = awake),
+            turn = 5,
+        )
+    }
+
+    @Test
+    fun theAwakeHollowWhispersToTheNearestNowAndThen() {
+        assertNull(nearHollow(awake = false).whisperTarget(maze))
+        val night = nearHollow(awake = true)
+        assertEquals(Role.CRITIC, night.whisperTarget(maze)?.role)
+        val heard = night.heard(Role.CRITIC, "Who reviews the reviewer?")
+        assertEquals(Role.CRITIC.nerve - WHISPER_HURTS, heard.crew.first { it.role == Role.CRITIC }.nerve)
+        assertNull(heard.copy(turn = 6).whisperTarget(maze), "quiet for a while after")
+        assertEquals(Role.CRITIC, heard.copy(turn = 5 + WHISPER_EVERY).whisperTarget(maze)?.role)
+        val critic = heard.crew.first { it.role == Role.CRITIC }
+        assertTrue("Who reviews the reviewer?" in describe(senses(heard, maze, critic), heard, critic))
+    }
+
+    @Test
+    fun gemmaWritesTheWhisperFromTheFearAndTheEchoesSpeakWhenItCannot() =
+        runTest {
+            val night = nearHollow(awake = true)
+            val critic = night.crew.first { it.role == Role.CRITIC }
+            val model =
+                ScriptedChatModel {
+                    says("\"Your red ink still bleeds, reviewer.\"")
+                    fails("Ollama is not running")
+                }
+            val whispers = GemmaWhispers(model)
+            assertEquals("Your red ink still bleeds, reviewer.", whispers.whisper(night, critic))
+            assertTrue(model.requests.first().messages.first().toString().contains(Role.CRITIC.fear))
+            assertTrue(whispers.whisper(night, critic).isNotBlank())
+        }
+
+    @Test
+    fun theWhisperNodeRunsBetweenTheWalkAndTheNextDecision() =
+        runTest {
+            val run = NightRun(Plan.FIFTH, 4158, Instinct, Whisperer { _, agent -> "I see you, ${agent.role.title}." })
+            run.begin()
+            while (!run.night.over && run.night.whisper == null) run.next()
+            val whisper = assertNotNull(run.night.whisper)
+            assertEquals("I see you, ${whisper.role.title}.", whisper.text)
+            assertTrue(run.night.log.any { "whispers" in it })
+        }
+
+    @Test
+    fun midnightSoundsTheSirenAndAWhisperIsHeard() {
+        val night = Night.begin(plan, maze)
+        val cues = cues(night.copy(turn = night.midnight - 1), night.copy(turn = night.midnight, whisper = Whisper(Role.SCOUT, "Alone.", night.midnight)), maze)
+        assertTrue(Cue.SIREN in cues && Cue.BELL in cues && Cue.WHISPER in cues)
+    }
+}

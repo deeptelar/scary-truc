@@ -80,8 +80,9 @@ fun describe(ways: List<Way>, night: Night, agent: Agent): String =
         append("Your nerve: ${agent.nerve} of 100, $mood.")
         if (agent.screams > 0) append(" You heard ${agent.screams} screams tonight; each scares you a little less.")
         append("\n")
+        night.whisperTo(agent.role)?.let { append("From the dark, the Hollow whispered to you: \"${it.text}\"\n") }
         if (agent.dark > 0) append("Your lantern has gone out. You see nothing; you can only hear and smell.\n")
-        if (night.afterMidnight) append("It is past midnight: the walls have moved.\n")
+        if (night.afterMidnight) append("It is past midnight. A siren wailed, the walls moved, and everything is rust and blood now.\n")
         if (ways.isEmpty()) append("There is no way out of this cell.\n")
         for (way in ways) {
             val things = mutableListOf<String>()

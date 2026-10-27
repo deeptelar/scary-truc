@@ -77,7 +77,7 @@ private fun Nights(model: GameModel) {
 private fun Side(model: GameModel, frame: Int, modifier: Modifier) {
     val night = model.night
     Column(modifier, verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        PixelText("SCARY TRUC", size = BIG, color = Ink.orange)
+        PixelText(if (night.afterMidnight && !night.over) "OTHERWORLD" else "SCARY TRUC", size = BIG, color = if (night.afterMidnight) Ink.red else Ink.orange)
         PixelText(
             "${model.plan.title}" + (if (model.plan == Plan.ENDLESS) " · ${model.maze.seed}" else "") + " · turn ${night.turn + 1} of ${night.dawn}",
             size = SMALL,

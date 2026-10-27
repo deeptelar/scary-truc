@@ -25,6 +25,7 @@ class GameModel(
     private val scope: CoroutineScope,
     brain: ((String?) -> Unit) -> Brain,
     val gemma: Boolean,
+    private val whisperer: Whisperer = Echoes,
     plan: Plan = Plan.FIRST,
     seed: Long? = null,
     private val progress: Path? = null,
@@ -121,7 +122,7 @@ class GameModel(
     }
 
     private fun newRun(plan: Plan, seed: Long?) =
-        NightRun(plan, seed ?: plan.seed ?: Random.nextLong(1, 1_000_000), mind) { night = it }
+        NightRun(plan, seed ?: plan.seed ?: Random.nextLong(1, 1_000_000), mind, whisperer) { night = it }
 
     /** Runs [work] alone; when [walked], the crew moved, the time to answer starts again and the night may sound. */
     private fun command(walked: Boolean = true, work: suspend () -> Night) {
@@ -137,6 +138,8 @@ class GameModel(
                     cues(before, night, maze).forEach(Sound::play)
                 }
                 Sound.danger = if (night.over) 0f else danger(night, maze)
+                Sound.otherworld = night.afterMidnight && !night.over
+                Sound.hushed = !night.over && imminent(night, maze)
                 if (night.over) keep()
             } catch (e: CancellationException) {
                 throw e

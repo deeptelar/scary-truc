@@ -13,6 +13,9 @@ class GemmaProbe {
         if (System.getProperty("shots") != "gemma") return@runBlocking
         val model = OpenAiChatModel.ollama(HttpClient(CIO), model = "gemma4:12b", baseUrl = "http://127.0.0.1:11434/v1",
             parameters = buildJsonObject { put("reasoning_effort", "none") }, timeout = 5.minutes)
+        val whispers = GemmaWhispers(model)
+        val dark = Night.begin(Plan.FIFTH, Plan.FIFTH.maze())
+        for (agent in dark.crew) repeat(2) { println("PROBE   WHISPER to ${agent.role.title}: ${measureTime { println("PROBE     \"" + whispers.whisper(dark.copy(turn = it), agent) + "\"") }}") }
         val run = NightRun(Plan.FOURTH, 3292, Gemma(model) { if (it != null) println("PROBE trouble $it") })
         run.begin()
         run.night.moves.forEach { println("PROBE   intent ${it.role.title} ${it.go}: \"${it.says}\"") }

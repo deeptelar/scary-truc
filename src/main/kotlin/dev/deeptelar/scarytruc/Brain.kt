@@ -3,6 +3,7 @@ package dev.deeptelar.scarytruc
 import dev.deeptelar.telar.agent.ChatModel
 import dev.deeptelar.telar.agent.Description
 import dev.deeptelar.telar.agent.ask
+import dev.deeptelar.telar.agent.chat
 import kotlinx.coroutines.CancellationException
 import kotlinx.serialization.Serializable
 import kotlin.random.Random
@@ -113,4 +114,57 @@ class Gemma(
             "How you take a scream or a sweet smell is up to you, by your nature and your nerve. " +
             "Standing still wastes the night: stay only when every way looks deadly. " +
             "Stay in character: short, scared or stubborn, never a helpful assistant.\n"
+}
+
+/** What the Hollow whispers to one of the crew, from the dark. */
+fun interface Whisperer {
+    suspend fun whisper(night: Night, agent: Agent): String
+}
+
+/** The Hollow without Gemma: a few lines for each fear, the same one for the same night and turn. */
+object Echoes : Whisperer {
+    private val lines =
+        mapOf(
+            Role.PLANNER to listOf("Your plan. Their graves.", "You planned this too. Look how it ends.", "Every step you choose is a mistake."),
+            Role.SCOUT to listOf("They left you. They always leave you.", "Nobody is coming back for you.", "Alone. Like always. Like forever."),
+            Role.CODER to listOf("It's 3 a.m. and everything is down. Because of you.", "Your last commit. I read it.", "Rollback won't save you this time."),
+            Role.CRITIC to listOf("She quit because of you. Remember?", "Your words cut. Now I will.", "Who reviews the reviewer? I do."),
+        )
+
+    override suspend fun whisper(night: Night, agent: Agent): String {
+        val options = lines.getValue(agent.role)
+        return options[Random(night.seed + night.turn).nextInt(options.size)]
+    }
+}
+
+/**
+ * The Hollow played by Gemma: it knows what each of the crew fears most, and whispers it back,
+ * in a new way each time. When Gemma cannot answer, the [echoes] speak instead.
+ */
+class GemmaWhispers(
+    private val model: ChatModel,
+    private val echoes: Whisperer = Echoes,
+) : Whisperer {
+    override suspend fun whisper(night: Night, agent: Agent): String =
+        try {
+            val said = model.chat(prompt(night, agent), system = SYSTEM)
+            said.lines().firstOrNull { it.isNotBlank() }?.trim()?.trim('"', '“', '”', '*')?.take(110)?.takeIf { it.length > 3 }
+                ?: echoes.whisper(night, agent)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            echoes.whisper(night, agent)
+        }
+
+    private fun prompt(night: Night, agent: Agent): String =
+        "Whisper to the ${agent.role.title}. Their secret fear: ${agent.role.fear}. " +
+            (night.whisper?.takeIf { it.role == agent.role }?.let { "Last time you said: \"${it.text}\". Say something new. " } ?: "") +
+            (night.crew.firstOrNull { it.fate == Fate.DEAD }?.let { "${it.role.title} is already dead tonight. " } ?: "") +
+            "One sentence, at most 12 words, in second person, intimate and cruel. No quotation marks."
+
+    private companion object {
+        const val SYSTEM =
+            "You are the Hollow, a thing that hunts a crew of AI agents lost in a haunted maze at night. " +
+                "You know their deepest fears, and you whisper them back from the dark. You never explain yourself."
+    }
 }

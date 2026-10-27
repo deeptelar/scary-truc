@@ -89,6 +89,9 @@ internal object Ink {
     val blue = Color(0xFF4A90D9)
     val purple = Color(0xFF9B59B6)
     val off = Color(0xFF5E5468)
+    val rust = Color(0xFF3A1C17)
+    val rustEdge = Color(0xFF8A3A22)
+    val blood = Color(0xFFFF5A3C)
 }
 
 /** Text in the pixel font. */

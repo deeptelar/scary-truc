@@ -15,14 +15,16 @@ import kotlinx.coroutines.flow.Flow
 
 const val THINK: String = "think"
 const val ACT: String = "act"
+const val WHISPER: String = "whisper"
 
 /**
  * A night as a Telar graph. `think` asks every lost agent where it means to go, all at once, and
- * `act` walks them there, after the player answered. The run pauses before `act` on every turn:
- * the agents decided, and the player sees it before it happens. [mazeOf] is the maze of a night's
- * turn, which changes at midnight.
+ * `act` walks them there, after the player answered: the run pauses before `act` on every turn, so
+ * the player sees what they decided before it happens. Between a walk and the next decision,
+ * `whisper` lets the Hollow speak to whoever is near it. [mazeOf] is the maze of a night's turn,
+ * which changes at midnight.
  */
-fun nightGraph(mazeOf: (Night) -> Maze, brain: Brain): CompiledGraph<Night> =
+fun nightGraph(mazeOf: (Night) -> Maze, brain: Brain, whisperer: Whisperer = Echoes): CompiledGraph<Night> =
     StateGraph<Night> {
         val think =
             node(
@@ -31,8 +33,14 @@ fun nightGraph(mazeOf: (Night) -> Maze, brain: Brain): CompiledGraph<Night> =
                 work = { night, agent -> brain.decide(night, mazeOf(night), agent) },
             ) { night, moves -> night.copy(moves = moves) }
         val act = node(ACT) { night -> night.act(mazeOf(night)) }
+        val whisper =
+            node(
+                WHISPER,
+                work = { night -> night.whisperTarget(mazeOf(night))?.let { agent -> agent.role to whisperer.whisper(night, agent) } },
+            ) { night, said -> if (said == null) night else night.heard(said.first, said.second) }
         START then think then act
-        conditionalEdge(act, targets = setOf(think, NodeRef.END)) { night -> if (night.over) NodeRef.END else think }
+        conditionalEdge(act, targets = setOf(whisper, NodeRef.END)) { night -> if (night.over) NodeRef.END else whisper }
+        whisper then think
     }.compile()
 
 /**
@@ -47,6 +55,7 @@ class NightRun(
     val plan: Plan,
     seed: Long,
     private val brain: Brain,
+    whisperer: Whisperer = Echoes,
     private val seen: (Night) -> Unit = {},
 ) {
     private val before: Maze = plan.maze(seed)
@@ -56,7 +65,7 @@ class NightRun(
     fun mazeOf(night: Night): Maze = if (night.afterMidnight) after else before
 
     val maze: Maze get() = mazeOf(night)
-    private val graph = nightGraph(::mazeOf, brain)
+    private val graph = nightGraph(::mazeOf, brain, whisperer)
     private val checkpointer = MemoryCheckpointer<Night>()
     private var thread = 0
 

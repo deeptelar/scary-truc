@@ -13,6 +13,8 @@ enum class Role(
     val title: String,
     val nature: String,
     val trait: String,
+    /** What it fears most, which only the Hollow knows and whispers back to it. */
+    val fear: String,
     val nerve: Int,
     val treat: Double,
     val trick: Double,
@@ -24,24 +26,28 @@ enum class Role(
         "Planner",
         "You are methodical. You trust fresh air and hate walking where you have already been. Sweets tempt you, but a plan is a plan.",
         "Methodical. Follows fresh air.",
+        "a plan of yours that failed and cost everyone",
         nerve = 70, treat = 1.5, trick = -4.0, hollow = -12.0, novelty = 2.0, air = 4.0,
     ),
     SCOUT(
         "Scout",
         "You are curious and jumpy. You love corridors nobody has seen. A scream makes you want to run the other way.",
         "Jumpy. Loves corridors nobody has seen.",
+        "being left behind, alone in the dark, forgotten",
         nerve = 45, treat = 1.5, trick = -8.0, hollow = -10.0, novelty = 4.0, air = 1.0,
     ),
     CODER(
         "Coder",
         "You are always hungry, above all for sweets, and a little reckless. You would follow candy into any dark corridor.",
         "Always hungry. Reckless for sweets.",
+        "the bug you shipped that took everything down at 3 a.m.",
         nerve = 60, treat = 5.0, trick = -3.0, hollow = -8.0, novelty = 1.0, air = 1.0,
     ),
     CRITIC(
         "Critic",
         "You are brave and contrary. Sweets left in a haunted maze are obviously a trap. Screams are cheap tricks that make you curious. Only the Hollow scares you.",
         "Contrary. Distrusts treats, curious about screams.",
+        "the cruel review you wrote that made someone quit",
         nerve = 85, treat = -3.0, trick = 1.5, hollow = -12.0, novelty = 2.0, air = 2.0,
     ),
 }
@@ -77,6 +83,10 @@ data class Mark(val at: Pos, val kind: MarkKind, val age: Int = 0)
 @Serializable
 data class Hollow(val at: Pos, val eating: Int = 0, val awake: Boolean = false)
 
+/** What the Hollow whispered to one of the crew from the dark, after [turn]. */
+@Serializable
+data class Whisper(val role: Role, val text: String, val turn: Int)
+
 /** Where an agent means to go this turn, or to stay when [go] is `null`, and what it says. */
 @Serializable
 data class Move(val role: Role, val go: Dir?, val says: String, val gemma: Boolean = false)
@@ -104,6 +114,8 @@ data class Night(
     /** Every cell a lantern has shone on from right next to it: only there does a doom show. */
     val near: Set<Pos> = emptySet(),
     val moves: List<Move> = emptyList(),
+    /** The Hollow's last whisper. */
+    val whisper: Whisper? = null,
     val log: List<String> = emptyList(),
 ) {
     val lost: List<Agent> get() = crew.filter { it.fate == Fate.LOST }
@@ -115,6 +127,28 @@ data class Night(
     val afterMidnight: Boolean get() = turn >= midnight
 
     fun markAt(pos: Pos): Mark? = marks.firstOrNull { it.at == pos }
+
+    /** The whisper [role] still has in its ears: for a turn after it was said. */
+    fun whisperTo(role: Role): Whisper? = whisper?.takeIf { it.role == role && turn - it.turn <= 1 }
+
+    /**
+     * Whom the Hollow whispers to now: the nearest of the crew within [WHISPER_REACH] steps, when
+     * it is awake and has been quiet for [WHISPER_EVERY] turns.
+     */
+    fun whisperTarget(maze: Maze): Agent? {
+        val hollow = hollow?.takeIf { it.awake } ?: return null
+        if (turn - (whisper?.turn ?: -99) < WHISPER_EVERY) return null
+        val steps = maze.distances(hollow.at)
+        return lost.filter { (steps[it.at] ?: 99) <= WHISPER_REACH }.minByOrNull { steps.getValue(it.at) }
+    }
+
+    /** The night after the Hollow whispered [text] to [role]: its nerve takes the blow. */
+    fun heard(role: Role, text: String): Night =
+        copy(
+            whisper = Whisper(role, text, turn),
+            crew = crew.map { if (it.role == role) it.copy(nerve = (it.nerve - WHISPER_HURTS).coerceAtLeast(0)) else it },
+            log = (log + "The Hollow whispers to ${role.title}.").takeLast(LOG),
+        )
 
     /** The night with a treat or a trick at [pos], or `null` when it cannot go there. */
     fun place(maze: Maze, pos: Pos, kind: MarkKind): Night? {
@@ -229,7 +263,7 @@ fun Night.act(maze: Maze): Night {
             // heard from far. It never walks into a jack-o'-lantern: it waits next to it.
             val prey =
                 (crew.filter { it.fate == Fate.LOST }.map { it.at } + marks.filter { it.kind == MarkKind.TREAT }.map { it.at })
-                    .filter { (away[it] ?: 99) <= HOLLOW_SENSE }
+                    .filter { (away[it] ?: 99) <= if (afterMidnight) HOLLOW_SENSE + 2 else HOLLOW_SENSE }
                     .map { it to away.getValue(it) } +
                     screams.map { it.at to near.getValue(it.at) }
             val target = prey.minByOrNull { it.second }?.first
@@ -275,7 +309,7 @@ fun Night.act(maze: Maze): Night {
         .filter { it.kind == MarkKind.TREAT || it.age < Night.TRICK_TURNS }
     var next = copy(crew = crew, hollow = hollow, marks = marks, candy = candy, lostCandy = lostCandy, turn = turn + 1, played = false, moves = emptyList())
     next = next.copy(seen = seen + next.lit(maze), near = near + next.lit(maze, 1))
-    if (next.turn == midnight && !next.over) log += "Midnight. The walls of the maze move."
+    if (next.turn == midnight && !next.over) log += "Midnight. The siren. The maze is not the same maze."
     if (next.turn >= next.dawn && next.lost.isNotEmpty()) {
         log += "Dawn. The maze keeps ${next.lost.joinToString(" and ") { it.role.title }}."
     }
@@ -283,6 +317,9 @@ fun Night.act(maze: Maze): Night {
 }
 
 const val PANIC: Int = 20
+const val WHISPER_REACH: Int = 6
+const val WHISPER_EVERY: Int = 4
+const val WHISPER_HURTS: Int = 15
 
 private val PANIC_LINES = listOf("RUN! RUN!", "I can't, I CAN'T!", "Get away from me!", "No no no no no!")
 private const val TRAIL = 40
