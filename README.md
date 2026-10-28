@@ -9,15 +9,18 @@ Six calls, any of them, each a maze drawn by hand after a horror film (The Desce
 Witch Project, Cube, Ring, The Shining, Alien), and each won its own way. When the line goes dead,
 you learn how many steps they were from the way out.
 
+Off the safe way, in side corridors and dead ends, lie things worth the detour: tell them to take
+it, then to use it. A phone battery buys time, a flare sends the Hollow running, and a stone thrown
+down a corridor draws it to the noise.
+
 **Play it: <https://deeptelar.github.io/scary-truc/>**, on a phone too. Without a model the caller
 knows only a few words (left, right, ahead, back, stay, hide, mark). Add a model under **Model
 settings**: Gemma 4 on [OpenRouter](https://openrouter.ai) with your own key, or your
 [Ollama](https://ollama.com). The key stays in your browser and goes from it straight to the
 server. A friend's proxy works too: its address, and your token as the key.
 
-On the phone you can talk instead of typing: tap the microphone, speak, and what you said goes to
-the caller when you pause. The speaker button says the caller's words out loud. Both use the
-browser's own speech; most browsers turn speech into text on their maker's servers (Chrome on
+On the phone you can talk instead of typing: tap Mic, speak, and what you said goes to the caller
+when you pause. It uses the browser's own speech recognition; most browsers turn speech into text on their maker's servers (Chrome on
 Google's), and the page only gets the text.
 
 On the desktop: `./gradlew run`, or `./gradlew run --args='--call ship'` (with Ollama running and `gemma4:12b` pulled, Gemma plays the

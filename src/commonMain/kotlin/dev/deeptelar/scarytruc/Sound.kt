@@ -9,7 +9,7 @@ import kotlin.math.sin
 import kotlin.random.Random
 
 /** What the night sounds like at a moment of the game. */
-enum class Cue { SCREAM, STATIC, STINGER, WAKE, BELL, SIREN, WHISPER, CHIME, DEATH, RING, HANGUP, STEP }
+enum class Cue { SCREAM, STATIC, STINGER, WAKE, BELL, SIREN, WHISPER, CHIME, DEATH, RING, HANGUP, STEP, KEY }
 
 /** The drones that loop under the night. */
 enum class Drone { NIGHT, OTHERWORLD }
@@ -163,6 +163,8 @@ object Sound {
                 wave(1.2) { t, _ ->
                     if ((t % 0.4) < 0.18) sin(2 * PI * 620 * t) * 0.35 * envelope(t % 0.4, 0.005, 0.18) else 0.0
                 }
+            // A key of an old phone: a short, dry click.
+            Cue.KEY -> wave(0.03) { t, _ -> ((noise.nextDouble() - 0.5) * 0.6 + sin(2 * PI * 2400 * t) * 0.25) * exp(-t * 220) }
             // A footstep on a wet floor, heard through the phone: a dull knock and a splash.
             Cue.STEP ->
                 wave(0.22) { t, _ -> (sin(2 * PI * 70 * t) * 0.8 + (noise.nextDouble() - 0.5) * 0.4) * exp(-t * 28) }

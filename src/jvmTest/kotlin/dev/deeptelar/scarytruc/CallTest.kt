@@ -39,6 +39,40 @@ class CallTest {
     }
 
     @Test
+    fun theWordsForThingsAreHeard() = runBlocking {
+        suspend fun said(text: String) = Keywords.listen(Call.begin(plan, maze, empty).copy(said = text))
+        assertEquals(Order.TAKE, said("Grab it, quick").order)
+        assertEquals(Heard(Order.USE, 0, Item.FLARE, null), said("Light the flare"))
+        assertEquals(Heard(Order.USE, 0, Item.STONE, Order.LEFT), said("Throw the stone left"))
+        assertEquals(Order.AHEAD, said("Go ahead, toward the light").order, "the light is not the flare")
+    }
+
+    @Test
+    fun aThingIsTakenOnceAndUsedOnce() {
+        val (here, dir) = corridor
+        val haunt = Haunt(emptyMap(), emptyMap(), emptyMap(), mapOf(here to Item.BATTERY))
+        val took = quiet(here, dir, Order.TAKE).walk(maze, haunt)
+        assertEquals(listOf(Item.BATTERY), took.carried)
+        assertEquals(emptyList(), took.copy(heard = Heard(Order.TAKE, 0), said = "take").walk(maze, haunt).carried.drop(1), "nothing more here")
+        val low = took.copy(battery = 20, heard = Heard(Order.USE, 0, Item.BATTERY), said = "swap the battery").walk(maze, haunt)
+        assertTrue(low.battery > 40, "charged: ${low.battery}")
+        assertTrue(low.carried.isEmpty())
+    }
+
+    @Test
+    fun aFlareSendsTheHollowAwayAndAStoneDrawsIt() {
+        val (here, dir) = corridor
+        val close = Hollow(here + dir, awake = true)
+        val lit = quiet(here, dir, Order.USE).copy(hollow = close, carried = listOf(Item.FLARE), heard = Heard(Order.USE, 0, Item.FLARE)).walk(maze, empty)
+        assertNull(lit.end)
+        assertTrue(lit.hollow!!.deaf > 0)
+        assertTrue((maze.distances(lit.at)[lit.hollow!!.at] ?: 0) >= 2, "it fled")
+        val thrown = quiet(here, dir, Order.USE).copy(hollow = Hollow(here + dir + dir, awake = false), carried = listOf(Item.STONE), heard = Heard(Order.USE, 0, Item.STONE, Order.AHEAD)).walk(maze, empty)
+        assertTrue(thrown.hollow!!.awake, "the noise woke it")
+        assertTrue(thrown.carried.isEmpty())
+    }
+
+    @Test
     fun aWayIsFromWhereTheCallerFaces() {
         val (here, dir) = corridor
         val call = quiet(here, dir.turned(1), Order.LEFT).walk(maze, empty)

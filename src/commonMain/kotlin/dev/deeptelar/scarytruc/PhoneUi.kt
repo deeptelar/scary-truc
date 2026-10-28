@@ -161,10 +161,15 @@ private fun Phone(model: CallModel, now: Long, narrow: Boolean, modifier: Modifi
                 else -> {
                     CallerBar(model, now, lcd)
                     val speaking = now - model.spokeAt < model.speaking()
-                    if (narrow && notebook) {
-                        Notebook(model, lcd, Modifier.weight(1f).fillMaxWidth())
-                    } else {
-                        Transcript(model, now, danger, lcd, Modifier.weight(1f).fillMaxWidth())
+                    when {
+                        narrow && notebook -> Notebook(model, lcd, Modifier.weight(1f).fillMaxWidth())
+                        // On a phone the map and the call share the screen: no switching to follow both.
+                        narrow -> {
+                            Notebook(model, lcd, Modifier.weight(0.4f).fillMaxWidth(), compact = true)
+                            Box(Modifier.fillMaxWidth().height(2.dp).background(lcd.ink))
+                            Transcript(model, now, danger, lcd, Modifier.weight(0.6f).fillMaxWidth())
+                        }
+                        else -> Transcript(model, now, danger, lcd, Modifier.weight(1f).fillMaxWidth())
                     }
                     if (call.over && !model.thinking && !speaking) {
                         Ending(model, lcd)
@@ -361,13 +366,8 @@ private fun CallerBar(model: CallModel, now: Long, lcd: Lcd) {
         Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
             PixelText(call.role.title + if (call.hidden && !call.over) " (hiding)" else "", color = lcd.ink, maxLines = 1)
         }
-        if (model.speech != null) {
-            Box(
-                Modifier.size(30.dp, 26.dp).background(if (model.speaker) lcd.ink else lcd.paper).clickable(onClick = model::toggleSpeaker).drawBehind {
-                    draw(Sprite(SPEAKER_ICON, mapOf('#' to if (model.speaker) lcd.paper else lcd.ink)), center, 2.5.dp.toPx())
-                },
-            )
-        }
+        // What they carry, in reverse, as a phone of the time showed its icons.
+        for (item in call.carried) PixelText(item.word, Modifier.background(lcd.ink).padding(horizontal = 4.dp, vertical = 1.dp), size = SMALL, color = lcd.paper)
     }
 }
 
@@ -377,7 +377,7 @@ private fun Transcript(model: CallModel, now: Long, danger: Float, lcd: Lcd, mod
     val call = model.call
     val lines = call.lines
     val last = lines.indexOfLast { it.who == Who.CALLER }
-    val shown = ((now - model.spokeAt) / model.letter).toInt()
+    val shown = ((now - model.spokeAt) / CallModel.LETTER).toInt()
     LazyColumn(modifier, reverseLayout = true, verticalArrangement = Arrangement.spacedBy(8.dp)) {
         if (model.thinking) item { Said(".".repeat(1 + ((now / 400) % 3).toInt()), Who.CALLER, lcd) }
         items(lines.indices.reversed().toList()) { i ->
@@ -485,20 +485,20 @@ private fun Ending(model: CallModel, lcd: Lcd) {
  * it can lie. While the caller is lost, nothing is drawn and the caller isn't on it.
  */
 @Composable
-private fun Notebook(model: CallModel, lcd: Lcd, modifier: Modifier) {
+private fun Notebook(model: CallModel, lcd: Lcd, modifier: Modifier, compact: Boolean = false) {
     val call = model.call
     val haunt = model.haunt
     val measurer = rememberTextMeasurer()
     val font = PixelFont
     Column(modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Header("Notebook", lcd)
+        if (!compact) Header("Notebook", lcd)
         Box(
             Modifier.weight(1f).fillMaxWidth().drawBehind {
                 if (model.ringing) return@drawBehind
                 drawNotebook(call, haunt, measurer, font, lcd)
             },
         )
-        val notes = if (model.ringing) emptyList() else haunt.notes.filterKeys { it in call.mapped }.values
+        val notes = if (model.ringing || compact) emptyList() else haunt.notes.filterKeys { it in call.mapped }.values
         for (note in notes.toList().takeLast(3)) PixelText("\"$note\"", size = SMALL, color = lcd.ink, maxLines = 2)
         if (call.lostTrack && !call.over) PixelText("They ran. They don't know where they are: find a mark or a note you know.", Modifier.background(lcd.ink).padding(6.dp), size = SMALL, color = lcd.paper, maxLines = 3)
     }

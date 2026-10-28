@@ -6,6 +6,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import dev.deeptelar.telar.agent.ChatModel
@@ -40,18 +41,6 @@ data class Server(val url: String, val model: String, val key: String = "") {
         val OPENROUTER: Server = Server("https://openrouter.ai/api/v1", "google/gemma-4-31b-it")
         val OLLAMA: Server = Server("http://localhost:11434/v1", "gemma4:12b")
     }
-}
-
-/** A voice for the phone's speaker: the browser's speech, where there is one. */
-interface Speech {
-    /** Says [text] after what is being said, in the voice of [role], or of the Hollow when it is `null`. */
-    fun say(text: String, role: Role?)
-
-    /** Stops what is being said, and what is waiting. */
-    fun stop()
-
-    /** Lets the speech start later, from inside a tap: some phones speak only after one. */
-    fun unlock()
 }
 
 /** The phone's microphone: the browser turns the player's voice into text, where it can. */
@@ -120,9 +109,6 @@ class CallModel(
     /** The game's own sounds hook in here: a browser opens its sound on the first tap. */
     var onAnswer: () -> Unit = {}
 
-    /** The phone's speaker, where the platform can speak; `null` hides the button. */
-    var speech: Speech? = null
-
     /** The phone's microphone, where the platform can hear; `null` hides the button. */
     var microphone: Microphone? = null
 
@@ -140,7 +126,6 @@ class CallModel(
             microphone.stop()
             return
         }
-        speech?.stop()
         listening = true
         failure = null
         microphone.listen(
@@ -152,21 +137,8 @@ class CallModel(
         )
     }
 
-    /** Whether the caller's words come out of the speaker. */
-    var speaker: Boolean by mutableStateOf(runCatching { store?.get(SPEAKER) }.getOrNull() == "on")
-        private set
-
-    /** How long a letter of the caller's line takes to appear: slower when it is also said. */
-    val letter: Long get() = if (speaker && speech != null) SPOKEN_LETTER else LETTER
-
-    fun toggleSpeaker() {
-        speaker = !speaker
-        runCatching { store?.set(SPEAKER, if (speaker) "on" else "off") }
-        if (speaker) speech?.unlock() else speech?.stop()
-    }
-
     /** How long the caller's last line takes to say. */
-    fun speaking(): Long = (call.lines.lastOrNull { it.who == Who.CALLER }?.text?.length ?: 0) * letter
+    fun speaking(): Long = (call.lines.lastOrNull { it.who == Who.CALLER }?.text?.length ?: 0) * LETTER
 
     private var run = newRun(plan, seed)
 
@@ -224,7 +196,6 @@ class CallModel(
     fun answer() {
         if (!ringing) return
         onAnswer()
-        if (speaker) speech?.unlock()
         ringing = false
         command { run.begin() }
     }
@@ -296,7 +267,7 @@ class CallModel(
                 val after = work()
                 call = after
                 spokeAt = now()
-                say(before, after)
+                type(after)
                 sounds(before, after)
                 if (after.over) keep(after)
             } catch (e: CancellationException) {
@@ -344,17 +315,19 @@ class CallModel(
         }
     }
 
-    /** The new lines of the call out of the speaker: the Hollow's in its own voice. */
-    private fun say(before: Call, after: Call) {
-        val speech = speech?.takeIf { speaker } ?: return
-        speech.stop()
-        for (line in after.lines.drop(before.lines.size)) {
-            when (line.who) {
-                Who.CALLER -> speech.say(line.text, after.role)
-                Who.HOLLOW -> speech.say(line.text, null)
-                else -> Unit
+    /** The keys of an old phone, clicking as the caller's last line appears. */
+    private var typing: Job? = null
+
+    private fun type(after: Call) {
+        typing?.cancel()
+        val line = after.lines.lastOrNull { it.who == Who.CALLER }?.text ?: return
+        typing =
+            scope.launch {
+                for ((i, c) in line.withIndex()) {
+                    if (c != ' ' && i % 2 == 0) Sound.play(Cue.KEY, gain = -8f)
+                    delay(LETTER)
+                }
             }
-        }
     }
 
     private fun keep(call: Call) {
@@ -374,17 +347,13 @@ class CallModel(
 
     companion object {
         /** How long the caller waits for a word before the silence scares them. */
-        const val SILENCE: Long = 25_000
+        const val SILENCE: Long = 45_000
 
-        /** How long a letter of the caller's line takes to appear. */
-        const val LETTER: Long = 28
-
-        /** About the pace of a voice that speaks. */
-        const val SPOKEN_LETTER: Long = 62
+        /** How long a letter of the caller's line takes to appear: time to read as it comes. */
+        const val LETTER: Long = 42
 
         private const val PROGRESS = "best"
         private const val SERVER = "server"
-        private const val SPEAKER = "speaker"
     }
 }
 

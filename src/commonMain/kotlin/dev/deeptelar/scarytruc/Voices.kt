@@ -37,7 +37,19 @@ object Keywords : Ears {
             Order.HIDE to listOf("hide", "crouch", "quiet", "shh", "hold your breath", "don't move", "keep still"),
             Order.STAY to listOf("stay", "wait", "stop"),
             Order.MARK to listOf("mark", "scratch", "write"),
+            Order.TAKE to listOf("take", "grab", "pick", "pocket"),
+            // "Light the flare", not "go to the light".
+            Order.USE to listOf("use", "light the", "light it", "throw", "toss", "swap", "charge"),
         )
+
+    /** The things by name, and by what is done with them. */
+    private val items =
+        listOf(
+            Item.BATTERY to listOf("battery", "swap", "charge"),
+            Item.FLARE to listOf("flare", "light the", "light it"),
+            Item.STONE to listOf("stone", "rock", "throw", "toss"),
+        )
+    private val ways = listOf(Order.LEFT, Order.RIGHT, Order.AHEAD, Order.BACK)
     private val soothing = listOf("breathe", "okay", "ok", "safe", "i'm here", "with you", "slow", "calm", "you can", "good", "well done", "fine", "it's alright", "together")
     private val harsh = listOf("hurry", "stupid", "idiot", "die", "dead", "useless", "shut up", "!!", "fast")
 
@@ -47,7 +59,9 @@ object Keywords : Ears {
         val letters = call.said.filter { it.isLetter() }
         val shouting = letters.length >= 6 && letters.count { it.isUpperCase() } > letters.length * 0.6
         val calm = soothing.count { find(said, it) != null } - harsh.count { said.contains(it) } - if (shouting) 1 else 0
-        return Heard(order ?: Order.NONE, calm.coerceIn(-2, 2))
+        val item = items.firstOrNull { (_, words) -> words.any { find(said, it) != null } }?.first
+        val toward = ways.mapNotNull { way -> orders.first { it.first == way }.second.mapNotNull { find(said, it) }.minOrNull()?.let { way to it } }.minByOrNull { it.second }?.first
+        return Heard(order ?: Order.NONE, calm.coerceIn(-2, 2), item.takeIf { order == Order.USE }, toward.takeIf { order == Order.USE })
     }
 
     /** Where [word] starts in [text] as a whole word, or `null`. */
@@ -56,10 +70,14 @@ object Keywords : Ears {
 
 @Serializable
 data class Understood(
-    @Description("What the stranger tells you to do now: ahead, left, right, back, stay, hide, mark, or none")
+    @Description("What the stranger tells you to do now: ahead, left, right, back, stay, hide, mark, take, use, or none")
     val order: String,
     @Description("How the stranger's words make you feel, from -2 (harsh, rushed, scary) to 2 (calm, kind, reassuring)")
     val calm: Int,
+    @Description("When the order is use: what to use, battery, flare or stone; otherwise none")
+    val item: String = "none",
+    @Description("When you are to throw the stone: where, ahead, left, right or back; otherwise none")
+    val toward: String = "none",
 )
 
 /**
@@ -77,7 +95,7 @@ class GemmaEars(
             val understood = model.ask<Understood>(prompt(call), system = system(call.role))
             trouble(null)
             val order = Order.of(understood.order) ?: return keywords.listen(call)
-            Heard(order, understood.calm.coerceIn(-2, 2))
+            Heard(order, understood.calm.coerceIn(-2, 2), Item.of(understood.item), Order.of(understood.toward)?.takeIf { it.turn != null })
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
@@ -92,7 +110,9 @@ class GemmaEars(
             "The stranger answers: \"${call.said}\"\n" +
             "What does the stranger tell you to do now? Ways are from where you face: ahead, left, right, or back. " +
             "Or stay, hide (crouch, cover the light, keep still and quiet), mark (scratch a number on the wall), " +
-            "or none when the stranger gives no instruction. If they give several, the first one."
+            "take (pick up what lies here), use (swap in a battery, light a flare, throw a stone), " +
+            "or none when the stranger gives no instruction. If they give several, the first one." +
+            (if (call.carried.isEmpty()) "" else " You carry: ${call.carried.joinToString { it.word }}.")
     }
 
     private fun system(role: Role): String =
@@ -163,7 +183,8 @@ class GemmaVoice(
                 End.BATTERY -> "Your phone is dying. Say your last few words before the line goes dead."
                 null -> "Answer the stranger if they asked something, and say what happened and what you see."
             }
-        return "$said\n$feeling $trust\nWhat happened, and what is around you now (\"I\" is you, \"you\" is the stranger):\n" +
+        val carried = if (call.carried.isEmpty()) "" else " You carry: ${call.carried.joinToString { it.thing }}."
+        return "$said\n$feeling $trust$carried\nWhat happened, and what is around you now (\"I\" is you, \"you\" is the stranger):\n" +
             call.facts.joinToString("\n") { "- $it" } + "\n$ending"
     }
 

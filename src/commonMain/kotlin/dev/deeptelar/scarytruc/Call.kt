@@ -50,6 +50,8 @@ enum class Order(val word: String, val turn: Int? = null) {
     STAY("stay"),
     HIDE("hide"),
     MARK("mark"),
+    TAKE("take"),
+    USE("use"),
     NONE("none"),
     ;
 
@@ -66,14 +68,34 @@ fun Dir.side(dir: Dir): Int = (dir.ordinal - ordinal + 4) % 4
 
 /** What the caller understood from the stranger's words: what to do, and how it made them feel, from -2 to 2. */
 @Serializable
-data class Heard(val order: Order, val calm: Int)
+data class Heard(
+    val order: Order,
+    val calm: Int,
+    /** What to use, when the order is [Order.USE]: `null` when the stranger didn't say. */
+    val item: Item? = null,
+    /** Where to throw the stone: a way from where the caller faces. */
+    val toward: Order? = null,
+)
+
+/** What lies in a maze to pick up, and is used once. [code] is its letter in a drawn maze. */
+enum class Item(val word: String, val thing: String, val code: Char) {
+    BATTERY("battery", "a phone battery, the same model as mine", 'b'),
+    FLARE("flare", "a road flare, unlit", 'f'),
+    STONE("stone", "a stone that fits in my hand", 's'),
+    ;
+
+    companion object {
+        fun of(word: String): Item? = entries.firstOrNull { it.word == word.trim().lowercase() }
+    }
+}
 
 /**
  * The Hollow sleeps until midnight or a noise close by; then it hunts by sound. After it passed a
- * caller who hid, it wanders off for [deaf] turns.
+ * caller who hid, or fled a flare, it wanders off for [deaf] turns. A thrown stone draws it to
+ * where it fell, its [lure], before anything else.
  */
 @Serializable
-data class Hollow(val at: Pos, val awake: Boolean = false, val from: Pos? = null, val deaf: Int = 0)
+data class Hollow(val at: Pos, val awake: Boolean = false, val from: Pos? = null, val deaf: Int = 0, val lure: Pos? = null)
 
 /** A number the caller scratched on a wall, when the stranger asked. */
 @Serializable
@@ -95,7 +117,12 @@ enum class Glimpse { STRANGE, LIGHT }
  * The clues of a maze: chalk [arrows] along a safe way out, [notes] from someone who was here
  * before, and harmless [oddities] that look as bad as a doom.
  */
-class Haunt(val arrows: Map<Pos, Dir>, val notes: Map<Pos, String>, val oddities: Map<Pos, String>) {
+class Haunt(
+    val arrows: Map<Pos, Dir>,
+    val notes: Map<Pos, String>,
+    val oddities: Map<Pos, String>,
+    val items: Map<Pos, Item> = emptyMap(),
+) {
     companion object {
         /**
          * The clues drawn in [rows], as [Maze.parse] reads them: the first of [notes] lies at `S`,
@@ -119,6 +146,7 @@ class Haunt(val arrows: Map<Pos, Dir>, val notes: Map<Pos, String>, val oddities
                         }
                     }.toMap(),
                 oddities = odd.zip(oddities).toMap(),
+                items = cells.mapNotNull { pos -> Item.entries.firstOrNull { it.code == cell(pos) }?.let { pos to it } }.toMap(),
             )
         }
     }
@@ -163,6 +191,10 @@ data class Call(
     val lines: List<Line> = emptyList(),
     /** The turn the Hollow last spoke on the line. */
     val whispered: Int = -99,
+    /** What the caller picked up and still has. */
+    val carried: List<Item> = emptyList(),
+    /** Where the caller picked something up: it is gone from there. */
+    val taken: Set<Pos> = emptySet(),
     val end: End? = null,
     val death: String? = null,
     /** How many steps the caller walked this turn, for the sound of footsteps. */
@@ -266,6 +298,8 @@ fun Call.walk(maze: Maze, haunt: Haunt): Call {
     var mapped = mapped
     var drawn = drawn
     var marks = marks
+    var carried = carried
+    var taken = taken
     var end: End? = null
     var death: String? = null
     var walked = 0
@@ -277,6 +311,12 @@ fun Call.walk(maze: Maze, haunt: Haunt): Call {
         val it = hollow ?: return
         val steps = maze.distances(it.at)
         val distance = steps[at] ?: 99
+        if (it.awake && it.lure != null) {
+            // A noise it heard comes first: it goes to see what fell.
+            val dir = maze.way(it.at, it.lure)?.first
+            hollow = if (dir == null) it.copy(lure = null) else it.copy(at = it.at + dir, from = it.at, lure = it.lure.takeIf { lure -> lure != it.at + dir })
+            return
+        }
         if (!it.awake) {
             // Calm enough, the caller can creep right past it.
             if (afterMidnight || (distance <= 1 && panic >= QUIET) || (panic >= LOUD && distance <= 6)) {
@@ -354,7 +394,7 @@ fun Call.walk(maze: Maze, haunt: Haunt): Call {
                     val ahead = exits.singleOrNull { it != going.opposite }
                     val stop =
                         exits.size != 2 || ahead == null || at in haunt.notes || at in haunt.arrows || at in haunt.oddities ||
-                            marks.any { it.at == at } || maze.doomAt(at + ahead) != null || at + ahead == maze.gate || woke ||
+                            marks.any { it.at == at } || (at in haunt.items && at !in taken) || maze.doomAt(at + ahead) != null || at + ahead == maze.gate || woke ||
                             hollow?.takeIf { it.awake }?.let { (maze.distances(at)[it.at] ?: 99) <= 3 } == true || walked >= MAX_WALK
                     if (stop) break
                     going = ahead!!
@@ -383,6 +423,69 @@ fun Call.walk(maze: Maze, haunt: Haunt): Call {
                 facts += "I scratched a $number on the wall here, with a key."
             } else {
                 facts += "There's already a mark here."
+            }
+            hunt()
+            meet()
+        }
+        Order.TAKE -> {
+            val item = haunt.items[at]?.takeIf { at !in taken }
+            if (item == null) {
+                facts += "There's nothing here to take."
+            } else {
+                carried = carried + item
+                taken = taken + at
+                facts += "I picked up ${item.thing}. I have it now."
+            }
+            hunt()
+            meet()
+        }
+        Order.USE -> {
+            val item = heard.item?.takeIf { it in carried } ?: carried.singleOrNull()?.takeIf { heard.item == null }
+            if (item == null) {
+                facts += heard.item?.let { "I don't have a ${it.word}." } ?: "I don't have anything to use."
+            } else {
+                carried = carried - item
+                when (item) {
+                    Item.BATTERY -> {
+                        battery = (battery + RECHARGE).coerceAtMost(100)
+                        facts += "I swapped in the other battery. The phone says $battery%."
+                    }
+                    Item.FLARE -> {
+                        panic -= 10
+                        val it = hollow?.takeIf { h -> h.awake && (maze.distances(at)[h.at] ?: 99) <= FLARE_REACH }
+                        if (it == null) {
+                            facts += "I lit the flare. Red light everywhere, and nothing in it. It's burning out."
+                        } else {
+                            // It flees the light: away from the caller, and deaf to them for a while.
+                            val from = maze.distances(at)
+                            var fled = it.copy(deaf = FLARE_FEAR, lure = null)
+                            repeat(3) { _ ->
+                                maze.exits(fled.at).maxByOrNull { d -> from[fled.at + d] ?: 0 }?.let { d -> fled = fled.copy(at = fled.at + d, from = fled.at) }
+                            }
+                            hollow = fled
+                            facts += "I lit the flare. Red light everywhere. Something screamed and ran from it."
+                        }
+                    }
+                    Item.STONE -> {
+                        val dir = facing.turned((heard.toward ?: Order.AHEAD).turn ?: 0)
+                        var fell = at
+                        var going = dir
+                        while (maze.canGo(fell, going) && maze.distances(at)[fell]!! < THROW) {
+                            fell += going
+                            going = maze.exits(fell).singleOrNull { d -> d != going.opposite } ?: break
+                        }
+                        facts += if (fell == at) "I threw it, and it hit the wall right in front of me. So loud." else "I threw the stone ${pointing(facing.side(dir))}. It clattered somewhere down the corridor."
+                        hollow?.let { h ->
+                            if ((maze.distances(fell)[h.at] ?: 99) <= HEARS_STONE) {
+                                if (!h.awake) {
+                                    woke = true
+                                    facts += "Something woke up."
+                                }
+                                hollow = h.copy(awake = true, lure = fell)
+                            }
+                        }
+                    }
+                }
             }
             hunt()
             meet()
@@ -422,6 +525,8 @@ fun Call.walk(maze: Maze, haunt: Haunt): Call {
             mapped = mapped,
             drawn = drawn,
             marks = marks,
+            carried = carried,
+            taken = taken,
             turn = turn + 1,
             end = end,
             death = death,
@@ -500,6 +605,7 @@ private fun Call.look(maze: Maze, haunt: Haunt, facts: List<String>): Call {
         if (walked > 0 || turn == 0) panic -= 6
     }
     haunt.oddities[at]?.let { seen += "Here, on the floor: $it." }
+    haunt.items[at]?.takeIf { at !in taken }?.let { seen += "Here, on the floor: ${it.thing}. I could take it." }
     mark?.let { seen += "My own mark is scratched on the wall here: the number ${it.number}." }
 
     val toGate = maze.distances(at)[maze.gate] ?: 99
@@ -571,6 +677,11 @@ const val QUIET: Int = 40
 const val LOUD: Int = 70
 
 private const val MAX_WALK = 6
+private const val RECHARGE = 35
+private const val FLARE_REACH = 4
+private const val FLARE_FEAR = 4
+private const val THROW = 4
+private const val HEARS_STONE = 6
 private const val DEAF = 3
 private const val COLD = 3
 private const val HEARING = 4
