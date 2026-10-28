@@ -73,7 +73,7 @@ class Minds(
 class CallModel(
     private val scope: CoroutineScope,
     minds: Minds = Minds.none,
-    plan: Plan = Plan.FIRST,
+    plan: Plan = Plan.CAVE,
     seed: Long? = null,
     private val store: Store? = null,
     private val clock: Boolean = true,
@@ -127,14 +127,9 @@ class CallModel(
     var failure: String? by mutableStateOf(null)
         private set
 
-    /** The nights someone got out of. */
-    var escaped: Set<Plan> by mutableStateOf(readProgress())
+    /** The closest each call came to the way out, in steps: 0 when the caller got out. */
+    var best: Map<Plan, Int> by mutableStateOf(readProgress())
         private set
-
-    /** A night can be played once the one before it was played: getting out is not needed. */
-    fun open(plan: Plan): Boolean = plan == Plan.FIRST || plan.ordinal <= played + 1
-
-    private var played = escaped.maxOfOrNull { it.ordinal } ?: 0
 
     init {
         scope.launch {
@@ -176,8 +171,8 @@ class CallModel(
 
     private fun say(words: String) = command { run.say(words) }
 
-    /** The same night from its start. */
-    fun again() = play(plan, run.maze.seed)
+    /** The same call from its start. */
+    fun again() = play(plan)
 
     fun play(plan: Plan, seed: Long? = null) {
         if (thinking) return
@@ -194,7 +189,7 @@ class CallModel(
         if (thinking) return
         this.minds = minds
         trouble = null
-        play(plan, run.maze.seed)
+        play(plan)
     }
 
     /** Plays the caller with the model on [server], or with none, and remembers the choice. */
@@ -214,7 +209,8 @@ class CallModel(
 
     private fun newRun(plan: Plan, seed: Long?): CallRun {
         val minds = minds
-        return CallRun(plan, seed ?: plan.seed ?: Random.nextLong(1, 1_000_000), minds.ears { trouble = it }, minds.voice, minds.whisperer)
+        // The maze is the same every time; the chances of the call are not.
+        return CallRun(plan, seed ?: Random.nextLong(), minds.ears { trouble = it }, minds.voice, minds.whisperer)
     }
 
     /** Runs [work] alone, then plays the sounds of what changed. */
@@ -243,7 +239,7 @@ class CallModel(
 
     private fun sounds(before: Call, after: Call) {
         val maze = run.mazeOf(after)
-        Sound.otherworld = after.afterMidnight && after.plan.hollow && !after.over
+        Sound.otherworld = after.afterMidnight && !after.over
         Sound.danger = if (after.over) 0f else danger(after, maze)
         scope.launch {
             repeat(after.walked) {
@@ -251,7 +247,7 @@ class CallModel(
                 delay(380)
             }
             if (before.hollow?.awake == false && after.hollow?.awake == true) Sound.play(Cue.WAKE)
-            if (!before.afterMidnight && after.afterMidnight && after.plan.hollow) {
+            if (!before.afterMidnight && after.afterMidnight) {
                 Sound.play(Cue.BELL)
                 delay(1200)
                 Sound.play(Cue.SIREN)
@@ -276,15 +272,18 @@ class CallModel(
     }
 
     private fun keep(call: Call) {
-        played = maxOf(played, call.plan.ordinal)
-        if (call.end != End.OUT || call.plan in escaped) return
-        escaped = escaped + call.plan
-        runCatching { store?.set(PROGRESS, escaped.joinToString(",") { it.name }) }
+        val away = call.away ?: return
+        if ((best[call.plan] ?: Int.MAX_VALUE) <= away) return
+        best = best + (call.plan to away)
+        runCatching { store?.set(PROGRESS, best.entries.joinToString(",") { "${it.key.name}=${it.value}" }) }
     }
 
-    private fun readProgress(): Set<Plan> {
-        val saved = runCatching { store?.get(PROGRESS) }.getOrNull() ?: return emptySet()
-        return saved.split(",").mapNotNull { name -> Plan.entries.firstOrNull { it.name == name.trim() } }.toSet()
+    private fun readProgress(): Map<Plan, Int> {
+        val saved = runCatching { store?.get(PROGRESS) }.getOrNull() ?: return emptyMap()
+        return saved.split(",").mapNotNull { entry ->
+            val (name, steps) = entry.split("=").takeIf { it.size == 2 } ?: return@mapNotNull null
+            Plan.entries.firstOrNull { it.name == name.trim() }?.let { plan -> steps.trim().toIntOrNull()?.let { plan to it } }
+        }.toMap()
     }
 
     companion object {
@@ -294,7 +293,7 @@ class CallModel(
         /** How long a letter of the caller's line takes to appear. */
         const val LETTER: Long = 28
 
-        private const val PROGRESS = "progress"
+        private const val PROGRESS = "best"
         private const val SERVER = "server"
 
         /** How long the caller's last line takes to say. */

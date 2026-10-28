@@ -1,109 +1,216 @@
 package dev.deeptelar.scarytruc
 
-import kotlin.random.Random
-
 /**
- * The nights of the game: each is a call from another of the crew, and each brings one new thing.
- * [ENDLESS] is the fourth on a new maze, with anyone on the phone. A night with a [seed] is always
- * the same maze. The battery is the time the night gives: it drains a little every turn and with
- * every step. [midnight] is the turn the Hollow wakes up and, when the night [shifts], the walls move.
+ * The calls, each a maze drawn by hand after a horror film, and each played its own way: all are
+ * about as hard, and all have the Hollow, midnight, walls that move and a battery that runs out.
+ * [setting] is where the caller wakes up, in their words. [notes] lie in the maze, the first at the
+ * start and the others at the digits 2 to 9 of [rows]; [oddities] are what the `o`s are, in reading
+ * order. [awake] is a Hollow that hunts from the first second.
  */
 enum class Plan(
     val title: String,
-    val role: Role?,
-    val width: Int,
-    val height: Int,
-    val dooms: Int,
-    val hollow: Boolean,
-    val shifts: Boolean,
-    val battery: Int,
-    val midnight: Int,
-    val arrows: Int,
-    val oddities: Int,
-    val seed: Long?,
-    /** The first note, by the start: what the one before learned. The lessons of the dooms follow it. */
-    val notes: List<String>,
+    val film: String,
+    val role: Role,
+    val setting: String,
     val hint: String,
+    val notes: List<String>,
+    val oddities: List<String>,
+    val rows: List<String>,
+    val midnight: Int = 7,
+    val awake: Boolean = false,
+    val battery: Int = 100,
 ) {
-    FIRST(
-        "Night 1: the Scout",
-        Role.SCOUT, 6, 5, dooms = 2, hollow = true, shifts = false, battery = 70, midnight = 99, arrows = 1, oddities = 1, seed = 11,
-        notes = listOf("Whoever finds this: the way out is where the air turns cold. Something sleeps in here. Don't wake it. Scratch marks on the walls, or you'll walk in circles forever."),
-        hint = "Tell them which way to go, from where they face: left, right, ahead, back. Your notebook is in pencil and fades: only the walls they mark stay. Something sleeps in here, and fear is loud.",
+    CAVE(
+        "The Cave",
+        "The Descent",
+        Role.SCOUT,
+        "It's a cave. Wet rock everywhere, so tight, and water dripping somewhere.",
+        "It hunts blind, by sound, and it sleeps right beside the way out. Get the Scout past it calm.",
+        listOf(
+            "We came down six. I'm the last. It can't see. It hears. If it's close, don't move. Don't breathe.",
+            DoomKind.PIT.lesson,
+            DoomKind.MOUTH.lesson,
+        ),
+        listOf("a climbing rope, cut clean", "a helmet, its lamp cracked and still on"),
+        listOf(
+            "#################",
+            "#S      #       #",
+            "####### ### ### #",
+            "#  3  #o 2# # # #",
+            "# # ##### # # # #",
+            "# #       # #   #",
+            "# # # ##### # # #",
+            "# #  P#     # # #",
+            "# ##### # ### # #",
+            "#>    # #  M# # #",
+            "# # # ##### # # #",
+            "#H  #o         E#",
+            "#################",
+        ),
+        // Long enough to get past the lair before it wakes, if they are quick and quiet.
+        midnight = 12,
     ),
-    SECOND(
-        "Night 2: the Coder",
-        Role.CODER, 7, 5, dooms = 2, hollow = true, shifts = false, battery = 80, midnight = 5, arrows = 2, oddities = 2, seed = 22,
-        notes = listOf("Something sleeps here until midnight. Then it hunts by sound. When you hear it, hide. Breathe slow. Don't talk."),
-        hint = "Something sleeps in this maze until midnight. When they hear it, tell them to hide, and keep them calm: fear is loud.",
+    WOODS(
+        "The Woods",
+        "The Blair Witch Project",
+        Role.PLANNER,
+        "It's woods. Trees so close together they're like walls, and the branches creak.",
+        "Every tree looks the same, and it's easy to walk in circles. Ask for marks, and remember them.",
+        listOf(
+            "We walked south all day and came back to the same log. Three times. Mark the trees.",
+            DoomKind.PIT.lesson,
+            DoomKind.MOUTH.lesson,
+        ),
+        listOf(
+            "little figures made of sticks, hanging from a branch",
+            "a pile of stones, stacked carefully",
+            "a man standing with his face to a tree, not moving",
+            "a tent, torn open from the inside",
+        ),
+        listOf(
+            "#################",
+            "# #    o#      E#",
+            "# # # # # # # ###",
+            "#o      #   #P  #",
+            "####### # ##### #",
+            "# #    S# #H  # #",
+            "# # ##### # # # #",
+            "#2  #o o      # #",
+            "# ### ### # # # #",
+            "# #    M#   #   #",
+            "# ### # # # # # #",
+            "#    3#         #",
+            "#################",
+        ),
     ),
-    THIRD(
-        "Night 3: the Planner",
-        Role.PLANNER, 8, 6, dooms = 3, hollow = true, shifts = true, battery = 90, midnight = 6, arrows = 2, oddities = 3, seed = 33,
-        notes = listOf("At midnight the walls move. Your marks don't."),
-        hint = "At midnight the walls move, and your notebook will lie. The marks on the walls stay true.",
+    CUBE(
+        "The Cube",
+        "Cube",
+        Role.CODER,
+        "It's a room. Square, metal, a hatch in every wall, and everything hums.",
+        "Every room looks the same, and strange things are everywhere. Only three of them kill. Listen.",
+        listOf(
+            "Every room looks like the last. Some kill. Look before you step in.",
+            DoomKind.MOUTH.lesson,
+            DoomKind.PIT.lesson,
+            DoomKind.MIRROR.lesson,
+        ),
+        listOf(
+            "numbers stamped on the frame of the hatch",
+            "a boot. Just one boot",
+            "a stain on the floor shaped like a person",
+            "a hatch that opens onto a wall",
+        ),
+        listOf(
+            "#################",
+            "# #          M#E#",
+            "# # ### ### # # #",
+            "#     #    >  #o#",
+            "##### # # # # # #",
+            "#  2#  H# # #   #",
+            "# # ##### # ### #",
+            "# #    3#P#   #R#",
+            "# ##### # # ### #",
+            "#o#   #o#     # #",
+            "# # # # # ### # #",
+            "#S    #  4  #  o#",
+            "#################",
+        ),
+        midnight = 9,
     ),
-    FOURTH(
-        "Night 4: the Critic",
-        Role.CRITIC, 9, 6, dooms = 3, hollow = true, shifts = true, battery = 100, midnight = 7, arrows = 2, oddities = 3, seed = 44,
-        notes = listOf("Don't trust the voice on the phone.", "This is my handwriting. I wrote these. When did I write these?"),
-        hint = "The Critic doesn't trust you. Orders won't do it: kindness and being right will.",
+    TAPE(
+        "The Tape",
+        "Ring",
+        Role.CRITIC,
+        "It's old stone, wet, round like the inside of a well. There's a TV on the floor, showing static.",
+        "The Critic doesn't trust you, and the notes agree. The short way is a trap. The chalk arrows can prove you right.",
+        listOf(
+            "Don't trust the voice on the phone.",
+            DoomKind.MOUTH.lesson,
+            DoomKind.PIT.lesson,
+            "Seven days, it said. It always calls back.",
+        ),
+        listOf("a videotape with no label", "a TV, unplugged, still showing static"),
+        listOf(
+            "#################",
+            "#E#   #4  #     #",
+            "# # # # # # ### #",
+            "#o# #  v#o 3  #2#",
+            "# # ### ##### # #",
+            "# # #  <    # # #",
+            "# ### # ### # # #",
+            "#  M v#  H# # # #",
+            "# ### # ### # # #",
+            "#     #       # #",
+            "# # ### ####### #",
+            "# #      P     S#",
+            "#################",
+        ),
     ),
-    ENDLESS(
-        "Endless calls",
-        null, 9, 6, dooms = 3, hollow = true, shifts = true, battery = 100, midnight = 7, arrows = 2, oddities = 3, seed = null,
-        notes = listOf("The way out is where the air turns cold. It hunts by sound. At midnight the walls move."),
-        hint = "A new maze every call, and anyone on the phone. Its number is its seed: share it.",
+    HEDGE(
+        "The Hedge",
+        "The Shining",
+        Role.PLANNER,
+        "I'm outside, in snow. Frozen hedges taller than me, and a huge hotel far away with every window dark.",
+        "The hedges move at midnight, and midnight comes early. Your notebook will lie. The cold won't.",
+        listOf(
+            "The hedges move when the clock strikes. Follow the cold, not your map.",
+            DoomKind.PIT.lesson,
+            DoomKind.MOUTH.lesson,
+        ),
+        listOf("footprints in the snow that stop in the middle of the path", "an axe, stuck deep in the hedge"),
+        listOf(
+            "#################",
+            "#     #    o   3#",
+            "# # # ### ##### #",
+            "#        2#     #",
+            "# ######### # ###",
+            "#S     H  #   # #",
+            "# # ### ### ### #",
+            "#o  # #P#   #  E#",
+            "### # # # # ### #",
+            "# #   #   #>  # #",
+            "# ### ##### # # #",
+            "#          M#   #",
+            "#################",
+        ),
+        midnight = 4,
+    ),
+    SHIP(
+        "The Ship",
+        "Alien",
+        Role.SCOUT,
+        "It's a corridor of metal. Pipes, steam, and a red alarm light turning somewhere.",
+        "It's awake from the first second. Keep them moving, and hide when it's close.",
+        listOf(
+            "It's awake. It's always awake. Keep moving. Hide in the dead ends.",
+            DoomKind.PIT.lesson,
+            DoomKind.MOUTH.lesson,
+        ),
+        listOf("a cat carrier, empty, its door open", "a hole melted through the floor, its edges still smoking"),
+        listOf(
+            "#################",
+            "#S  #   #    H o#",
+            "### # # # ##### #",
+            "#P  #2#v      # #",
+            "# # # # ##### # #",
+            "# #   #3      # #",
+            "# ####### ##### #",
+            "#  M  #      o  #",
+            "# ##### #########",
+            "# #   #   #   # #",
+            "# # # ### # # # #",
+            "#   #       #  E#",
+            "#################",
+        ),
+        awake = true,
     ),
     ;
 
-    val next: Plan? get() = entries.getOrNull(ordinal + 1)
+    /** The chances of a call and the walls of its midnight are the same on every try. */
+    val seed: Long get() = ordinal * 1009L + 7
 
-    fun maze(seed: Long = this.seed ?: 1): Maze = Maze.of(seed, width, height, dooms)
+    fun maze(): Maze = Maze.parse(seed, rows)
 
-    /** The maze after midnight: the same one when the night doesn't shift. */
-    fun shifted(maze: Maze): Maze = if (shifts) maze.shifted() else maze
-
-    /**
-     * The clues of [maze], the same for the same seed. The notes lie along a safe way out, in the
-     * first part of it, so their lessons come before the dooms; the arrows point along it from
-     * crossings; oddities sit where they can be mistaken for a doom.
-     */
-    fun haunt(maze: Maze): Haunt {
-        val random = Random(maze.seed * 7 + 3)
-        val deadly = maze.dooms.map { it.at }.toSet()
-        val path = mutableListOf(maze.start)
-        while (path.last() != maze.gate) path += path.last() + (maze.way(path.last(), maze.gate, deadly) ?: break).first
-        val lessons = maze.dooms.map { it.kind }.distinct().map { it.lesson }
-        val texts = notes.take(1) + lessons + notes.drop(1)
-        val early = path.dropLast(1).take((path.size * 2 / 3).coerceAtLeast(texts.size))
-        val notes = texts.mapIndexed { i, text -> early[i * early.size / texts.size] to text }.toMap()
-        val arrows =
-            path.zipWithNext().filter { (cell, _) -> cell !in notes && maze.exits(cell).size >= 3 }
-                .shuffled(random).take(this.arrows)
-                .associate { (cell, next) -> cell to Dir.entries.first { cell + it == next } }
-        val taken = notes.keys + arrows.keys + deadly + maze.start + maze.gate
-        val oddities =
-            maze.cells.filter { it !in taken && maze.exits(it).size == 2 }.shuffled(random).take(oddities)
-                .mapIndexed { i, cell -> cell to ODDITIES[(i + maze.seed.toInt()).mod(ODDITIES.size)] }.toMap()
-        // The Hollow sleeps near the middle, two steps or more from the safe way out.
-        val fromPath = path.map { maze.distances(it) }
-        val center = Pos(maze.width / 2, maze.height / 2)
-        val lair =
-            maze.cells.filter { cell -> cell !in taken && cell !in oddities && fromPath.all { (it[cell] ?: 99) >= 2 } }
-                .minByOrNull { kotlin.math.abs(it.x - center.x) + kotlin.math.abs(it.y - center.y) }
-        return Haunt(arrows, notes, oddities, lair)
-    }
+    fun haunt(): Haunt = Haunt.of(rows, notes, oddities)
 }
-
-/** Things in the maze that look as bad as a doom and do nothing. */
-private val ODDITIES =
-    listOf(
-        "a child's shoe, still wet",
-        "scratches on the wall, like someone counting, hundreds of them",
-        "a phone, face down, still warm",
-        "my own name, written in the dust",
-        "a dead lantern with a fingernail inside",
-        "a chair facing the wall",
-        "a music box, open, not playing",
-    )

@@ -5,39 +5,52 @@ import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 class MazeTest {
-    @Test
-    fun theSameSeedBuildsTheSameMaze() {
-        val a = Maze.of(42)
-        val b = Maze.of(42)
-        for (cell in a.cells) assertEquals(a.exits(cell), b.exits(cell))
-        assertEquals(a.dooms, b.dooms)
-    }
+    private val maze =
+        Maze.parse(
+            1,
+            listOf(
+                "#######",
+                "#S  #E#",
+                "# # # #",
+                "#P#H  #",
+                "#######",
+            ),
+        )
 
     @Test
-    fun everyCellIsReachableAndTheGateHasAWayWithoutDooms() {
-        for (seed in 1L..200L) {
-            val maze = Maze.of(seed)
-            assertEquals(maze.cells.size, maze.distances(maze.start).size, "seed $seed")
-            val dooms = maze.dooms.map { it.at }.toSet()
-            assertTrue(maze.gate in maze.distances(maze.start, dooms), "seed $seed")
-            assertTrue(maze.dooms.size >= 2, "seed $seed has ${maze.dooms.size} dooms")
-            assertTrue(maze.dooms.none { it.at == maze.start || it.at == maze.gate || it.at == maze.lair })
-        }
+    fun aDrawingIsReadCellByCell() {
+        assertEquals(3, maze.width)
+        assertEquals(2, maze.height)
+        assertEquals(Pos(0, 0), maze.start)
+        assertEquals(Pos(2, 0), maze.gate)
+        assertEquals(Pos(1, 1), maze.lair)
+        assertEquals(listOf(Doom(Pos(0, 1), DoomKind.PIT)), maze.dooms)
+        assertEquals(setOf(Dir.EAST, Dir.SOUTH), maze.exits(Pos(0, 0)).toSet())
+        assertTrue(!maze.canGo(Pos(1, 0), Dir.EAST), "a wall")
     }
 
     @Test
     fun passagesGoBothWays() {
-        val maze = Maze.of(7)
-        for (cell in maze.cells) {
-            for (dir in maze.exits(cell)) assertTrue(maze.canGo(cell + dir, dir.opposite))
+        for (call in Plan.entries) {
+            val maze = call.maze()
+            for (cell in maze.cells) {
+                for (dir in maze.exits(cell)) assertTrue(maze.canGo(cell + dir, dir.opposite))
+            }
         }
     }
 
     @Test
     fun aWayIsAShortestOne() {
-        val maze = Maze.of(3)
         val (dir, steps) = maze.way(maze.start, maze.gate)!!
         assertEquals(maze.distances(maze.start).getValue(maze.gate), steps)
         assertEquals(steps - 1, maze.distances(maze.start + dir).getValue(maze.gate))
+    }
+
+    @Test
+    fun theWallsMoveTheSameWayEachTime() {
+        val a = Plan.HEDGE.maze().shifted()
+        val b = Plan.HEDGE.maze().shifted()
+        for (cell in a.cells) assertEquals(a.exits(cell), b.exits(cell))
+        assertTrue(Plan.HEDGE.maze().cells.any { Plan.HEDGE.maze().exits(it) != a.exits(it) }, "some walls moved")
     }
 }

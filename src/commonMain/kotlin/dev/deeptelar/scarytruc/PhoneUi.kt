@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -73,14 +74,15 @@ fun Game(model: CallModel) {
         Row(Modifier.fillMaxSize().padding(16.dp), horizontalArrangement = Arrangement.spacedBy(20.dp)) {
             Phone(model, now, narrow = false, Modifier.width(440.dp).fillMaxHeight())
             Column(Modifier.weight(1f).fillMaxHeight(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Title(model)
+                Title(model)
+                if (model.ringing) {
+                    Calls(model, columns = 3)
+                    PixelText(model.plan.hint, size = SMALL, color = Ink.faint, maxLines = 3)
                     Spacer(Modifier.weight(1f))
-                    Nights(model)
+                } else {
+                    PixelText("${model.plan.title}, after ${model.plan.film}", color = Ink.orange)
+                    Notebook(model, Modifier.weight(1f).fillMaxWidth())
                 }
-                PixelText(model.plan.title + if (model.plan == Plan.ENDLESS) " · ${model.maze.seed}" else "", color = Ink.orange)
-                PixelText(model.plan.hint, size = SMALL, color = Ink.faint, maxLines = 3)
-                Notebook(model, Modifier.weight(1f).fillMaxWidth())
                 MindLine(model)
             }
         }
@@ -89,7 +91,7 @@ fun Game(model: CallModel) {
 
 @Composable
 private fun Title(model: CallModel) {
-    val other = model.call.afterMidnight && model.plan.hollow
+    val other = model.call.afterMidnight && !model.ringing
     PixelText(if (other && !model.call.over) "OTHERWORLD" else "SCARY TRUC", size = BIG, color = if (other) Ink.red else Ink.orange)
 }
 
@@ -137,13 +139,35 @@ private fun Settings(model: CallModel, done: () -> Unit) {
     }
 }
 
-/** The nights to choose from, with a tick on those someone got out of. */
+/** The calls to choose from, any of them, with the closest each came to the way out. */
 @Composable
-private fun Nights(model: CallModel) {
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-        for (plan in Plan.entries) {
-            val label = (if (plan == Plan.ENDLESS) "∞" else "${plan.ordinal + 1}") + if (plan in model.escaped) " ✓" else ""
-            PixelButton(label, if (plan == model.plan) Ink.orange else Ink.paperDark, onClick = { model.play(plan) }, enabled = model.open(plan) && !model.thinking, small = true)
+private fun Calls(model: CallModel, columns: Int) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        for (row in Plan.entries.chunked(columns)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                for (plan in row) {
+                    val chosen = plan == model.plan
+                    Column(
+                        Modifier.weight(1f).pixelBox(if (chosen) Ink.paperDark else Ink.paper, outline = if (chosen) Ink.orange else Ink.outline)
+                            .clickable(enabled = !model.thinking) { model.play(plan) }.padding(10.dp),
+                    ) {
+                        PixelText(plan.title, color = if (chosen) Ink.orange else Ink.text, maxLines = 1)
+                        PixelText("after ${plan.film}", size = SMALL, color = Ink.faint, maxLines = 1)
+                        val best = model.best[plan]
+                        PixelText(
+                            when (best) {
+                                null -> plan.role.title
+                                0 -> "${plan.role.title}: out"
+                                else -> "${plan.role.title}: $best from out"
+                            },
+                            size = SMALL,
+                            color = if (best == 0) Ink.green else plan.role.color,
+                            maxLines = 1,
+                        )
+                    }
+                }
+                repeat(columns - row.size) { Spacer(Modifier.weight(1f)) }
+            }
         }
     }
 }
@@ -180,7 +204,7 @@ private fun Phone(model: CallModel, now: Long, narrow: Boolean, modifier: Modifi
 @Composable
 private fun StatusBar(call: Call, danger: Float) {
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-        PixelText(clock(call), size = SMALL, color = if (call.afterMidnight && call.plan.hollow) Ink.blood else Ink.text)
+        PixelText(clock(call), size = SMALL, color = if (call.afterMidnight) Ink.blood else Ink.text)
         Spacer(Modifier.weight(1f))
         val bars = (4 - (danger * 4).toInt()).coerceIn(1, 4)
         Box(
@@ -206,9 +230,9 @@ private fun StatusBar(call: Call, danger: Float) {
     }
 }
 
-/** The time on the phone: midnight comes on the night's midnight turn, a minute a turn. */
+/** The time on the phone: midnight comes on the call's midnight turn, a minute a turn. */
 private fun clock(call: Call): String {
-    val minutes = (if (call.plan.hollow) 24 * 60 - call.plan.midnight else 23 * 60 + 20) + call.turn
+    val minutes = 24 * 60 - call.plan.midnight + call.turn
     return "${((minutes / 60) % 24).toString().padStart(2, '0')}:${(minutes % 60).toString().padStart(2, '0')}"
 }
 
@@ -221,8 +245,7 @@ private fun Ringing(model: CallModel, now: Long, narrow: Boolean, modifier: Modi
     ) {
         if (narrow) {
             Title(model)
-            Nights(model)
-            PixelText(model.plan.title + if (model.plan == Plan.ENDLESS) " · ${model.maze.seed}" else "", color = Ink.orange)
+            Calls(model, columns = 2)
             PixelText(model.plan.hint, size = SMALL, color = Ink.faint)
         }
         val shake = if ((now / 120) % 2 == 0L && (now / 1000) % 3 != 2L) 3.dp else 0.dp
@@ -341,11 +364,12 @@ private fun Ending(model: CallModel) {
                 else -> "Taken by ${call.death}" to Ink.red
             }
         PixelText(title, color = color)
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            PixelButton("Same call again", Ink.paperDark, onClick = model::again, small = true)
-            val next = model.plan.next
-            PixelButton(if (next == null || next == Plan.ENDLESS) "Another call" else "Next night", Ink.orange, onClick = { model.play(next ?: Plan.ENDLESS) }, small = true)
+        call.away?.takeIf { it > 0 }?.let { steps ->
+            PixelText("The ${call.role.title} was $steps step${if (steps == 1) "" else "s"} from the way out.", color = Ink.text)
         }
+        val best = model.best[call.plan]
+        if (best != null && call.end != End.OUT) PixelText(if (best == 0) "Once, you got them out." else "Your closest: $best.", size = SMALL, color = Ink.faint)
+        PixelButton("Hang up", Ink.orange, onClick = model::again, small = true)
     }
 }
 

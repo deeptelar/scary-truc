@@ -33,17 +33,17 @@ fun callGraph(mazeOf: (Call) -> Maze, haunt: Haunt, ears: Ears, voice: Voice, wh
         listen then walk then whisper then speak
     }.compile()
 
-/** One call of [plan] in the maze of [seed], a turn at a time: the caller speaks, the stranger answers. */
+/** One call of [plan], a turn at a time: the caller speaks, the stranger answers. [seed] sets its chances. */
 class CallRun(
     val plan: Plan,
-    seed: Long,
+    seed: Long = plan.seed,
     ears: Ears,
     voice: Voice,
     whisperer: Whisperer = Echoes,
 ) {
-    private val before: Maze = plan.maze(seed)
-    private val after: Maze = plan.shifted(before)
-    val haunt: Haunt = plan.haunt(before)
+    private val before: Maze = plan.maze()
+    private val after: Maze = before.shifted()
+    val haunt: Haunt = plan.haunt()
 
     /** The maze of [call]: after midnight, its walls may have moved. */
     fun mazeOf(call: Call): Maze = if (call.afterMidnight) after else before

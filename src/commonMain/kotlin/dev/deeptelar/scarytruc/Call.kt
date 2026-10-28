@@ -92,16 +92,37 @@ enum class End { OUT, TAKEN, DOOM, BATTERY }
 enum class Glimpse { STRANGE, LIGHT }
 
 /**
- * The clues of a night's maze, the same for the same seed: chalk [arrows] along a safe way out,
- * [notes] from someone who was here before, and harmless [oddities] that look as bad as a doom.
+ * The clues of a maze: chalk [arrows] along a safe way out, [notes] from someone who was here
+ * before, and harmless [oddities] that look as bad as a doom.
  */
-class Haunt(
-    val arrows: Map<Pos, Dir>,
-    val notes: Map<Pos, String>,
-    val oddities: Map<Pos, String>,
-    /** Where the Hollow sleeps: off the safe way out, so that only a noise wakes it before midnight. */
-    val lair: Pos? = null,
-)
+class Haunt(val arrows: Map<Pos, Dir>, val notes: Map<Pos, String>, val oddities: Map<Pos, String>) {
+    companion object {
+        /**
+         * The clues drawn in [rows], as [Maze.parse] reads them: the first of [notes] lies at `S`,
+         * the others at the digits 2 to 9; the `o`s are the [oddities], in reading order; `^`, `>`,
+         * `v` and `<` are chalk arrows.
+         */
+        fun of(rows: List<String>, notes: List<String>, oddities: List<String>): Haunt {
+            val cells = (0 until (rows.size - 1) / 2).flatMap { y -> (0 until (rows.first().length - 1) / 2).map { x -> Pos(x, y) } }
+            fun cell(pos: Pos): Char = rows[pos.y * 2 + 1][pos.x * 2 + 1]
+            val arrows = mapOf('^' to Dir.NORTH, '>' to Dir.EAST, 'v' to Dir.SOUTH, '<' to Dir.WEST)
+            val odd = cells.filter { cell(it) == 'o' }
+            require(odd.size == oddities.size) { "The maze has ${odd.size} oddities and ${oddities.size} texts." }
+            return Haunt(
+                arrows = cells.mapNotNull { pos -> arrows[cell(pos)]?.let { pos to it } }.toMap(),
+                notes =
+                    cells.mapNotNull { pos ->
+                        when (val c = cell(pos)) {
+                            'S' -> notes.firstOrNull()?.let { pos to it }
+                            in '2'..'9' -> pos to notes[c - '1']
+                            else -> null
+                        }
+                    }.toMap(),
+                oddities = odd.zip(oddities).toMap(),
+            )
+        }
+    }
+}
 
 /**
  * A call, the state of the Telar graph. A turn is the stranger saying something ([said]), the
@@ -146,6 +167,8 @@ data class Call(
     val death: String? = null,
     /** How many steps the caller walked this turn, for the sound of footsteps. */
     val walked: Int = 0,
+    /** Once the call is over: how many steps the caller was from the way out. */
+    val away: Int? = null,
 ) {
     val afterMidnight: Boolean get() = turn >= plan.midnight
     val over: Boolean get() = end != null
@@ -178,7 +201,7 @@ data class Call(
     companion object {
         fun begin(plan: Plan, maze: Maze, haunt: Haunt, seed: Long = maze.seed): Call {
             val start = maze.start
-            val role = plan.role ?: Role.entries[(seed % Role.entries.size).toInt()]
+            val role = plan.role
             val call =
                 Call(
                     plan = plan,
@@ -187,11 +210,12 @@ data class Call(
                     at = start,
                     facing = maze.exits(start).first(),
                     battery = plan.battery,
-                    hollow = if (plan.hollow) Hollow(haunt.lair ?: maze.lair) else null,
+                    hollow = Hollow(maze.lair, awake = plan.awake),
                 )
             val opening =
                 listOf(
-                    "I just woke up here, on a cold floor. I don't know how I got here.",
+                    "I just woke up here. I don't know how I got here.",
+                    plan.setting,
                     "It's dark. My phone is my only light, and you're the only one who picked up.",
                 )
             return call.look(maze, haunt, opening)
@@ -222,7 +246,8 @@ fun Call.walk(maze: Maze, haunt: Haunt): Call {
     var order = heard.order
     var bolted = false
     when {
-        panic >= BOLT && chance(1) < 0.6 -> {
+        // Kind words hold them for a turn; anything else, and they may run.
+        panic >= BOLT && heard.calm <= 0 && chance(1) < 0.6 -> {
             bolted = true
             order = Order.NONE
         }
@@ -253,7 +278,8 @@ fun Call.walk(maze: Maze, haunt: Haunt): Call {
         val steps = maze.distances(it.at)
         val distance = steps[at] ?: 99
         if (!it.awake) {
-            if (afterMidnight || distance <= 1 || (panic >= LOUD && distance <= 6)) {
+            // Calm enough, the caller can creep right past it.
+            if (afterMidnight || (distance <= 1 && panic >= QUIET) || (panic >= LOUD && distance <= 6)) {
                 hollow = it.copy(awake = true)
                 woke = true
                 facts += if (distance <= 3) "Something right next to me just woke up." else "Far away, something howled. Something woke up."
@@ -407,8 +433,8 @@ fun Call.walk(maze: Maze, haunt: Haunt): Call {
         next = next.copy(end = End.BATTERY, battery = 0)
         facts += "My battery is dying. The screen is going dark."
     }
-    if (next.over) return next.copy(facts = facts)
-    if (next.turn == plan.midnight && plan.hollow) facts += "A bell is ringing somewhere, twelve times. Midnight. The walls are grinding, like they're moving."
+    if (next.over) return next.copy(facts = facts, away = if (end == End.OUT) 0 else maze.distances(at)[maze.gate])
+    if (next.turn == plan.midnight) facts += "A bell is ringing somewhere, twelve times. Midnight. The walls are grinding, like they're moving."
     if (heard.order == Order.NONE && heard.calm >= 1 && hollow?.awake != true && !bolted) next = next.copy(panic = (next.panic - 4).coerceAtLeast(0))
     return next.look(maze, haunt, facts)
 }
@@ -537,6 +563,9 @@ const val DOUBT: Int = 20
 
 /** Hiding works only while the caller is calmer than this: fear is loud. */
 const val CALM_ENOUGH: Int = 60
+
+/** Calmer than this, the caller can creep past the sleeping Hollow. */
+const val QUIET: Int = 40
 
 /** Fear this loud wakes the Hollow from afar. */
 const val LOUD: Int = 70

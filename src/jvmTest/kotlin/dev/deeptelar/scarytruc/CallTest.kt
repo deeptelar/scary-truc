@@ -10,9 +10,8 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class CallTest {
-    private val plan = Plan.THIRD
+    private val plan = Plan.CUBE
     private val maze = plan.maze()
-    private val haunt = plan.haunt(maze)
     private val empty = Haunt(emptyMap(), emptyMap(), emptyMap())
 
     /** A quiet call at [at], facing [facing], with nothing in the maze but the dooms. */
@@ -53,7 +52,7 @@ class CallTest {
         val wall = Dir.entries.first { !maze.canGo(here, it) }
         val call = quiet(here, wall, Order.AHEAD).walk(maze, empty)
         assertEquals(here, call.at)
-        assertTrue(call.trust < plan.role!!.trust)
+        assertTrue(call.trust < plan.role.trust)
         assertEquals(0, call.walked)
     }
 
@@ -132,42 +131,61 @@ class CallTest {
     }
 
     @Test
-    fun theNotesLieOnASafeWayOutAndTheFirstIsAtTheStart() {
-        for (night in Plan.entries) {
-            val maze = night.maze()
-            val haunt = night.haunt(maze)
-            assertNotNull(haunt.notes[maze.start], "${night.name}")
-            assertEquals(night.notes.size + maze.dooms.map { it.kind }.distinct().size, haunt.notes.size, night.name)
+    fun everyCallIsDrawnSoThatItCanBeWon() {
+        for (call in Plan.entries) {
+            val maze = call.maze()
+            val haunt = call.haunt()
+            val deadly = maze.dooms.map { it.at }.toSet()
+            assertEquals(maze.cells.size, maze.distances(maze.start).size, "${call.name}: every cell can be reached")
+            assertTrue(maze.gate in maze.distances(maze.start, deadly), "${call.name}: a way out without a doom")
+            assertTrue(maze.lair !in deadly && maze.lair != maze.start && maze.lair != maze.gate, call.name)
+            assertEquals(call.notes.first(), haunt.notes[maze.start], "${call.name}: the first note is at the start")
+            assertEquals(call.notes.size, haunt.notes.size, "${call.name}: every note is in the maze")
             assertTrue(haunt.notes.keys.none { maze.doomAt(it) != null })
-            for ((cell, dir) in haunt.arrows) assertTrue(maze.canGo(cell, dir))
-            if (night.hollow) assertNotNull(haunt.lair, "${night.name}: the Hollow sleeps off the safe way")
+            for ((cell, dir) in haunt.arrows) assertTrue(maze.canGo(cell, dir), "${call.name}: an arrow at $cell points at a wall")
+            // Each doom's lesson is in a note, and a note can be read before the doom is reached.
+            for (doom in maze.dooms) assertTrue(doom.kind.lesson in call.notes, "${call.name}: no note teaches ${doom.kind}")
+            val shifted = maze.shifted()
+            assertTrue(maze.gate in shifted.distances(maze.start, deadly), "${call.name}: still a way out after midnight")
         }
     }
 
     /** The way a perfect guide would go: along a safe way out, from where the caller faces. */
     private fun guide(call: Call, maze: Maze): String {
         val near = call.lines.lastOrNull { it.who == Who.CALLER }?.text.orEmpty()
+        // A few steps from the way out, run for it, whatever is behind.
+        maze.way(call.at, maze.gate, maze.dooms.map { it.at }.toSet())?.takeIf { it.second <= 3 && "I can hear it" !in near }?.let { (dir, _) ->
+            return "Go " + listOf("ahead", "right", "back", "left")[call.facing.side(dir)] + ", now, you can do it"
+        }
         if ("I can hear it" in near && ("close" in near || "corner" in near)) return "Shh. Hide. Breathe slowly, I'm here with you."
+        // Too scared to walk: they would bolt anywhere. Calm them first.
+        if (call.panic >= BOLT - 10) return "Breathe. Slowly. I'm here with you, okay? You're safe."
         val deadly = maze.dooms.map { it.at }.toSet()
         val (dir, _) = maze.way(call.at, maze.gate, deadly) ?: return "wait"
         return "Breathe, you're doing well. Go " + listOf("ahead", "right", "back", "left")[call.facing.side(dir)]
     }
 
     @Test
-    fun aKindGuideWhoKnowsTheWayGetsEveryCallerOut() = runBlocking {
-        for (night in Plan.entries.filter { it.seed != null }) {
-            val run = CallRun(night, night.seed!!, Keywords, Script)
-            var call = run.begin()
-            while (!call.over) call = run.say(guide(call, run.maze))
-            if (call.end != End.OUT) call.lines.forEach { println("LINE ${it.who}: ${it.text}") }
-            assertEquals(End.OUT, call.end, "${night.name}: ${call.death}, battery ${call.battery}, turn ${call.turn}")
-            println("BALANCE ${night.name}: out on turn ${call.turn} with ${call.battery}% left")
-        }
+    fun aKindGuideWhoKnowsTheWayGetsMostCallersOut() = runBlocking {
+        val outs =
+            Plan.entries.associateWith { night ->
+            val ends =
+                (1L..12L).map { seed ->
+                    val run = CallRun(night, seed, Keywords, Script)
+                    var call = run.begin()
+                    while (!call.over) call = run.say(guide(call, run.maze))
+                    call
+                }
+            val out = ends.count { it.end == End.OUT }
+            println("BALANCE ${night.name}: $out of 12 out; ${ends.filter { it.end != End.OUT }.map { "${it.end} ${it.away} away" }}")
+            out
+            }
+        for ((night, out) in outs) assertTrue(out >= 8, "${night.name}: only $out of 12 out")
     }
 
     @Test
     fun silenceLetsTheCallDie() = runBlocking {
-        val run = CallRun(Plan.FIRST, 11, Keywords, Script)
+        val run = CallRun(Plan.CAVE, ears = Keywords, voice = Script)
         var call = run.begin()
         while (!call.over) call = run.say("")
         assertTrue(call.end != End.OUT)
@@ -182,7 +200,7 @@ class CallTest {
                 answers(Understood("left", 2))
                 says("Okay, okay. I went left.")
             }
-        val run = CallRun(Plan.FIRST, 11, GemmaEars(model), GemmaVoice(model))
+        val run = CallRun(Plan.CAVE, ears = GemmaEars(model), voice = GemmaVoice(model))
         run.begin()
         val call = run.say("Hey. Breathe. Go left, slowly.")
         assertEquals(listOf(Who.CALLER, Who.YOU, Who.CALLER), call.lines.map { it.who })

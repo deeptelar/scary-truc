@@ -13,15 +13,15 @@ import kotlin.test.Test
 /**
  * Pictures of the window drawn off screen, for the README and the post: the phone ringing, then the
  * call after each of the given turns, guided by [Balance]'s explorer. It draws nothing unless
- * asked: ./gradlew test --tests '*Screenshots*' -Pshots=DIR [-Pnight=2] [-Pseed=7] [-Pturns=0,4,9]
+ * asked: ./gradlew jvmTest --tests '*Screenshots*' -Pshots=DIR [-Pnight=cave] [-Pseed=7] [-Pturns=0,4,9]
  */
 class Screenshots {
     @Test
     fun shots() = runBlocking {
         Sound.on = false
         val out = File(System.getProperty("shots") ?: return@runBlocking)
-        val plan = Plan.entries[(System.getProperty("night") ?: "2").toInt() - 1]
-        val seed = System.getProperty("seed")?.toLong()
+        val plan = Plan.valueOf((System.getProperty("night") ?: "cave").uppercase())
+        val seed = System.getProperty("seed")?.toLong() ?: 1
         val turns = (System.getProperty("turns") ?: "0,4,9").split(",").map { it.toInt() }
         val model = CallModel(CoroutineScope(Dispatchers.Default), Minds.none, plan = plan, seed = seed, clock = false)
         // The window on a desktop, and the page on a phone 390 wide, at its density.

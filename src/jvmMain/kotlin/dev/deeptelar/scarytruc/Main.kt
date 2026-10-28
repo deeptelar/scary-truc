@@ -32,14 +32,13 @@ import kotlin.time.Duration.Companion.seconds
 val modelName: String = System.getenv("SCARY_TRUC_MODEL") ?: "gemma4:12b"
 
 /**
- * `scary-truc [--night 1-5] [--seed N] [--no-gemma] [--mute]`: the phone rings. With Ollama running
+ * `scary-truc [--call cave|woods|cube|tape|hedge|ship] [--no-gemma] [--mute]`: the phone rings. With Ollama running
  * and the model pulled, Gemma plays the caller; otherwise, or with `--no-gemma`, the caller knows
- * a few words and says what they see as it is. The nights someone got out of are kept in
+ * a few words and says what they see as it is. The closest each call came to the way out is kept in
  * `~/.scary-truc/progress`.
  */
 fun main(args: Array<String>) {
-    val seed = args.valueOf("--seed")?.toLongOrNull()
-    val plan = args.valueOf("--night")?.toIntOrNull()?.let { Plan.entries.getOrNull(it - 1) } ?: if (seed != null) Plan.ENDLESS else Plan.FIRST
+    val plan = args.valueOf("--call")?.let { name -> Plan.entries.firstOrNull { it.name.equals(name, ignoreCase = true) } } ?: Plan.CAVE
     val client = HttpClient(CIO)
     val ollama = ollamaUrl(System.getenv("OLLAMA_HOST"))
     val off = "--no-gemma" in args || "--instinct" in args
@@ -61,7 +60,7 @@ fun main(args: Array<String>) {
     Sound.on = "--mute" !in args
     Sound.start(scope)
     val home = Path.of(System.getProperty("user.home"), ".scary-truc")
-    val game = CallModel(scope, if (gemma) Minds.of(model, modelName) else Minds.none, plan, seed, FileStore(home))
+    val game = CallModel(scope, if (gemma) Minds.of(model, modelName) else Minds.none, plan, store = FileStore(home))
     application {
         val state = rememberWindowState(size = DpSize(1240.dp, 800.dp))
         Window(
@@ -76,7 +75,7 @@ fun main(args: Array<String>) {
                         true
                     }
                     game.call.over && !game.thinking && event.key == Key.Enter -> {
-                        game.play(game.plan.next ?: Plan.ENDLESS)
+                        game.again()
                         true
                     }
                     event.key == Key.M && event.isCtrlPressed -> {

@@ -5,13 +5,17 @@ there, and you are the only one who picked up. You can't see the maze. You only 
 they see, what they find on the walls, and the slow, wet footsteps of the Hollow, which hunts by
 sound. Tell them where to go, and keep them calm: fear is loud.
 
+Six calls, any of them, each a maze drawn by hand after a horror film (The Descent, The Blair
+Witch Project, Cube, Ring, The Shining, Alien), and each won its own way. When the line goes dead,
+you learn how many steps they were from the way out.
+
 **Play it: <https://deeptelar.github.io/scary-truc/>**, on a phone too. Without a model the caller
 knows only a few words (left, right, ahead, back, stay, hide, mark). Add a model under **Model
 settings**: Gemma 4 on [OpenRouter](https://openrouter.ai) with your own key, or your
 [Ollama](https://ollama.com). The key stays in your browser and goes from it straight to the
 server. A friend's proxy works too: its address, and your token as the key.
 
-On the desktop: `./gradlew run` (with Ollama running and `gemma4:12b` pulled, Gemma plays the
+On the desktop: `./gradlew run`, or `./gradlew run --args='--call ship'` (with Ollama running and `gemma4:12b` pulled, Gemma plays the
 caller; `--no-gemma` without it).
 
 ## How it works
