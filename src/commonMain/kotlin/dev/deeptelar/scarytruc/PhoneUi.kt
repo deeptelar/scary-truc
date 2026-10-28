@@ -80,7 +80,12 @@ fun Game(model: CallModel) {
                 PixelText(if (other) "OTHERWORLD" else "SCARY TRUC", size = BIG, color = if (other) Ink.red else Ink.orange)
                 PixelText("${model.plan.title}, after ${model.plan.film}", color = Ink.orange)
                 PixelText(model.plan.hint, size = SMALL, color = Ink.faint, maxLines = 3)
-                Notebook(model, Modifier.weight(1f).fillMaxWidth())
+                // The notebook is a second screen of the same kind, beside the phone.
+                val call = model.call
+                val lcd = Lcd.of(call, model.ringing, if (model.ringing || call.over) 0f else danger(call, model.maze), now)
+                Box(Modifier.weight(1f).fillMaxWidth().pixelBox(Lcd.BODY, outline = Lcd.BODY_EDGE).padding(14.dp)) {
+                    Notebook(model, lcd, Modifier.fillMaxSize().pixelBox(lcd.paper, outline = Ink.outline, raised = false).padding(12.dp))
+                }
                 PixelText(mind(model), size = SMALL, color = if (model.gemma && model.trouble == null) Ink.faint else Ink.candle, maxLines = 3)
                 model.failure?.let { PixelText(it, size = SMALL, color = Ink.red, maxLines = 2) }
             }
@@ -157,7 +162,7 @@ private fun Phone(model: CallModel, now: Long, narrow: Boolean, modifier: Modifi
                     CallerBar(model, now, lcd)
                     val speaking = now - model.spokeAt < model.speaking()
                     if (narrow && notebook) {
-                        Notebook(model, Modifier.weight(1f).fillMaxWidth())
+                        Notebook(model, lcd, Modifier.weight(1f).fillMaxWidth())
                     } else {
                         Transcript(model, now, danger, lcd, Modifier.weight(1f).fillMaxWidth())
                     }
@@ -474,42 +479,33 @@ private fun Ending(model: CallModel, lcd: Lcd) {
     Softkeys(lcd, null, "OK" to model::again, null)
 }
 
-/** Paper, pencil and the red of a mark. */
-private object Pencil {
-    val paper = Color(0xFFD9CDB0)
-    val cell = Color(0xFFCBBD9C)
-    val lead = Color(0xFF3E372F)
-    val faint = Color(0xFF9C8F76)
-    val red = Color(0xFFA8322A)
-    val chalk = Color(0xFF4B6C8F)
-    val light = Color(0xFFD9A21E)
-}
-
 /**
  * The player's notebook: what the caller told them, drawn by itself, with the way the caller faced
  * when they woke up at the top. It keeps what was true when the caller stood there: after midnight
  * it can lie. While the caller is lost, nothing is drawn and the caller isn't on it.
  */
 @Composable
-private fun Notebook(model: CallModel, modifier: Modifier) {
+private fun Notebook(model: CallModel, lcd: Lcd, modifier: Modifier) {
     val call = model.call
     val haunt = model.haunt
     val measurer = rememberTextMeasurer()
     val font = PixelFont
-    Column(modifier.pixelBox(Pencil.paper).padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Header("Notebook", lcd)
         Box(
             Modifier.weight(1f).fillMaxWidth().drawBehind {
                 if (model.ringing) return@drawBehind
-                drawNotebook(call, haunt, measurer, font)
+                drawNotebook(call, haunt, measurer, font, lcd)
             },
         )
         val notes = if (model.ringing) emptyList() else haunt.notes.filterKeys { it in call.mapped }.values
-        for (note in notes.toList().takeLast(3)) PixelText("“$note”", size = SMALL, color = Pencil.lead, maxLines = 2)
-        if (call.lostTrack && !call.over) PixelText("They ran. They don't know where they are: find a mark or a note you know.", size = SMALL, color = Pencil.red, maxLines = 2)
+        for (note in notes.toList().takeLast(3)) PixelText("\"$note\"", size = SMALL, color = lcd.ink, maxLines = 2)
+        if (call.lostTrack && !call.over) PixelText("They ran. They don't know where they are: find a mark or a note you know.", Modifier.background(lcd.ink).padding(6.dp), size = SMALL, color = lcd.paper, maxLines = 3)
     }
 }
 
-private fun DrawScope.drawNotebook(call: Call, haunt: Haunt, measurer: TextMeasurer, font: FontFamily) {
+private fun DrawScope.drawNotebook(call: Call, haunt: Haunt, measurer: TextMeasurer, font: FontFamily, lcd: Lcd) {
+    val shade = lerp(lcd.paper, lcd.ink, 0.14f)
     val cells = call.mapped.keys + call.glimpsed.keys + call.origin
     val page = cells.associateWith { call.onPage(it) }
     val minX = page.values.minOf { it.first } - 1
@@ -527,43 +523,45 @@ private fun DrawScope.drawNotebook(call: Call, haunt: Haunt, measurer: TextMeasu
     }
     val line = maxOf(2.dp.toPx(), cell / 18)
 
-    // Pencil fades: a cell is as dark as it is fresh, and gone after a few turns, unless marked.
+    // The drawing fades: a cell is as dark as it is fresh, and gone after a few turns, unless marked.
     for ((pos, exits) in call.mapped) {
         val ink = call.ink(pos)
         if (ink <= 0f) continue
         val at = corner(pos)
-        drawRect(Pencil.cell, at + Offset(line, line), Size(cell - 2 * line, cell - 2 * line), alpha = ink)
+        drawRect(shade, at + Offset(line, line), Size(cell - 2 * line, cell - 2 * line), alpha = ink)
         for (dir in Dir.entries) {
             if (dir in exits) continue
             when (call.onPage(dir)) {
-                Dir.NORTH -> drawRect(Pencil.lead, at, Size(cell, line), alpha = ink)
-                Dir.SOUTH -> drawRect(Pencil.lead, at + Offset(0f, cell - line), Size(cell, line), alpha = ink)
-                Dir.WEST -> drawRect(Pencil.lead, at, Size(line, cell), alpha = ink)
-                Dir.EAST -> drawRect(Pencil.lead, at + Offset(cell - line, 0f), Size(line, cell), alpha = ink)
+                Dir.NORTH -> drawRect(lcd.ink, at, Size(cell, line), alpha = ink)
+                Dir.SOUTH -> drawRect(lcd.ink, at + Offset(0f, cell - line), Size(cell, line), alpha = ink)
+                Dir.WEST -> drawRect(lcd.ink, at, Size(line, cell), alpha = ink)
+                Dir.EAST -> drawRect(lcd.ink, at + Offset(cell - line, 0f), Size(line, cell), alpha = ink)
             }
         }
-        haunt.arrows[pos]?.let { arrow(center(pos), call.onPage(it), cell, Pencil.chalk.copy(alpha = ink)) }
-        if (pos in haunt.notes) drawRect(Pencil.faint, center(pos) + Offset(-cell / 6, cell / 8), Size(cell / 3, cell / 5), alpha = ink)
+        haunt.arrows[pos]?.let { arrow(center(pos), call.onPage(it), cell, lcd.ink.copy(alpha = ink)) }
+        if (pos in haunt.notes) drawRect(lcd.faint, center(pos) + Offset(-cell / 6, cell / 8), Size(cell / 3, cell / 5), alpha = ink)
     }
-    write("×", center(call.origin) + Offset(-cell / 4, -cell / 4), Pencil.lead, (cell / 4).toSp())
+    write("x", center(call.origin) + Offset(-cell / 4, -cell / 4), lcd.ink, (cell / 4).toSp())
     // Only the light of the way out is noted; what is dangerous, the player has to remember.
     for ((pos, glimpse) in call.glimpsed) {
         if (glimpse != Glimpse.LIGHT) continue
-        drawRect(Pencil.light, center(pos) - Offset(cell / 5, cell / 4), Size(cell * 2 / 5, cell / 2))
-        write("light", center(pos) + Offset(0f, cell / 2.6f), Pencil.lead, (cell / 6).toSp())
+        drawRect(lcd.ink, center(pos) - Offset(cell / 5, cell / 4), Size(cell * 2 / 5, cell / 2))
+        write("light", center(pos) + Offset(0f, cell / 2.6f), lcd.ink, (cell / 6).toSp())
     }
     for (mark in call.marks) {
         if (mark.at !in call.mapped) continue
         val at = center(mark.at) + Offset(cell / 4, cell / 4)
-        drawCircle(Pencil.red, cell / 7, at, style = androidx.compose.ui.graphics.drawscope.Stroke(line))
-        write("${mark.number}", at, Pencil.red, (cell / 6).toSp())
+        // A mark in reverse: it lasts, where everything else fades.
+        drawCircle(lcd.ink, cell / 7, at)
+        write("${mark.number}", at, lcd.paper, (cell / 6).toSp())
     }
     if (!call.lostTrack && call.at in page) {
         val at = center(call.at)
-        drawCircle(call.role.color, cell / 6, at)
+        drawCircle(lcd.paper, cell / 6, at)
+        drawCircle(lcd.ink, cell / 6, at, style = androidx.compose.ui.graphics.drawscope.Stroke(line / 2))
+        drawCircle(lcd.ink, cell / 14, at)
         val dir = call.onPage(call.facing)
-        drawCircle(Pencil.lead, cell / 6, at, style = androidx.compose.ui.graphics.drawscope.Stroke(line / 2))
-        drawRect(Pencil.lead, at + Offset(dir.dx * cell / 4f, dir.dy * cell / 4f) - Offset(line, line), Size(line * 2, line * 2))
+        drawRect(lcd.ink, at + Offset(dir.dx * cell / 4f, dir.dy * cell / 4f) - Offset(line, line), Size(line * 2, line * 2))
     }
 }
 
