@@ -13,7 +13,7 @@ import kotlin.test.Test
 /**
  * Pictures of the window drawn off screen, for the README and the post: the phone ringing, then the
  * call after each of the given turns, guided by [Balance]'s explorer. It draws nothing unless
- * asked: ./gradlew jvmTest --tests '*Screenshots*' -Pshots=DIR [-Pnight=cave] [-Pseed=7] [-Pturns=0,4,9]
+ * asked: ./gradlew jvmTest --tests '*Screenshots*' -Pshots=DIR [-Pnight=cave] [-Pseed=7] [-Pturns=0,4,9] [-Pguide]
  */
 class Screenshots {
     @Test
@@ -34,6 +34,16 @@ class Screenshots {
             }
         }
         shoot("ringing")
+        // The pages of how to save them, as a phone shows them, in both frames of their pictures.
+        if (System.getProperty("guide") != null) {
+            for (page in 0 until 7) {
+                for (frame in 0..1) {
+                    val scene = ImageComposeScene(1170, 2532, Density(3f)) { GuidePage(page, frame * 700L) }
+                    File(out, "guide-${page + 1}-$frame.png").writeBytes(scene.render(0L).encodeToData(EncodedImageFormat.PNG)!!.bytes)
+                    scene.close()
+                }
+            }
+        }
         model.answer()
         while (model.thinking) delay(10)
         val explorer = Balance()

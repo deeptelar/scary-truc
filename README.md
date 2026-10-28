@@ -13,8 +13,8 @@ Off the safe way, in side corridors and dead ends, lie things worth the detour: 
 it, then to use it. A phone battery buys time, a flare sends the Hollow running, and a stone thrown
 down a corridor draws it to the noise.
 
-New here? On the phone, **Menu > How to save them**: the rules, in a letter from whoever built the
-mazes.
+New here? The phone opens on **How to save them**: seven pages, each a moving picture, a line from
+whoever built the mazes and what you could type. It is under **Menu** later.
 
 **Play it: <https://deeptelar.github.io/scary-truc/>**, on a phone too. Without a model the caller
 knows only a few words (left, right, ahead, back, stay, hide, mark). Add a model under **Menu >

@@ -72,5 +72,5 @@ compose.desktop {
 
 // Off-screen pictures of the window, for the README: ./gradlew jvmTest --tests '*Screenshots*' -Pshots=DIR
 tasks.named<Test>("jvmTest") {
-    listOf("shots", "seed", "turns", "night", "balance", "show").forEach { name -> providers.gradleProperty(name).orNull?.let { systemProperty(name, it) } }
+    listOf("shots", "seed", "turns", "night", "balance", "show", "guide").forEach { name -> providers.gradleProperty(name).orNull?.let { systemProperty(name, it) } }
 }

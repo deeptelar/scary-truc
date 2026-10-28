@@ -143,7 +143,8 @@ private fun Phone(model: CallModel, now: Long, narrow: Boolean, modifier: Modifi
     val danger = if (model.ringing || call.over) 0f else danger(call, model.maze)
     val lcd = Lcd.of(call, model.ringing, danger, now)
     var notebook by remember { mutableStateOf(false) }
-    var screen by remember { mutableStateOf(Screen.CALLS) }
+    // Until a first call ends, the phone opens on how to save them.
+    var screen by remember { mutableStateOf(if (model.best.isEmpty()) Screen.HELP else Screen.CALLS) }
     Column(
         modifier.pixelBox(Lcd.BODY, outline = Lcd.BODY_EDGE).padding(horizontal = if (narrow) 6.dp else 22.dp, vertical = if (narrow) 6.dp else 18.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -157,7 +158,7 @@ private fun Phone(model: CallModel, now: Long, narrow: Boolean, modifier: Modifi
             StatusBar(call, danger, lcd)
             when {
                 model.ringing && screen == Screen.MENU -> Menu(lcd, { screen = it })
-                model.ringing && screen == Screen.HELP -> Help(lcd) { screen = Screen.MENU }
+                model.ringing && screen == Screen.HELP -> Help(lcd, now, { screen = Screen.CALLS }, { screen = Screen.CALLS; model.answer() })
                 model.ringing && screen == Screen.MODEL -> Options(model, lcd) { screen = Screen.MENU }
                 model.ringing -> Calls(model, now, lcd, Modifier.weight(1f)) { screen = Screen.MENU }
                 else -> {
@@ -345,31 +346,198 @@ private fun ColumnScope.Menu(lcd: Lcd, go: (Screen) -> Unit) {
     Softkeys(lcd, "Back" to { go(Screen.CALLS) }, null, null)
 }
 
-/** How to save them, in the words of whoever built the mazes: the rules of the game, read as a threat. */
-private val LETTER =
+/**
+ * A page of how to save them: a picture, one line in the words of whoever built the mazes, and
+ * what you could type. In [picture], `#` is ink, `+` half ink and `-` a hole in the ink; `a` is on in the first frame, `b`
+ * in the second, and `m` fades from ink to half ink, so that the picture moves.
+ */
+private class Lesson(val line: String, val example: String?, val picture: List<String>)
+
+/** How to save them: the rules of the game, read as a threat, a page at a time. */
+private val LESSONS =
     listOf(
-        "I built these places. I fill them, one at a time, and sometimes one of them finds a phone. You may try to take them back from me. Here is how. Not that it matters.",
-        "They see. You don't. Tell them where to go from where they face: ahead, left, right, back. They will tell you the ways they see.",
-        "Your notebook remembers for a while, then it forgets. Tell them to scratch a mark on my walls. Marks stay.",
-        "The ones before them left notes. Read them. They learned what my doors and my floors do. They learned too late.",
-        "The way out is cold. I never could seal the draft.",
-        "Something of mine sleeps in every maze. It is blind. It hears. Fear is loud, so keep them calm, and when it comes, tell them to hide and be still.",
-        "Kind words hold them together. Silence frightens them, and if you leave them alone too long, they will choose for themselves. They choose badly.",
-        "I leave things in my corners. A battery buys time. A flare makes my pet run. A stone, thrown, makes it follow the noise. Tell them to take it. Tell them to use it.",
-        "At midnight I move the walls. Your notebook will lie to you then. My cold won't.",
-        "Go on. Answer. They are waiting.",
+        // They face you, eyes and all, and turn to their left: your right.
+        Lesson(
+            "They see. You don't. Say where to go from where THEY face: facing you, their left is your right.",
+            "go left",
+            listOf(
+                "++++++++.....++++++++",
+                "++++++++.....++++++++",
+                "++++++++.....++++++++",
+                "++++++++.....++++++++",
+                ".........###.........",
+                "........#####.....b..",
+                "........#-#-#.bbbbbb.",
+                "........#####.....b..",
+                ".........###.........",
+                "++++++++.....++++++++",
+                "++++++++.....++++++++",
+                "++++++++.....++++++++",
+                "++++++++.....++++++++",
+            ),
+        ),
+        // Their steps fade from the notebook; the scratch on the wall stays.
+        Lesson(
+            "Your notebook forgets. A mark scratched on my walls does not.",
+            "scratch a mark",
+            listOf(
+                "................+++++",
+                "................+++++",
+                "................+++++",
+                "................+++++",
+                ".............mm.#+++#",
+                "...........mm...+#+#+",
+                "................++#++",
+                ".........mm.....+#+#+",
+                "......mm........#+++#",
+                "................+++++",
+                "....mm..........+++++",
+                ".mm.............+++++",
+                "................+++++",
+            ),
+        ),
+        Lesson(
+            "The ones before them left notes. They learned what kills. Too late.",
+            "what does it say?",
+            listOf(
+                "....###########......",
+                "....#.........##.....",
+                "....#.+++.++++.##....",
+                "....#...........#....",
+                "....#.++++.++.+.#....",
+                "....#...........#....",
+                "....#.++.+++++..#....",
+                "....#...........#....",
+                "....#.+++++.+++.#....",
+                "....#...........#....",
+                "....#.+++.......#....",
+                "....#############....",
+                ".....................",
+            ),
+        ),
+        // The caller's fear carries to the Hollow, which has no eyes.
+        Lesson(
+            "My pet is blind. It hears fear. Keep them calm, and when it's close, make them hide.",
+            "hide. stay still. I'm here.",
+            listOf(
+                ".....................",
+                "..###................",
+                ".#####...............",
+                ".#####...............",
+                "..###................",
+                ".#####...............",
+                "#######..............",
+                "#.###.#..............",
+                "#.###.#....b...a..#..",
+                "..###.....b...a..###.",
+                "..#.#.....b...a..###.",
+                "..#.#.....b...a.##.##",
+                ".##.##.....b...a.....",
+            ),
+        ),
+        Lesson(
+            "I leave things in corners. A battery buys time. A flare scares it. A stone, thrown, lures it.",
+            "grab it",
+            listOf(
+                ".....................",
+                ".........bab.........",
+                ".........a#a.........",
+                "..........#..........",
+                "...###....#..........",
+                "..#####...#..........",
+                "..#...#...#..........",
+                "..#...#...#....###...",
+                "..#####...#...#####..",
+                "..#####...#...#####..",
+                "..#####...#...#####..",
+                "..#####...#....###...",
+                ".....................",
+            ),
+        ),
+        // The bar under what you type empties while they wait for you.
+        Lesson(
+            "Don't leave them in silence. Wait too long and they choose for themselves. They choose badly.",
+            null,
+            listOf(
+                "...#############.....",
+                "...#...........#.....",
+                "...#....###....#.....",
+                "...#...#...#...#.....",
+                "...#......#....#.....",
+                "...#.....#.....#.....",
+                "...#...........#.....",
+                "...#.....#.....#.....",
+                "...#############.....",
+                "....##...............",
+                "....#................",
+                ".....................",
+                "##########aaaaaaaaaaa",
+            ),
+        ),
+        // Cold air blows out of the way out.
+        Lesson(
+            "At midnight I move the walls, and your notebook lies. The way out is cold. My cold never lies.",
+            "where is it colder?",
+            listOf(
+                "...............######",
+                "...............#....#",
+                "...............#....#",
+                "..aaa.bbb..aaa.#....#",
+                "...............#....#",
+                ".bbb..aaa..bbb.#....#",
+                "...............#....#",
+                "..aaa.bbb..aaa.#....#",
+                "...............#....#",
+                ".bbb..aaa..bbb.#....#",
+                "...............#....#",
+                "...............#....#",
+                "+++++++++++++++######",
+            ),
+        ),
     )
 
+/** A lesson's picture in its [frame], 0 or 1. */
+private fun Lesson.sprite(frame: Int, lcd: Lcd): Sprite {
+    val colors = mutableMapOf('#' to lcd.ink, '+' to lcd.faint, '-' to lcd.paper, 'm' to if (frame == 0) lcd.ink else lcd.faint)
+    colors[if (frame == 0) 'a' else 'b'] = lcd.ink
+    return Sprite(picture, colors)
+}
+
+/** How to save them, a page at a time: tap the picture or Next. The last page answers the call. */
 @Composable
-private fun ColumnScope.Help(lcd: Lcd, back: () -> Unit) {
+private fun ColumnScope.Help(lcd: Lcd, now: Long, back: () -> Unit, answer: () -> Unit, start: Int = 0) {
+    var page by remember { mutableStateOf(start) }
+    val lesson = LESSONS[page]
+    val last = page == LESSONS.lastIndex
+    val next: () -> Unit = { if (last) answer() else page += 1 }
     Header("How to save them", lcd)
-    Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        for (paragraph in LETTER) PixelText(paragraph, size = SMALL, color = lcd.ink)
+    Column(Modifier.weight(1f).fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Box(
+            Modifier.weight(1f).fillMaxWidth().clickable(onClick = next).drawBehind {
+                val sprite = lesson.sprite(((now / 700) % 2).toInt(), lcd)
+                // Whole screen pixels, so that the picture stays sharp.
+                val pixel = minOf(size.width / (sprite.width + 2), size.height / (sprite.height + 1)).toInt().toFloat()
+                draw(sprite, center, pixel)
+            },
+        )
+        PixelText(lesson.line, Modifier.fillMaxWidth(), color = lcd.ink)
+        lesson.example?.let { Said(it, Who.YOU, lcd) }
+    }
+    if (last) {
         Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.CenterEnd) {
             PixelText("- the one who built the maze", size = SMALL, color = lcd.faint)
         }
     }
-    Softkeys(lcd, "Back" to back, null, null)
+    Softkeys(lcd, "Back" to { if (page == 0) back() else page -= 1 }, "${page + 1}/${LESSONS.size}" to {}, (if (last) "Answer" else "Next") to next)
+}
+
+/** A page of how to save them on a lit screen, for the screenshots. */
+@Composable
+internal fun GuidePage(page: Int, now: Long) {
+    val lcd = Lcd(Lcd.LIGHT, Lcd.DARK)
+    Column(Modifier.fillMaxSize().background(Lcd.BODY).padding(6.dp).pixelBox(lcd.paper, outline = Ink.outline, raised = false).padding(horizontal = 12.dp, vertical = 10.dp)) {
+        Help(lcd, now, {}, {}, start = page)
+    }
 }
 
 /**
