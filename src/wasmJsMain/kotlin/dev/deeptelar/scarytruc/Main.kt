@@ -22,6 +22,7 @@ fun main() {
     val game = CallModel(scope, store = store)
     game.saved()?.let { game.use(it) }
     game.onAnswer = audio::unlock
+    game.speech = WebSpeech()
     ComposeViewport(document.body!!) {
         Game(game)
     }

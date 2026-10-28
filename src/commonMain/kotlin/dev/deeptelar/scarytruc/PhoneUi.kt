@@ -184,9 +184,12 @@ private fun Phone(model: CallModel, now: Long, narrow: Boolean, modifier: Modifi
             return@Column
         }
         CallerBar(call, now) {
+            if (model.speech != null) {
+                PixelIconButton(SPEAKER_ICON, if (model.speaker) "Speaker off" else "Speaker on", model::toggleSpeaker, if (model.speaker) Ink.orange else Ink.paperDark)
+            }
             if (narrow) PixelButton(if (notebook) "Call" else "Notebook", if (notebook) Ink.orange else Ink.paperDark, onClick = { notebook = !notebook }, small = true)
         }
-        val speaking = now - model.spokeAt < CallModel.speaking(call)
+        val speaking = now - model.spokeAt < model.speaking()
         if (narrow && notebook) {
             Notebook(model, Modifier.weight(1f).fillMaxWidth())
         } else {
@@ -282,7 +285,7 @@ private fun Transcript(model: CallModel, now: Long, danger: Float, modifier: Mod
     val call = model.call
     val lines = call.lines
     val last = lines.indexOfLast { it.who == Who.CALLER }
-    val shown = ((now - model.spokeAt) / CallModel.LETTER).toInt()
+    val shown = ((now - model.spokeAt) / model.letter).toInt()
     LazyColumn(modifier, reverseLayout = true, verticalArrangement = Arrangement.spacedBy(8.dp)) {
         if (model.thinking) item { Bubble(".".repeat(1 + ((now / 400) % 3).toInt()), Who.CALLER, call.role) }
         items(lines.indices.reversed().toList()) { i ->

@@ -45,7 +45,7 @@ class Screenshots {
                 while (model.thinking) delay(10)
             }
             // Let the last line finish appearing.
-            delay(CallModel.speaking(model.call) + 100)
+            delay(model.speaking() + 100)
             shoot("turn${model.call.turn}")
         }
     }

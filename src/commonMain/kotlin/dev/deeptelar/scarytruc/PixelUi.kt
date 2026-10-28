@@ -205,6 +205,9 @@ internal val FOLD_ICON = listOf(".......", "...#...", "..###..", ".##.##.", "##.
 /** A point down, to open the folded window again. */
 internal val UNFOLD_ICON = listOf("##...##", ".##.##.", "..###..", "...#...", ".......")
 
+/** A speaker with sound coming out, to hear the caller. */
+internal val SPEAKER_ICON = listOf("...#.....", "..##..#..", "####...#.", "####.#.#.", "####.#.#.", "####...#.", "..##..#..", "...#.....")
+
 /** A cross, to hide the window. */
 internal val CLOSE_ICON = listOf("#...#", ".#.#.", "..#..", ".#.#.", "#...#")
 

@@ -42,6 +42,18 @@ data class Server(val url: String, val model: String, val key: String = "") {
     }
 }
 
+/** A voice for the phone's speaker: the browser's speech, where there is one. */
+interface Speech {
+    /** Says [text] after what is being said, in the voice of [role], or of the Hollow when it is `null`. */
+    fun say(text: String, role: Role?)
+
+    /** Stops what is being said, and what is waiting. */
+    fun stop()
+
+    /** Lets the speech start later, from inside a tap: some phones speak only after one. */
+    fun unlock()
+}
+
 /**
  * The mind of the caller and of the Hollow: Gemma's, named [name], or none, where the caller
  * knows a few words and says the facts as they are.
@@ -97,6 +109,25 @@ class CallModel(
     /** The game's own sounds hook in here: a browser opens its sound on the first tap. */
     var onAnswer: () -> Unit = {}
 
+    /** The phone's speaker, where the platform can speak; `null` hides the button. */
+    var speech: Speech? = null
+
+    /** Whether the caller's words come out of the speaker. */
+    var speaker: Boolean by mutableStateOf(runCatching { store?.get(SPEAKER) }.getOrNull() == "on")
+        private set
+
+    /** How long a letter of the caller's line takes to appear: slower when it is also said. */
+    val letter: Long get() = if (speaker && speech != null) SPOKEN_LETTER else LETTER
+
+    fun toggleSpeaker() {
+        speaker = !speaker
+        runCatching { store?.set(SPEAKER, if (speaker) "on" else "off") }
+        if (speaker) speech?.unlock() else speech?.stop()
+    }
+
+    /** How long the caller's last line takes to say. */
+    fun speaking(): Long = (call.lines.lastOrNull { it.who == Who.CALLER }?.text?.length ?: 0) * letter
+
     private var run = newRun(plan, seed)
 
     val plan: Plan get() = run.plan
@@ -143,7 +174,7 @@ class CallModel(
                 while (true) {
                     delay(250)
                     if (ringing || thinking || call.over) continue
-                    val since = maxOf(spokeAt + speaking(call), lastKey)
+                    val since = maxOf(spokeAt + speaking(), lastKey)
                     if (now() - since > silence) say("")
                 }
             }
@@ -153,6 +184,7 @@ class CallModel(
     fun answer() {
         if (!ringing) return
         onAnswer()
+        if (speaker) speech?.unlock()
         ringing = false
         command { run.begin() }
     }
@@ -224,6 +256,7 @@ class CallModel(
                 val after = work()
                 call = after
                 spokeAt = now()
+                say(before, after)
                 sounds(before, after)
                 if (after.over) keep(after)
             } catch (e: CancellationException) {
@@ -256,17 +289,30 @@ class CallModel(
             if (danger(after, maze) >= 0.75f && danger(before, run.mazeOf(before)) < 0.75f) Sound.play(Cue.STINGER, gain = -3f)
             when (after.end) {
                 End.TAKEN, End.DOOM -> {
-                    delay(speaking(after) - 600)
+                    delay(speaking() - 600)
                     Sound.play(Cue.SCREAM)
                     delay(900)
                     Sound.play(Cue.HANGUP)
                 }
                 End.BATTERY -> {
-                    delay(speaking(after))
+                    delay(speaking())
                     Sound.play(Cue.HANGUP)
                 }
                 End.OUT -> Sound.play(Cue.CHIME)
                 null -> Unit
+            }
+        }
+    }
+
+    /** The new lines of the call out of the speaker: the Hollow's in its own voice. */
+    private fun say(before: Call, after: Call) {
+        val speech = speech?.takeIf { speaker } ?: return
+        speech.stop()
+        for (line in after.lines.drop(before.lines.size)) {
+            when (line.who) {
+                Who.CALLER -> speech.say(line.text, after.role)
+                Who.HOLLOW -> speech.say(line.text, null)
+                else -> Unit
             }
         }
     }
@@ -293,11 +339,12 @@ class CallModel(
         /** How long a letter of the caller's line takes to appear. */
         const val LETTER: Long = 28
 
+        /** About the pace of a voice that speaks. */
+        const val SPOKEN_LETTER: Long = 62
+
         private const val PROGRESS = "best"
         private const val SERVER = "server"
-
-        /** How long the caller's last line takes to say. */
-        fun speaking(call: Call): Long = (call.lines.lastOrNull { it.who == Who.CALLER }?.text?.length ?: 0) * LETTER
+        private const val SPEAKER = "speaker"
     }
 }
 
