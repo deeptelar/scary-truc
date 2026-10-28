@@ -23,6 +23,7 @@ fun main() {
     game.saved()?.let { game.use(it) }
     game.onAnswer = audio::unlock
     game.speech = WebSpeech()
+    if (WebMicrophone.available) game.microphone = WebMicrophone()
     ComposeViewport(document.body!!) {
         Game(game)
     }

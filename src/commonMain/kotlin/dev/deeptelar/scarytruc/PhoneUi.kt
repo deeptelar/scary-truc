@@ -339,7 +339,11 @@ private fun Talk(model: CallModel, narrow: Boolean) {
         PixelField(
             model.typed,
             model::type,
-            if (model.thinking) "They're talking…" else "Talk to them…",
+            when {
+                model.listening -> "Listening…"
+                model.thinking -> "They're talking…"
+                else -> "Talk to them…"
+            },
             Modifier.weight(1f).focusRequester(focus).onPreviewKeyEvent { event ->
                 if (event.type == KeyEventType.KeyDown && event.key == Key.Enter && !event.isShiftPressed) {
                     if (!model.thinking) model.send()
@@ -350,6 +354,9 @@ private fun Talk(model: CallModel, narrow: Boolean) {
             },
             maxLines = 3,
         )
+        if (model.microphone != null) {
+            PixelIconButton(MIC_ICON, if (model.listening) "Stop listening" else "Speak", model::listen, if (model.listening) Ink.red else Ink.paperDark)
+        }
         PixelButton("Say", Ink.orange, onClick = model::send, enabled = !model.thinking && model.typed.isNotBlank(), small = true)
     }
     if (!narrow) PixelText("Enter to speak. Silence scares them.", size = SMALL, color = Ink.faint)

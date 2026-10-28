@@ -15,6 +15,11 @@ settings**: Gemma 4 on [OpenRouter](https://openrouter.ai) with your own key, or
 [Ollama](https://ollama.com). The key stays in your browser and goes from it straight to the
 server. A friend's proxy works too: its address, and your token as the key.
 
+On the phone you can talk instead of typing: tap the microphone, speak, and what you said goes to
+the caller when you pause. The speaker button says the caller's words out loud. Both use the
+browser's own speech; most browsers turn speech into text on their maker's servers (Chrome on
+Google's), and the page only gets the text.
+
 On the desktop: `./gradlew run`, or `./gradlew run --args='--call ship'` (with Ollama running and `gemma4:12b` pulled, Gemma plays the
 caller; `--no-gemma` without it).
 

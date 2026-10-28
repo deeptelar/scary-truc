@@ -54,6 +54,17 @@ interface Speech {
     fun unlock()
 }
 
+/** The phone's microphone: the browser turns the player's voice into text, where it can. */
+interface Microphone {
+    /**
+     * Listens until the player pauses. [heard] gets the words so far as they come; [done] gets
+     * why it could not listen, or `null` when it heard what there was to hear.
+     */
+    fun listen(heard: (String) -> Unit, done: (String?) -> Unit)
+
+    fun stop()
+}
+
 /**
  * The mind of the caller and of the Hollow: Gemma's, named [name], or none, where the caller
  * knows a few words and says the facts as they are.
@@ -111,6 +122,35 @@ class CallModel(
 
     /** The phone's speaker, where the platform can speak; `null` hides the button. */
     var speech: Speech? = null
+
+    /** The phone's microphone, where the platform can hear; `null` hides the button. */
+    var microphone: Microphone? = null
+
+    /** Whether the microphone is listening to the player now. */
+    var listening: Boolean by mutableStateOf(false)
+        private set
+
+    /**
+     * Listens to the player, or stops listening. What they say goes into the field as it is heard,
+     * and is said to the caller when they pause, as if they had typed it.
+     */
+    fun listen() {
+        val microphone = microphone ?: return
+        if (listening) {
+            microphone.stop()
+            return
+        }
+        speech?.stop()
+        listening = true
+        failure = null
+        microphone.listen(
+            heard = { type(it) },
+            done = { problem ->
+                listening = false
+                if (problem != null) failure = problem else if (!thinking) send()
+            },
+        )
+    }
 
     /** Whether the caller's words come out of the speaker. */
     var speaker: Boolean by mutableStateOf(runCatching { store?.get(SPEAKER) }.getOrNull() == "on")
