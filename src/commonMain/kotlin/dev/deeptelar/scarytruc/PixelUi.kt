@@ -269,6 +269,10 @@ internal fun PixelField(
     placeholder: String,
     modifier: Modifier = Modifier,
     maxLines: Int = 4,
+    fill: Color = Ink.field,
+    ink: Color = Ink.text,
+    hint: Color = Ink.faint,
+    size: TextUnit = BODY,
 ) {
     // The cursor starts at the end, to add to what is there.
     var field by remember { mutableStateOf(TextFieldValue(value, TextRange(value.length))) }
@@ -279,13 +283,13 @@ internal fun PixelField(
             field = it
             if (it.text != value) onChange(it.text)
         },
-        modifier.pixelBox(Ink.field, raised = false),
-        textStyle = TextStyle(fontFamily = PixelFont, fontSize = BODY, color = Ink.text, lineHeight = BODY * 1.25f, fontFeatureSettings = PLAIN),
-        cursorBrush = SolidColor(Ink.text),
+        modifier.pixelBox(fill, outline = ink, raised = false),
+        textStyle = TextStyle(fontFamily = PixelFont, fontSize = size, color = ink, lineHeight = size * 1.25f, fontFeatureSettings = PLAIN),
+        cursorBrush = SolidColor(ink),
         maxLines = maxLines,
         decorationBox = { field ->
             Box(Modifier.padding(horizontal = 12.dp, vertical = 10.dp)) {
-                if (value.isEmpty()) PixelText(placeholder, color = Ink.faint)
+                if (value.isEmpty()) PixelText(placeholder, size = size, color = hint)
                 field()
             }
         },

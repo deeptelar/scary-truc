@@ -7,6 +7,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -36,6 +37,7 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
@@ -68,169 +70,157 @@ fun Game(model: CallModel) {
     }
     BoxWithConstraints(Modifier.fillMaxSize().background(Ink.dark)) {
         if (maxWidth < 760.dp) {
-            Phone(model, now, narrow = true, Modifier.fillMaxSize().padding(6.dp))
+            Phone(model, now, narrow = true, Modifier.fillMaxSize())
             return@BoxWithConstraints
         }
-        Row(Modifier.fillMaxSize().padding(16.dp), horizontalArrangement = Arrangement.spacedBy(20.dp)) {
-            Phone(model, now, narrow = false, Modifier.width(440.dp).fillMaxHeight())
+        Row(Modifier.fillMaxSize().padding(16.dp), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
+            Phone(model, now, narrow = false, Modifier.width(420.dp).fillMaxHeight())
             Column(Modifier.weight(1f).fillMaxHeight(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Title(model)
-                if (model.ringing) {
-                    Calls(model, columns = 3)
-                    PixelText(model.plan.hint, size = SMALL, color = Ink.faint, maxLines = 3)
-                    Spacer(Modifier.weight(1f))
-                } else {
-                    PixelText("${model.plan.title}, after ${model.plan.film}", color = Ink.orange)
-                    Notebook(model, Modifier.weight(1f).fillMaxWidth())
-                }
-                MindLine(model)
+                val other = model.call.afterMidnight && !model.ringing && !model.call.over
+                PixelText(if (other) "OTHERWORLD" else "SCARY TRUC", size = BIG, color = if (other) Ink.red else Ink.orange)
+                PixelText("${model.plan.title}, after ${model.plan.film}", color = Ink.orange)
+                PixelText(model.plan.hint, size = SMALL, color = Ink.faint, maxLines = 3)
+                Notebook(model, Modifier.weight(1f).fillMaxWidth())
+                PixelText(mind(model), size = SMALL, color = if (model.gemma && model.trouble == null) Ink.faint else Ink.candle, maxLines = 3)
+                model.failure?.let { PixelText(it, size = SMALL, color = Ink.red, maxLines = 2) }
             }
         }
     }
 }
 
-@Composable
-private fun Title(model: CallModel) {
-    val other = model.call.afterMidnight && !model.ringing
-    PixelText(if (other && !model.call.over) "OTHERWORLD" else "SCARY TRUC", size = BIG, color = if (other) Ink.red else Ink.orange)
-}
-
-/** Whose mind the caller has, and what went wrong with Gemma, with a way to change it. */
-@Composable
-private fun MindLine(model: CallModel) {
-    var open by remember { mutableStateOf(false) }
-    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        val text =
-            when {
-                !model.gemma -> "No model: the caller knows only a few words (left, right, ahead, back, stay, hide, mark)."
-                model.trouble != null -> "${model.minds.name} did not answer, so they heard only your keywords: ${model.trouble}"
-                else -> "The caller and the Hollow are played by ${model.minds.name}."
-            }
-        PixelText(text, size = SMALL, color = if (model.gemma && model.trouble == null) Ink.faint else Ink.candle, maxLines = 3)
-        PixelLink(if (open) "Close" else "Model settings", onClick = { open = !open })
-        if (open) Settings(model) { open = false }
-        model.failure?.let { PixelText(it, size = SMALL, color = Ink.red, maxLines = 2) }
+/** Whose mind the caller has, and what went wrong with it. */
+private fun mind(model: CallModel): String =
+    when {
+        !model.gemma -> "No model: the caller knows only a few words (left, right, ahead, back, stay, hide, mark). Options > Model to add one."
+        model.trouble != null -> "${model.minds.name} did not answer, so they heard only your keywords: ${model.trouble}"
+        else -> "The caller and the Hollow are played by ${model.minds.name}."
     }
-}
 
 /**
- * Where the player connects a model that speaks the OpenAI API: Gemma on OpenRouter with their own
- * key, their Ollama, or a friend's proxy, whose address and token take the place of OpenRouter's.
+ * The two shades of a monochrome phone screen of 2003, green-lit: [paper] where the pixels are off
+ * and [ink] where they are on. After midnight the screen is inverted, and when the Hollow is close
+ * the backlight flickers.
  */
-@Composable
-private fun Settings(model: CallModel, done: () -> Unit) {
-    val saved = model.server
-    var url by remember { mutableStateOf(saved?.url ?: Server.OPENROUTER.url) }
-    var name by remember { mutableStateOf(saved?.model ?: Server.OPENROUTER.model) }
-    var key by remember { mutableStateOf(saved?.key.orEmpty()) }
-    Column(Modifier.fillMaxWidth().pixelBox(Ink.paper).padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            PixelButton("OpenRouter", Ink.paperDark, onClick = { url = Server.OPENROUTER.url; name = Server.OPENROUTER.model }, small = true)
-            PixelButton("Ollama", Ink.paperDark, onClick = { url = Server.OLLAMA.url; name = Server.OLLAMA.model; key = "" }, small = true)
-        }
-        PixelField(url, { url = it }, "Server address", Modifier.fillMaxWidth(), maxLines = 1)
-        PixelField(name, { name = it }, "Model", Modifier.fillMaxWidth(), maxLines = 1)
-        PixelField(key, { key = it }, "Key or token (none for Ollama)", Modifier.fillMaxWidth(), maxLines = 1)
-        PixelText("The key stays on this device and goes from it straight to the server. A friend's proxy works too: its address, and your token as the key.", size = SMALL, color = Ink.faint, maxLines = 4)
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            PixelButton("Use it", Ink.orange, onClick = { model.connect(Server(url.trim(), name.trim(), key.trim())); done() }, small = true)
-            PixelButton("No model", Ink.paperDark, onClick = { model.connect(null); done() }, small = true)
+private class Lcd(val paper: Color, val ink: Color) {
+    /** Pixels half on: hints and what is less important. */
+    val faint: Color get() = lerp(paper, ink, 0.55f)
+
+    companion object {
+        val LIGHT = Color(0xFFC7F0D8)
+        val DARK = Color(0xFF43523D)
+
+        /** The backlight, out for a moment. */
+        val UNLIT = Color(0xFF8FA996)
+
+        /** The plastic of the phone. */
+        val BODY = Color(0xFF1E2731)
+        val BODY_EDGE = Color(0xFF3A4A5A)
+
+        fun of(call: Call, ringing: Boolean, danger: Float, now: Long): Lcd {
+            val inverted = call.afterMidnight && !ringing && !call.over
+            val flicker = danger >= 0.5f && Random(now / 110).nextFloat() < danger * 0.35f
+            val paper = if (flicker) UNLIT else if (inverted) DARK else LIGHT
+            return Lcd(paper, if (inverted) LIGHT else DARK)
         }
     }
 }
 
-/** The calls to choose from, any of them, with the closest each came to the way out. */
-@Composable
-private fun Calls(model: CallModel, columns: Int) {
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        for (row in Plan.entries.chunked(columns)) {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                for (plan in row) {
-                    val chosen = plan == model.plan
-                    Column(
-                        Modifier.weight(1f).pixelBox(if (chosen) Ink.paperDark else Ink.paper, outline = if (chosen) Ink.orange else Ink.outline)
-                            .clickable(enabled = !model.thinking) { model.play(plan) }.padding(10.dp),
-                    ) {
-                        PixelText(plan.title, color = if (chosen) Ink.orange else Ink.text, maxLines = 1)
-                        PixelText("after ${plan.film}", size = SMALL, color = Ink.faint, maxLines = 1)
-                        val best = model.best[plan]
-                        PixelText(
-                            when (best) {
-                                null -> plan.role.title
-                                0 -> "${plan.role.title}: out"
-                                else -> "${plan.role.title}: $best from out"
-                            },
-                            size = SMALL,
-                            color = if (best == 0) Ink.green else plan.role.color,
-                            maxLines = 1,
-                        )
-                    }
-                }
-                repeat(columns - row.size) { Spacer(Modifier.weight(1f)) }
-            }
-        }
-    }
-}
+/** What the phone shows when no call is on. */
+private enum class Screen { CALLS, OPTIONS }
 
+/**
+ * The phone: a monochrome screen in a plastic body, with softkeys under the screen. On a narrow
+ * screen it fills it.
+ */
 @Composable
 private fun Phone(model: CallModel, now: Long, narrow: Boolean, modifier: Modifier) {
     val call = model.call
     val danger = if (model.ringing || call.over) 0f else danger(call, model.maze)
+    val lcd = Lcd.of(call, model.ringing, danger, now)
     var notebook by remember { mutableStateOf(false) }
-    Column(modifier.pixelBox(Color(0xFF15111B)).padding(if (narrow) 10.dp else 16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        StatusBar(call, danger)
-        if (model.ringing) {
-            Ringing(model, now, narrow, Modifier.weight(1f).fillMaxWidth())
-            return@Column
-        }
-        CallerBar(call, now) {
-            if (model.speech != null) {
-                PixelIconButton(SPEAKER_ICON, if (model.speaker) "Speaker off" else "Speaker on", model::toggleSpeaker, if (model.speaker) Ink.orange else Ink.paperDark)
+    var screen by remember { mutableStateOf(Screen.CALLS) }
+    Column(
+        modifier.pixelBox(Lcd.BODY, outline = Lcd.BODY_EDGE).padding(horizontal = if (narrow) 6.dp else 22.dp, vertical = if (narrow) 6.dp else 18.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        if (!narrow) Grille()
+        Column(
+            Modifier.weight(1f).fillMaxWidth().pixelBox(lcd.paper, outline = Ink.outline, raised = false).padding(horizontal = 12.dp, vertical = 10.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            StatusBar(call, danger, lcd)
+            when {
+                model.ringing && screen == Screen.OPTIONS -> Options(model, lcd) { screen = Screen.CALLS }
+                model.ringing -> Calls(model, now, lcd, Modifier.weight(1f)) { screen = Screen.OPTIONS }
+                else -> {
+                    CallerBar(model, now, lcd)
+                    val speaking = now - model.spokeAt < model.speaking()
+                    if (narrow && notebook) {
+                        Notebook(model, Modifier.weight(1f).fillMaxWidth())
+                    } else {
+                        Transcript(model, now, danger, lcd, Modifier.weight(1f).fillMaxWidth())
+                    }
+                    if (call.over && !model.thinking && !speaking) {
+                        Ending(model, lcd)
+                    } else {
+                        Talk(model, narrow, lcd, notebook) { notebook = !notebook }
+                    }
+                }
             }
-            if (narrow) PixelButton(if (notebook) "Call" else "Notebook", if (notebook) Ink.orange else Ink.paperDark, onClick = { notebook = !notebook }, small = true)
         }
-        val speaking = now - model.spokeAt < model.speaking()
-        if (narrow && notebook) {
-            Notebook(model, Modifier.weight(1f).fillMaxWidth())
-        } else {
-            Transcript(model, now, danger, Modifier.weight(1f).fillMaxWidth())
-        }
-        if (call.over && !model.thinking && !speaking) {
-            Ending(model)
-        } else {
-            Talk(model, narrow)
-        }
+        if (!narrow) PixelText("TRUC", size = SMALL, color = Lcd.BODY_EDGE)
     }
 }
 
-/** The top of the phone: the time, the signal that fails when the Hollow is near, and the battery. */
+/** The slits of the earpiece. */
 @Composable
-private fun StatusBar(call: Call, danger: Float) {
-    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-        PixelText(clock(call), size = SMALL, color = if (call.afterMidnight) Ink.blood else Ink.text)
+private fun Grille() {
+    Box(
+        Modifier.size(90.dp, 10.dp).drawBehind {
+            repeat(5) { i -> drawRect(Ink.outline, Offset(i * size.width / 5 + 4f, 0f), Size(size.width / 5 - 8f, size.height)) }
+        },
+    )
+}
+
+/**
+ * The top of the screen: the bars of the signal, which fail when the Hollow is near, the time, and
+ * the bars of the battery.
+ */
+@Composable
+private fun StatusBar(call: Call, danger: Float, lcd: Lcd) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        val signal = (5 - (danger * 5).toInt()).coerceIn(1, 5)
+        Bars(signal, lcd, antenna = true)
         Spacer(Modifier.weight(1f))
-        val bars = (4 - (danger * 4).toInt()).coerceIn(1, 4)
-        Box(
-            Modifier.size(28.dp, 16.dp).drawBehind {
-                val w = size.width / 4
-                repeat(4) { i ->
-                    val h = size.height * (i + 1) / 4
-                    drawRect(if (i < bars) Ink.text else Ink.off, Offset(i * w, size.height - h), Size(w - 2.dp.toPx(), h))
-                }
-            },
-        )
-        val low = call.battery <= 15
-        PixelText("${call.battery.coerceAtLeast(0)}%", size = SMALL, color = if (low) Ink.red else Ink.text)
-        Box(
-            Modifier.size(30.dp, 14.dp).drawBehind {
-                drawRect(Ink.text, Offset.Zero, Size(size.width - 3.dp.toPx(), size.height))
-                drawRect(Color(0xFF15111B), Offset(2.dp.toPx(), 2.dp.toPx()), Size(size.width - 7.dp.toPx(), size.height - 4.dp.toPx()))
-                drawRect(Ink.text, Offset(size.width - 3.dp.toPx(), size.height / 3), Size(3.dp.toPx(), size.height / 3))
-                val fill = (size.width - 11.dp.toPx()) * call.battery.coerceIn(0, 100) / 100f
-                drawRect(if (low) Ink.red else Ink.green, Offset(4.dp.toPx(), 4.dp.toPx()), Size(fill, size.height - 8.dp.toPx()))
-            },
-        )
+        PixelText(clock(call), size = SMALL, color = lcd.ink)
+        Spacer(Modifier.weight(1f))
+        Bars(((call.battery.coerceIn(0, 100) + 19) / 20), lcd, antenna = false)
     }
+}
+
+/** Five bars that grow to the right, with an antenna or a battery in front. */
+@Composable
+private fun Bars(on: Int, lcd: Lcd, antenna: Boolean) {
+    Box(
+        Modifier.size(44.dp, 16.dp).drawBehind {
+            val p = 2.dp.toPx()
+            if (antenna) {
+                drawRect(lcd.ink, Offset(3 * p, 0f), Size(p, size.height))
+                drawRect(lcd.ink, Offset(0f, 0f), Size(7 * p, p))
+                drawRect(lcd.ink, Offset(p, p), Size(5 * p, p))
+            } else {
+                drawRect(lcd.ink, Offset(0f, 2 * p), Size(5 * p, size.height - 2 * p))
+                drawRect(lcd.ink, Offset(1.5f * p, p), Size(2 * p, p))
+            }
+            val left = 9 * p
+            val w = (size.width - left) / 5
+            repeat(5) { i ->
+                val h = size.height * (i + 1) / 5
+                if (i < on) drawRect(lcd.ink, Offset(left + i * w, size.height - h), Size(w - p, h))
+            }
+        },
+    )
 }
 
 /** The time on the phone: midnight comes on the call's midnight turn, a minute a turn. */
@@ -239,55 +229,152 @@ private fun clock(call: Call): String {
     return "${((minutes / 60) % 24).toString().padStart(2, '0')}:${(minutes % 60).toString().padStart(2, '0')}"
 }
 
+/** A title line, centred, as a menu of the time has. */
 @Composable
-private fun Ringing(model: CallModel, now: Long, narrow: Boolean, modifier: Modifier) {
-    Column(
-        modifier.verticalScroll(rememberScrollState()),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterVertically),
-    ) {
-        if (narrow) {
-            Title(model)
-            Calls(model, columns = 2)
-            PixelText(model.plan.hint, size = SMALL, color = Ink.faint)
-        }
-        val shake = if ((now / 120) % 2 == 0L && (now / 1000) % 3 != 2L) 3.dp else 0.dp
-        Box(Modifier.size(if (narrow) 90.dp else 120.dp).offset(x = shake).drawBehind { draw(Sprites.agent.tinted(Ink.off), center, (if (narrow) 7 else 9).dp.toPx()) })
-        PixelText("Incoming call", color = Ink.faint)
-        PixelText("Unknown number", size = BIG)
-        PixelButton(if (narrow) "Answer" else "Answer (Enter)", Ink.green, onClick = model::answer, modifier = Modifier.width(240.dp))
-        PixelText("Sound on. Headphones, if you dare.", size = SMALL, color = Ink.faint)
-        if (narrow) MindLine(model)
+private fun Header(text: String, lcd: Lcd) {
+    Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+        PixelText(text, color = lcd.ink, maxLines = 1)
     }
 }
 
-/** Who is calling, how fast their heart beats, and for how long the call has gone on. */
+/** Labels over the keys under the screen; each is tapped. A blank label is no key. */
 @Composable
-private fun CallerBar(call: Call, now: Long, extra: @Composable () -> Unit) {
-    Row(Modifier.fillMaxWidth().pixelBox(Ink.paper).padding(10.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-        val scared = call.panic >= CALM_ENOUGH && !call.over
-        val sprite = (if (scared) Sprites.scared else Sprites.agent).tinted(if (call.end == End.TAKEN || call.end == End.DOOM) Ink.off else call.role.color)
-        Box(Modifier.size(44.dp).drawBehind { draw(sprite, center, 4.5.dp.toPx()) })
-        Column(Modifier.weight(1f)) {
-            PixelText(call.role.title, color = call.role.color)
-            val bpm = 62 + call.panic * 9 / 10
-            val beat = !call.over && (now % (60_000 / bpm)) < 140
-            PixelText(if (call.over) "—" else "♥ $bpm", size = SMALL, color = if (beat) Ink.red else Ink.faint)
+private fun Softkeys(lcd: Lcd, left: Pair<String, () -> Unit>?, middle: Pair<String, () -> Unit>?, right: Pair<String, () -> Unit>?) {
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        for ((key, align) in listOf(left to Alignment.CenterStart, middle to Alignment.Center, right to Alignment.CenterEnd)) {
+            Box(Modifier.weight(1f), contentAlignment = align) {
+                if (key != null) {
+                    PixelText(key.first, Modifier.clickable(onClick = key.second).padding(vertical = 6.dp, horizontal = 4.dp), color = lcd.ink, maxLines = 1)
+                }
+            }
         }
-        PixelText(if (call.hidden && !call.over) "hiding" else "", size = SMALL, color = Ink.faint)
-        extra()
+    }
+}
+
+/**
+ * The phone between calls: a menu of the calls, the chosen one in reverse, and the one chosen
+ * ringing under it.
+ */
+@Composable
+private fun Calls(model: CallModel, now: Long, lcd: Lcd, modifier: Modifier, options: () -> Unit) {
+    Header("Calls", lcd)
+    Column(modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        for (plan in Plan.entries) {
+            val chosen = plan == model.plan
+            val best = model.best[plan]
+            Row(
+                Modifier.fillMaxWidth().background(if (chosen) lcd.ink else lcd.paper).clickable(enabled = !model.thinking) { model.play(plan) }
+                    .padding(horizontal = 6.dp, vertical = 3.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                PixelText(plan.title, Modifier.weight(1f), color = if (chosen) lcd.paper else lcd.ink, maxLines = 1)
+                PixelText(
+                    when (best) {
+                        null -> ""
+                        0 -> "out"
+                        else -> "$best"
+                    },
+                    size = SMALL,
+                    color = if (chosen) lcd.paper else lcd.ink,
+                )
+            }
+        }
+        Spacer(Modifier.height(6.dp))
+        PixelText("after ${model.plan.film}. ${model.plan.role.title} is calling.", size = SMALL, color = lcd.ink)
+        PixelText(model.plan.hint, size = SMALL, color = lcd.faint)
+        Spacer(Modifier.height(8.dp))
+        // The phone rings: its picture shakes.
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
+            val shake = if ((now / 120) % 2 == 0L && (now / 1000) % 3 != 2L) 2.dp else 0.dp
+            Box(Modifier.size(40.dp).offset(x = shake).drawBehind { draw(Sprite(HANDSET, mapOf('#' to lcd.ink)), center, 3.dp.toPx()) })
+            Column(Modifier.padding(start = 10.dp)) {
+                PixelText("Unknown number", color = lcd.ink)
+                PixelText(if ((now / 600) % 2 == 0L) "calling" else "calling.", size = SMALL, color = lcd.ink)
+            }
+        }
+    }
+    Softkeys(lcd, "Options" to options, "Answer" to model::answer, null)
+}
+
+/** A heart in pixels: the fonts of the web draw ♥ in colour. */
+private val HEART = listOf(".##.##.", "#######", "#######", ".#####.", "..###..", "...#...")
+
+/** A handset with its waves, as a phone of 2003 draws a call. */
+private val HANDSET =
+    listOf(
+        "......#..#",
+        ".......#..",
+        "###..#..#.",
+        "#..#..#.#.",
+        "#..#...#..",
+        ".#.#......",
+        ".#..#.....",
+        "..#..##...",
+        "...#...###",
+        "....###..#",
+        "........##",
+    )
+
+/**
+ * Where the player connects a model that speaks the OpenAI API: Gemma on OpenRouter with their own
+ * key, their Ollama, or a friend's proxy, whose address and token take the place of OpenRouter's.
+ */
+@Composable
+private fun ColumnScope.Options(model: CallModel, lcd: Lcd, done: () -> Unit) {
+    val saved = model.server
+    var url by remember { mutableStateOf(saved?.url ?: Server.OPENROUTER.url) }
+    var name by remember { mutableStateOf(saved?.model ?: Server.OPENROUTER.model) }
+    var key by remember { mutableStateOf(saved?.key.orEmpty()) }
+    Header("Model", lcd)
+    Column(Modifier.fillMaxWidth().weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        PixelText(mind(model), size = SMALL, color = lcd.ink)
+        Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+            PixelText("OpenRouter", Modifier.clickable { url = Server.OPENROUTER.url; name = Server.OPENROUTER.model }.padding(4.dp), size = SMALL, color = lcd.ink)
+            PixelText("Ollama", Modifier.clickable { url = Server.OLLAMA.url; name = Server.OLLAMA.model; key = "" }.padding(4.dp), size = SMALL, color = lcd.ink)
+            PixelText("None", Modifier.clickable { model.connect(null); done() }.padding(4.dp), size = SMALL, color = lcd.ink)
+        }
+        for ((value, set, hint) in listOf(Triple(url, { it: String -> url = it }, "Server address"), Triple(name, { it: String -> name = it }, "Model"), Triple(key, { it: String -> key = it }, "Key or token"))) {
+            PixelField(value, set, hint, Modifier.fillMaxWidth(), maxLines = 1, fill = lcd.paper, ink = lcd.ink, hint = lcd.faint, size = SMALL)
+        }
+        PixelText("The key stays on this device and goes from it straight to the server. A friend's proxy works too: its address, and your token as the key.", size = SMALL, color = lcd.faint)
+    }
+    Softkeys(lcd, "Back" to done, "Save" to { model.connect(Server(url.trim(), name.trim(), key.trim())); done() }, null)
+}
+
+/** Who is calling, how fast their heart beats, and whether they hide. */
+@Composable
+private fun CallerBar(model: CallModel, now: Long, lcd: Lcd) {
+    val call = model.call
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        val bpm = 62 + call.panic * 9 / 10
+        val beat = !call.over && (now % (60_000 / bpm)) < 140
+        if (!call.over) {
+            // The heart beats with their fear: a pixel heart that flashes on each beat.
+            Box(Modifier.size(16.dp).drawBehind { draw(Sprite(HEART, mapOf('#' to if (beat) lcd.ink else lcd.faint)), center, 2.dp.toPx()) })
+            PixelText("$bpm", size = SMALL, color = lcd.faint)
+        }
+        Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
+            PixelText(call.role.title + if (call.hidden && !call.over) " (hiding)" else "", color = lcd.ink, maxLines = 1)
+        }
+        if (model.speech != null) {
+            Box(
+                Modifier.size(30.dp, 26.dp).background(if (model.speaker) lcd.ink else lcd.paper).clickable(onClick = model::toggleSpeaker).drawBehind {
+                    draw(Sprite(SPEAKER_ICON, mapOf('#' to if (model.speaker) lcd.paper else lcd.ink)), center, 2.5.dp.toPx())
+                },
+            )
+        }
     }
 }
 
 /** The call so far, the newest at the bottom; the caller's last line appears letter by letter. */
 @Composable
-private fun Transcript(model: CallModel, now: Long, danger: Float, modifier: Modifier) {
+private fun Transcript(model: CallModel, now: Long, danger: Float, lcd: Lcd, modifier: Modifier) {
     val call = model.call
     val lines = call.lines
     val last = lines.indexOfLast { it.who == Who.CALLER }
     val shown = ((now - model.spokeAt) / model.letter).toInt()
     LazyColumn(modifier, reverseLayout = true, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        if (model.thinking) item { Bubble(".".repeat(1 + ((now / 400) % 3).toInt()), Who.CALLER, call.role) }
+        if (model.thinking) item { Said(".".repeat(1 + ((now / 400) % 3).toInt()), Who.CALLER, lcd) }
         items(lines.indices.reversed().toList()) { i ->
             val line = lines[i]
             var text = line.text
@@ -295,7 +382,7 @@ private fun Transcript(model: CallModel, now: Long, danger: Float, modifier: Mod
             // Static eats the words when the Hollow is close.
             if (i == last && danger >= 0.5f) text = static(text, danger, now / 90 + i)
             if (i > last && i == lines.lastIndex && line.who == Who.LINE && shown < lines[last].text.length) return@items
-            if (text.isNotEmpty() || line.who != Who.CALLER) Bubble(text, line.who, call.role, now)
+            if (text.isNotEmpty() || line.who != Who.CALLER) Said(text, line.who, lcd, now)
         }
     }
 }
@@ -305,82 +392,86 @@ private fun static(text: String, danger: Float, tick: Long): String {
     return text.map { c -> if (c != ' ' && random.nextFloat() < (danger - 0.4f) * 0.25f) "░▒▓#"[random.nextInt(4)] else c }.joinToString("")
 }
 
+/** One line of the call: the caller's plain, the player's in reverse on the right, the Hollow's shaking in reverse. */
 @Composable
-private fun Bubble(text: String, who: Who, role: Role, now: Long = 0) {
+private fun Said(text: String, who: Who, lcd: Lcd, now: Long = 0) {
     when (who) {
-        Who.CALLER ->
-            Row(Modifier.fillMaxWidth()) {
-                PixelText(text, Modifier.widthIn(max = 340.dp).pixelBox(Ink.paper, raised = false).padding(horizontal = 12.dp, vertical = 9.dp), size = SMALL, color = Ink.text)
-            }
+        Who.CALLER -> PixelText(text, Modifier.fillMaxWidth(), size = SMALL, color = lcd.ink)
         Who.YOU ->
             Row(Modifier.fillMaxWidth()) {
-                Spacer(Modifier.weight(1f))
-                PixelText(text, Modifier.widthIn(max = 320.dp).pixelBox(Ink.paperDark, raised = false).padding(horizontal = 12.dp, vertical = 9.dp), size = SMALL, color = Ink.candle)
+                Spacer(Modifier.weight(1f).widthIn(min = 40.dp))
+                PixelText(text, Modifier.background(lcd.ink).padding(horizontal = 8.dp, vertical = 4.dp), size = SMALL, color = lcd.paper)
             }
         Who.HOLLOW -> {
             val shake = if ((now / 60) % 3 == 0L) 2.dp else (-2).dp
-            Box(Modifier.fillMaxWidth().offset(x = shake), contentAlignment = Alignment.Center) {
-                PixelText(text, size = SMALL, color = Ink.blood)
+            Box(Modifier.fillMaxWidth().offset(x = shake).background(lcd.ink).padding(6.dp), contentAlignment = Alignment.Center) {
+                PixelText(text, size = SMALL, color = lcd.paper)
             }
         }
         Who.LINE ->
             Box(Modifier.fillMaxWidth().padding(vertical = 6.dp), contentAlignment = Alignment.Center) {
-                PixelText("— $text —", size = SMALL, color = Ink.faint)
+                PixelText("- $text -", size = SMALL, color = lcd.ink)
             }
     }
 }
 
-/** Where the player talks: Enter or the button says it. */
+/** Where the player talks: Enter or Say says it; the microphone listens instead. */
 @Composable
-private fun Talk(model: CallModel, narrow: Boolean) {
+private fun Talk(model: CallModel, narrow: Boolean, lcd: Lcd, notebook: Boolean, toggleNotebook: () -> Unit) {
     val focus = remember { FocusRequester() }
     LaunchedEffect(model.ringing, model.call.turn) { runCatching { focus.requestFocus() } }
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-        PixelField(
-            model.typed,
-            model::type,
-            when {
-                model.listening -> "Listening…"
-                model.thinking -> "They're talking…"
-                else -> "Talk to them…"
-            },
-            Modifier.weight(1f).focusRequester(focus).onPreviewKeyEvent { event ->
-                if (event.type == KeyEventType.KeyDown && event.key == Key.Enter && !event.isShiftPressed) {
-                    if (!model.thinking) model.send()
-                    true
-                } else {
-                    false
-                }
-            },
-            maxLines = 3,
-        )
-        if (model.microphone != null) {
-            PixelIconButton(MIC_ICON, if (model.listening) "Stop listening" else "Speak", model::listen, if (model.listening) Ink.red else Ink.paperDark)
-        }
-        PixelButton("Say", Ink.orange, onClick = model::send, enabled = !model.thinking && model.typed.isNotBlank(), small = true)
-    }
-    if (!narrow) PixelText("Enter to speak. Silence scares them.", size = SMALL, color = Ink.faint)
+    PixelField(
+        model.typed,
+        model::type,
+        when {
+            model.listening -> "Listening..."
+            model.thinking -> "They're talking..."
+            else -> "Talk to them"
+        },
+        Modifier.fillMaxWidth().focusRequester(focus).onPreviewKeyEvent { event ->
+            if (event.type == KeyEventType.KeyDown && event.key == Key.Enter && !event.isShiftPressed) {
+                if (!model.thinking) model.send()
+                true
+            } else {
+                false
+            }
+        },
+        maxLines = 3,
+        fill = lcd.paper,
+        ink = lcd.ink,
+        hint = lcd.faint,
+        size = SMALL,
+    )
+    Softkeys(
+        lcd,
+        model.microphone?.let { (if (model.listening) "Stop" else "Mic") to model::listen },
+        "Say" to model::send,
+        if (narrow) (if (notebook) "Call" else "Notes") to toggleNotebook else null,
+    )
 }
 
-/** The end of the call: how it ended, and what next. */
+/** The end of the call: how it ended, how close they came, and the key to hang up. */
 @Composable
-private fun Ending(model: CallModel) {
+private fun Ending(model: CallModel, lcd: Lcd) {
     val call = model.call
-    Column(Modifier.fillMaxWidth().pixelBox(Ink.paper).padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-        val (title, color) =
+    Column(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalArrangement = Arrangement.spacedBy(6.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+        PixelText("Call ended", color = lcd.ink)
+        PixelText(
             when (call.end) {
-                End.OUT -> "${call.role.title} got out" to Ink.green
-                End.BATTERY -> "The battery died" to Ink.faint
-                else -> "Taken by ${call.death}" to Ink.red
-            }
-        PixelText(title, color = color)
+                End.OUT -> "${call.role.title} got out."
+                End.BATTERY -> "The battery died."
+                else -> "Taken by ${call.death}."
+            },
+            size = SMALL,
+            color = lcd.ink,
+        )
         call.away?.takeIf { it > 0 }?.let { steps ->
-            PixelText("The ${call.role.title} was $steps step${if (steps == 1) "" else "s"} from the way out.", color = Ink.text)
+            PixelText("${call.role.title} was $steps step${if (steps == 1) "" else "s"} from the way out.", size = SMALL, color = lcd.ink)
         }
         val best = model.best[call.plan]
-        if (best != null && call.end != End.OUT) PixelText(if (best == 0) "Once, you got them out." else "Your closest: $best.", size = SMALL, color = Ink.faint)
-        PixelButton("Hang up", Ink.orange, onClick = model::again, small = true)
+        if (best != null && call.end != End.OUT) PixelText(if (best == 0) "Once, you got them out." else "Your closest: $best.", size = SMALL, color = lcd.faint)
     }
+    Softkeys(lcd, null, "OK" to model::again, null)
 }
 
 /** Paper, pencil and the red of a mark. */
