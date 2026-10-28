@@ -402,32 +402,30 @@ private fun DrawScope.drawNotebook(call: Call, haunt: Haunt, measurer: TextMeasu
     }
     val line = maxOf(2.dp.toPx(), cell / 18)
 
+    // Pencil fades: a cell is as dark as it is fresh, and gone after a few turns, unless marked.
     for ((pos, exits) in call.mapped) {
+        val ink = call.ink(pos)
+        if (ink <= 0f) continue
         val at = corner(pos)
-        drawRect(Pencil.cell, at + Offset(line, line), Size(cell - 2 * line, cell - 2 * line))
+        drawRect(Pencil.cell, at + Offset(line, line), Size(cell - 2 * line, cell - 2 * line), alpha = ink)
         for (dir in Dir.entries) {
             if (dir in exits) continue
             when (call.onPage(dir)) {
-                Dir.NORTH -> drawRect(Pencil.lead, at, Size(cell, line))
-                Dir.SOUTH -> drawRect(Pencil.lead, at + Offset(0f, cell - line), Size(cell, line))
-                Dir.WEST -> drawRect(Pencil.lead, at, Size(line, cell))
-                Dir.EAST -> drawRect(Pencil.lead, at + Offset(cell - line, 0f), Size(line, cell))
+                Dir.NORTH -> drawRect(Pencil.lead, at, Size(cell, line), alpha = ink)
+                Dir.SOUTH -> drawRect(Pencil.lead, at + Offset(0f, cell - line), Size(cell, line), alpha = ink)
+                Dir.WEST -> drawRect(Pencil.lead, at, Size(line, cell), alpha = ink)
+                Dir.EAST -> drawRect(Pencil.lead, at + Offset(cell - line, 0f), Size(line, cell), alpha = ink)
             }
         }
-        haunt.arrows[pos]?.let { arrow(center(pos), call.onPage(it), cell, Pencil.chalk) }
-        if (pos in haunt.notes) drawRect(Pencil.faint, center(pos) + Offset(-cell / 6, cell / 8), Size(cell / 3, cell / 5))
-        if (pos in haunt.oddities) write("?", center(pos) + Offset(cell / 4, -cell / 4), Pencil.lead, (cell / 5).toSp())
+        haunt.arrows[pos]?.let { arrow(center(pos), call.onPage(it), cell, Pencil.chalk.copy(alpha = ink)) }
+        if (pos in haunt.notes) drawRect(Pencil.faint, center(pos) + Offset(-cell / 6, cell / 8), Size(cell / 3, cell / 5), alpha = ink)
     }
     write("×", center(call.origin) + Offset(-cell / 4, -cell / 4), Pencil.lead, (cell / 4).toSp())
+    // Only the light of the way out is noted; what is dangerous, the player has to remember.
     for ((pos, glimpse) in call.glimpsed) {
-        if (pos in call.mapped && glimpse == Glimpse.STRANGE && call.over.not()) continue
-        when (glimpse) {
-            Glimpse.STRANGE -> write("!", center(pos), Pencil.red, (cell / 2.5f).toSp())
-            Glimpse.LIGHT -> {
-                drawRect(Pencil.light, center(pos) - Offset(cell / 5, cell / 4), Size(cell * 2 / 5, cell / 2))
-                write("light", center(pos) + Offset(0f, cell / 2.6f), Pencil.lead, (cell / 6).toSp())
-            }
-        }
+        if (glimpse != Glimpse.LIGHT) continue
+        drawRect(Pencil.light, center(pos) - Offset(cell / 5, cell / 4), Size(cell * 2 / 5, cell / 2))
+        write("light", center(pos) + Offset(0f, cell / 2.6f), Pencil.lead, (cell / 6).toSp())
     }
     for (mark in call.marks) {
         if (mark.at !in call.mapped) continue

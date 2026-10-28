@@ -27,9 +27,9 @@ enum class Plan(
 ) {
     FIRST(
         "Night 1: the Scout",
-        Role.SCOUT, 6, 5, dooms = 2, hollow = false, shifts = false, battery = 70, midnight = 99, arrows = 1, oddities = 1, seed = 11,
-        notes = listOf("Whoever finds this: the way out is where the air turns cold. Scratch marks on the walls, or you'll walk in circles forever."),
-        hint = "Tell them which way to go, from where they face: left, right, ahead, back. Ask them to mark the walls. Your notebook draws what they tell you.",
+        Role.SCOUT, 6, 5, dooms = 2, hollow = true, shifts = false, battery = 70, midnight = 99, arrows = 1, oddities = 1, seed = 11,
+        notes = listOf("Whoever finds this: the way out is where the air turns cold. Something sleeps in here. Don't wake it. Scratch marks on the walls, or you'll walk in circles forever."),
+        hint = "Tell them which way to go, from where they face: left, right, ahead, back. Your notebook is in pencil and fades: only the walls they mark stay. Something sleeps in here, and fear is loud.",
     ),
     SECOND(
         "Night 2: the Coder",

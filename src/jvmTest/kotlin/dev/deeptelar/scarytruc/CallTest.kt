@@ -140,6 +140,7 @@ class CallTest {
             assertEquals(night.notes.size + maze.dooms.map { it.kind }.distinct().size, haunt.notes.size, night.name)
             assertTrue(haunt.notes.keys.none { maze.doomAt(it) != null })
             for ((cell, dir) in haunt.arrows) assertTrue(maze.canGo(cell, dir))
+            if (night.hollow) assertNotNull(haunt.lair, "${night.name}: the Hollow sleeps off the safe way")
         }
     }
 
@@ -187,5 +188,14 @@ class CallTest {
         assertEquals(listOf(Who.CALLER, Who.YOU, Who.CALLER), call.lines.map { it.who })
         assertEquals("Okay, okay. I went left.", call.lines.last().text)
         assertTrue(model.requests.last().messages.last().text.contains("Hey. Breathe."), "the voice hears the stranger")
+    }
+
+    @Test
+    fun theNotebookFadesExceptWhereMarked() {
+        val (here, dir) = corridor
+        val call = quiet(here, dir, Order.MARK).copy(drawn = mapOf(here to 0, here + dir to 0), turn = FADE)
+        assertEquals(1f, call.walk(maze, empty).ink(here), "marked")
+        assertEquals(0f, call.copy(marks = emptyList()).ink(here + dir))
+        assertEquals(0.5f, call.copy(turn = FADE / 2).ink(here + dir))
     }
 }

@@ -127,6 +127,11 @@ data class Call(
     val marks: List<Mark> = emptyList(),
     /** The notebook: every cell the caller stood in while they knew where they were, with its ways out then. */
     val mapped: Map<Pos, Set<Dir>> = emptyMap(),
+    /**
+     * The turn the pencil last went over each cell of [mapped]: the notebook fades after [FADE]
+     * turns, except where the caller scratched a mark. What is drawn in a panic starts half gone.
+     */
+    val drawn: Map<Pos, Int> = emptyMap(),
     val glimpsed: Map<Pos, Glimpse> = emptyMap(),
     /** Where the notebook starts, and which way is up in it: where the caller faced when they woke up. */
     val origin: Pos = at,
@@ -234,6 +239,7 @@ fun Call.walk(maze: Maze, haunt: Haunt): Call {
     var hidden = hidden && !bolted && order in setOf(Order.HIDE, Order.NONE, Order.STAY)
     var lostTrack = lostTrack || bolted
     var mapped = mapped
+    var drawn = drawn
     var marks = marks
     var end: End? = null
     var death: String? = null
@@ -284,7 +290,10 @@ fun Call.walk(maze: Maze, haunt: Haunt): Call {
         facing = dir
         battery--
         walked++
-        if (!lostTrack) mapped = mapped + (at to maze.exits(at).toSet())
+        if (!lostTrack) {
+            mapped = mapped + (at to maze.exits(at).toSet())
+            drawn = drawn + (at to pencil(turn, panic))
+        }
         maze.doomAt(at)?.let {
             end = End.DOOM
             death = it.kind.word
@@ -385,6 +394,7 @@ fun Call.walk(maze: Maze, haunt: Haunt): Call {
             hidden = hidden,
             lostTrack = lostTrack,
             mapped = mapped,
+            drawn = drawn,
             marks = marks,
             turn = turn + 1,
             end = end,
@@ -422,7 +432,11 @@ private fun Call.look(maze: Maze, haunt: Haunt, facts: List<String>): Call {
         seen += "Wait. I know this place. I've been here before."
         panic -= 10
     }
-    if (!lostTrack) mapped = mapped + (at to maze.exits(at).toSet())
+    var drawn = drawn
+    if (!lostTrack) {
+        mapped = mapped + (at to maze.exits(at).toSet())
+        drawn = drawn + (at to pencil(turn, panic))
+    }
 
     val names = listOf("Ahead", "To my right", "Behind me", "To my left")
     for (quarter in listOf(0, 3, 1, 2)) {
@@ -495,9 +509,23 @@ private fun Call.look(maze: Maze, haunt: Haunt, facts: List<String>): Call {
         trust = trust.coerceIn(0, 100),
         lostTrack = lostTrack,
         mapped = mapped,
+        drawn = drawn,
         glimpsed = glimpsed,
     )
 }
+
+/** The turn to write in [Call.drawn] for a cell drawn on [turn]: in a panic, as if half faded already. */
+private fun pencil(turn: Int, panic: Int): Int = if (panic >= CALM_ENOUGH) turn - FADE / 2 else turn
+
+/** How faint the notebook's drawing of [pos] is now, from 0 (gone) to 1 (fresh, or marked). */
+fun Call.ink(pos: Pos): Float {
+    if (marks.any { it.at == pos } || pos == origin && turn == 0) return 1f
+    val age = turn - (drawn[pos] ?: return 0f)
+    return (1f - age.toFloat() / FADE).coerceIn(0f, 1f)
+}
+
+/** After this many turns, a cell without a mark is gone from the notebook. */
+const val FADE: Int = 6
 
 private fun pointing(side: Int): String = listOf("ahead", "to my right", "back the way I came", "to my left")[side]
 
