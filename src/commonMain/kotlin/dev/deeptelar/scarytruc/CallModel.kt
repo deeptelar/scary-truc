@@ -6,7 +6,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import dev.deeptelar.telar.agent.ChatModel
@@ -275,7 +274,8 @@ class CallModel(
                 val after = work()
                 call = after
                 spokeAt = now()
-                type(after)
+                // Their words arrive like a message on a phone of the time.
+                if (after.lines.lastOrNull { it.who == Who.CALLER } != before.lines.lastOrNull { it.who == Who.CALLER }) Sound.play(Cue.MESSAGE, gain = -6f)
                 sounds(before, after)
                 if (after.over) keep(after)
             } catch (e: CancellationException) {
@@ -321,21 +321,6 @@ class CallModel(
                 null -> Unit
             }
         }
-    }
-
-    /** The keys of a phone, pressed as the caller's last line appears. */
-    private var typing: Job? = null
-
-    private fun type(after: Call) {
-        typing?.cancel()
-        val line = after.lines.lastOrNull { it.who == Who.CALLER }?.text ?: return
-        typing =
-            scope.launch {
-                for ((i, c) in line.withIndex()) {
-                    if (c != ' ' && i % 2 == 0) Sound.play(Sound.KEYS.random(), gain = -8f)
-                    delay(LETTER)
-                }
-            }
     }
 
     private fun keep(call: Call) {

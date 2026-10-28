@@ -10,7 +10,7 @@ import kotlin.math.sin
 import kotlin.random.Random
 
 /** What the night sounds like at a moment of the game. */
-enum class Cue { SCREAM, STATIC, STINGER, WAKE, BELL, SIREN, WHISPER, CHIME, DEATH, RING, HANGUP, STEP_1, STEP_2, STEP_3, STEP_4, KEY_1, KEY_2, KEY_3, KEY_4 }
+enum class Cue { SCREAM, STATIC, STINGER, WAKE, BELL, SIREN, WHISPER, CHIME, DEATH, RING, HANGUP, MESSAGE, STEP_1, STEP_2, STEP_3, STEP_4 }
 
 /** Sounds cut from a recording, read when the game starts: [cues] one after the other in [file], [length] samples each. */
 private class Recording(val file: String, val cues: List<Cue>, val length: Int)
@@ -28,8 +28,8 @@ interface SoundOutput {
 }
 
 /**
- * The sounds of the night, made from sine waves and noise when the game starts, but for the keys
- * of a phone and the footsteps, which are recorded ([KEYS], [STEPS]). A low
+ * The sounds of the night, made from sine waves and noise when the game starts, but for the
+ * footsteps, which are recorded ([STEPS]). A low
  * drone plays all night, a heavier one after midnight, and radio static crackles when the Hollow
  * is near ([danger]), without saying where; now and then it crackles with nothing there. Just
  * before the Hollow steps close, everything can go quiet ([hushed]). Without an [output], or with
@@ -65,15 +65,11 @@ object Sound {
 
     private var started = false
 
-    /** The keys of a phone, one played at random as each letter appears. */
-    val KEYS: List<Cue> = listOf(Cue.KEY_1, Cue.KEY_2, Cue.KEY_3, Cue.KEY_4)
-
     /** Footsteps, one played at random for each step the caller walks. */
     val STEPS: List<Cue> = listOf(Cue.STEP_1, Cue.STEP_2, Cue.STEP_3, Cue.STEP_4)
 
-    // Mono, 16 bits, 22050 Hz. "Typing on phone" by freesound_community and "Footsteps on parquet"
-    // by KRNBEATZ, both from Pixabay.
-    private val recordings = listOf(Recording("files/keys.pcm", KEYS, 2646), Recording("files/steps.pcm", STEPS, 7717))
+    // Mono, 16 bits, 22050 Hz: "Footsteps on parquet" by KRNBEATZ, from Pixabay.
+    private val recordings = listOf(Recording("files/steps.pcm", STEPS, 7717))
 
     /** The recorded cues read so far. */
     private var recorded: Map<Cue, FloatArray> = emptyMap()
@@ -192,9 +188,27 @@ object Sound {
                 wave(1.2) { t, _ ->
                     if ((t % 0.4) < 0.18) sin(2 * PI * 620 * t) * 0.35 * envelope(t % 0.4, 0.005, 0.18) else 0.0
                 }
-            // Until their recordings are read, a key of an old phone is a short, dry click...
-            Cue.KEY_1, Cue.KEY_2, Cue.KEY_3, Cue.KEY_4 -> wave(0.03) { t, _ -> ((noise.nextDouble() - 0.5) * 0.6 + sin(2 * PI * 2400 * t) * 0.25) * exp(-t * 220) }
-            // ...and a footstep a dull knock and a splash.
+            // A message on a phone of 2003: "SMS" in Morse, · · ·  − −  · · ·, on its buzzer.
+            Cue.MESSAGE -> {
+                val dot = 0.065
+                val beeps = mutableListOf<Pair<Double, Double>>()
+                var at = 0.0
+                for ((i, letter) in listOf("...", "--", "...").withIndex()) {
+                    if (i > 0) at += 2 * dot
+                    for (sign in letter) {
+                        val length = if (sign == '.') dot else 3 * dot
+                        beeps += at to length
+                        at += length + dot
+                    }
+                }
+                wave(at) { t, _ ->
+                    val beep = beeps.firstOrNull { (start, length) -> t >= start && t < start + length } ?: return@wave 0.0
+                    // A square wave, its edges eased so that each beep starts and stops without a click.
+                    val edge = minOf(t - beep.first, beep.first + beep.second - t).coerceAtMost(0.004) / 0.004
+                    (if (sin(2 * PI * 1760 * t) >= 0) 0.22 else -0.22) * edge
+                }
+            }
+            // Until its recording is read, a footstep is a dull knock and a splash.
             Cue.STEP_1, Cue.STEP_2, Cue.STEP_3, Cue.STEP_4 ->
                 wave(0.22) { t, _ -> (sin(2 * PI * 70 * t) * 0.8 + (noise.nextDouble() - 0.5) * 0.4) * exp(-t * 28) }
         }
