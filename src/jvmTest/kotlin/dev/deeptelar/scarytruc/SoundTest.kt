@@ -1,7 +1,12 @@
 package dev.deeptelar.scarytruc
 
 import dev.deeptelar.scarytruc.resources.Res
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
 import java.io.ByteArrayInputStream
 import java.io.File
 import javax.sound.sampled.AudioFileFormat
@@ -23,9 +28,14 @@ class SoundTest {
     }
 
     @Test
-    fun theKeysAreFourPressesOfTheRecording() = runBlocking {
-        val bytes = Res.readBytes("files/keys.pcm")
-        assertEquals(Sound.KEYS.size * 2646 * 2, bytes.size)
+    fun theRecordingsHoldFourSoundsEach() = runBlocking {
+        assertEquals(Sound.KEYS.size * 2646 * 2, Res.readBytes("files/keys.pcm").size)
+        assertEquals(Sound.STEPS.size * 7717 * 2, Res.readBytes("files/steps.pcm").size)
+        val scope = CoroutineScope(Dispatchers.Default)
+        Sound.start(scope)
+        withTimeout(5_000) { while (!Sound.ready(Cue.KEY_4) || !Sound.ready(Cue.STEP_4)) delay(10) }
+        scope.cancel()
+        assertEquals(7717, Sound.samples(Cue.STEP_2).size)
     }
 
     /** Writes every cue as a WAV, to listen to them: ./gradlew test --tests '*SoundTest*' -Pshots=DIR */

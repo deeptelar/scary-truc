@@ -295,7 +295,7 @@ class CallModel(
         Sound.danger = if (after.over) 0f else danger(after, maze)
         scope.launch {
             repeat(after.walked) {
-                Sound.play(Cue.STEP, gain = -4f)
+                Sound.play(Sound.STEPS.random(), gain = -4f)
                 delay(380)
             }
             if (before.hollow?.awake == false && after.hollow?.awake == true) Sound.play(Cue.WAKE)
