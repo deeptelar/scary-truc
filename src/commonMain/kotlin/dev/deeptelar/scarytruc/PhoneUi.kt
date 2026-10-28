@@ -111,22 +111,25 @@ private fun MindLine(model: CallModel) {
     }
 }
 
-/** Where the player connects a model that speaks the OpenAI API: their Ollama, or a hosted Gemma. */
+/**
+ * Where the player connects a model that speaks the OpenAI API: Gemma on OpenRouter with their own
+ * key, their Ollama, or a friend's proxy, whose address and token take the place of OpenRouter's.
+ */
 @Composable
 private fun Settings(model: CallModel, done: () -> Unit) {
     val saved = model.server
-    var url by remember { mutableStateOf(saved?.url ?: Server.OLLAMA.url) }
-    var name by remember { mutableStateOf(saved?.model ?: Server.OLLAMA.model) }
+    var url by remember { mutableStateOf(saved?.url ?: Server.OPENROUTER.url) }
+    var name by remember { mutableStateOf(saved?.model ?: Server.OPENROUTER.model) }
     var key by remember { mutableStateOf(saved?.key.orEmpty()) }
     Column(Modifier.fillMaxWidth().pixelBox(Ink.paper).padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            PixelButton("OpenRouter", Ink.paperDark, onClick = { url = Server.OPENROUTER.url; name = Server.OPENROUTER.model }, small = true)
             PixelButton("Ollama", Ink.paperDark, onClick = { url = Server.OLLAMA.url; name = Server.OLLAMA.model; key = "" }, small = true)
-            PixelButton("Google AI Studio", Ink.paperDark, onClick = { url = Server.STUDIO.url; name = Server.STUDIO.model }, small = true)
         }
         PixelField(url, { url = it }, "Server address", Modifier.fillMaxWidth(), maxLines = 1)
         PixelField(name, { name = it }, "Model", Modifier.fillMaxWidth(), maxLines = 1)
-        PixelField(key, { key = it }, "API key (none for Ollama)", Modifier.fillMaxWidth(), maxLines = 1)
-        PixelText("The key stays on this device. A page on https can't reach an Ollama on http.", size = SMALL, color = Ink.faint, maxLines = 3)
+        PixelField(key, { key = it }, "Key or token (none for Ollama)", Modifier.fillMaxWidth(), maxLines = 1)
+        PixelText("The key stays on this device and goes from it straight to the server. A friend's proxy works too: its address, and your token as the key.", size = SMALL, color = Ink.faint, maxLines = 4)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             PixelButton("Use it", Ink.orange, onClick = { model.connect(Server(url.trim(), name.trim(), key.trim())); done() }, small = true)
             PixelButton("No model", Ink.paperDark, onClick = { model.connect(null); done() }, small = true)

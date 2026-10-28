@@ -36,8 +36,9 @@ data class Server(val url: String, val model: String, val key: String = "") {
     }
 
     companion object {
+        /** One key for the models of many providers: Gemma 4 among them, from a browser too. */
+        val OPENROUTER: Server = Server("https://openrouter.ai/api/v1", "google/gemma-4-31b-it")
         val OLLAMA: Server = Server("http://localhost:11434/v1", "gemma4:12b")
-        val STUDIO: Server = Server("https://generativelanguage.googleapis.com/v1beta/openai", "gemma-3-27b-it")
     }
 }
 
