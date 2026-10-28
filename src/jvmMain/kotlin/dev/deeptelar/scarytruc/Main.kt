@@ -23,6 +23,7 @@ import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import java.net.URI
+import java.nio.file.Files
 import java.nio.file.Path
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
@@ -55,21 +56,12 @@ fun main(args: Array<String>) {
             parameters = buildJsonObject { put("reasoning_effort", "none") },
             timeout = 2.minutes,
         )
-    Sound.on = "--mute" !in args
-    Sound.start()
     val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+    Sound.output = JavaSound()
+    Sound.on = "--mute" !in args
+    Sound.start(scope)
     val home = Path.of(System.getProperty("user.home"), ".scary-truc")
-    val game =
-        CallModel(
-            scope,
-            { trouble -> if (gemma) GemmaEars(model, trouble = trouble) else Keywords },
-            if (gemma) GemmaVoice(model) else Script,
-            gemma,
-            if (gemma) GemmaWhispers(model) else Echoes,
-            plan,
-            seed,
-            home.resolve("progress"),
-        )
+    val game = CallModel(scope, if (gemma) Minds.of(model, modelName) else Minds.none, plan, seed, FileStore(home))
     application {
         val state = rememberWindowState(size = DpSize(1240.dp, 800.dp))
         Window(
@@ -119,4 +111,14 @@ internal fun ollamaUrl(host: String?): String {
     val port = if (uri.port != -1) uri.port else if ("://" !in value) 11434 else if (uri.scheme == "https") 443 else 80
     val name = uri.host?.takeUnless { it == "0.0.0.0" || it == "[::]" } ?: "127.0.0.1"
     return "${uri.scheme}://$name:$port"
+}
+
+/** Keeps each value in a file of its own, in [folder]. */
+private class FileStore(private val folder: Path) : Store {
+    override fun get(key: String): String? = folder.resolve(key).takeIf { Files.exists(it) }?.let { Files.readString(it) }
+
+    override fun set(key: String, value: String) {
+        Files.createDirectories(folder)
+        Files.writeString(folder.resolve(key), value)
+    }
 }

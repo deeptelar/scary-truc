@@ -8,28 +8,73 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import java.nio.file.Files
-import java.nio.file.Path
+import dev.deeptelar.telar.agent.ChatModel
+import dev.deeptelar.telar.openai.OpenAiChatModel
+import io.ktor.client.HttpClient
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlin.time.Duration.Companion.minutes
 import kotlin.random.Random
+import kotlin.time.TimeSource
+
+/** Where the game keeps a few values between plays: a folder on the desktop, `localStorage` in a browser. */
+interface Store {
+    fun get(key: String): String?
+
+    fun set(key: String, value: String)
+}
+
+/** A server with the OpenAI API, and the model on it that plays the caller and the Hollow. */
+data class Server(val url: String, val model: String, val key: String = "") {
+    /** The minds of [model] on this server, asked through [client]. */
+    fun minds(client: HttpClient): Minds {
+        // Ollama thinks before it answers unless told not to; a phone call can't wait for that.
+        val ollama = ":11434" in url || "ollama" in url
+        val parameters = if (ollama) JsonObject(mapOf("reasoning_effort" to JsonPrimitive("none"))) else JsonObject(emptyMap())
+        val chat = OpenAiChatModel(client, apiKey = key.ifBlank { null }, model = model, parameters = parameters, baseUrl = url.trimEnd('/'), timeout = 1.minutes)
+        return Minds.of(chat, model)
+    }
+
+    companion object {
+        val OLLAMA: Server = Server("http://localhost:11434/v1", "gemma4:12b")
+        val STUDIO: Server = Server("https://generativelanguage.googleapis.com/v1beta/openai", "gemma-3-27b-it")
+    }
+}
+
+/**
+ * The mind of the caller and of the Hollow: Gemma's, named [name], or none, where the caller
+ * knows a few words and says the facts as they are.
+ */
+class Minds(
+    val name: String?,
+    val ears: ((String?) -> Unit) -> Ears,
+    val voice: Voice,
+    val whisperer: Whisperer,
+) {
+    val gemma: Boolean get() = name != null
+
+    companion object {
+        val none: Minds = Minds(null, { Keywords }, Script, Echoes)
+
+        fun of(model: ChatModel, name: String): Minds = Minds(name, { GemmaEars(model, trouble = it) }, GemmaVoice(model), GemmaWhispers(model))
+    }
+}
 
 /**
  * What the window shows and what it does: one [CallRun] at a time, and one turn at a time on it,
  * while [thinking] is false. The caller doesn't wait: after [silence] milliseconds without a word
  * from the stranger, the turn goes on with nothing said.
  *
- * @param ears how the caller hears; it is told why Gemma could not answer, or `null` when it did.
- * @param progress the file that keeps the nights someone got out of, or `null` to keep nothing.
+ * @param minds the minds of the caller and the Hollow; [use] changes them.
+ * @param store where the nights someone got out of are kept, or `null` to keep nothing.
  * @param clock whether silence counts; without it, only [send] moves the call on.
  */
 class CallModel(
     private val scope: CoroutineScope,
-    ears: ((String?) -> Unit) -> Ears,
-    private val voice: Voice,
-    val gemma: Boolean,
-    private val whisperer: Whisperer = Echoes,
+    minds: Minds = Minds.none,
     plan: Plan = Plan.FIRST,
     seed: Long? = null,
-    private val progress: Path? = null,
+    private val store: Store? = null,
     private val clock: Boolean = true,
     private val silence: Long = SILENCE,
 ) {
@@ -37,7 +82,19 @@ class CallModel(
     var trouble: String? by mutableStateOf(null)
         private set
 
-    private val hearing = ears { trouble = it }
+    var minds: Minds by mutableStateOf(minds)
+        private set
+
+    /** The server the player chose in the settings, kept in the [store]. */
+    var server: Server? by mutableStateOf(readServer())
+        private set
+
+    private val client by lazy { HttpClient() }
+
+    val gemma: Boolean get() = minds.gemma
+
+    /** The game's own sounds hook in here: a browser opens its sound on the first tap. */
+    var onAnswer: () -> Unit = {}
 
     private var run = newRun(plan, seed)
 
@@ -99,6 +156,7 @@ class CallModel(
 
     fun answer() {
         if (!ringing) return
+        onAnswer()
         ringing = false
         command { run.begin() }
     }
@@ -130,8 +188,33 @@ class CallModel(
         Sound.otherworld = false
     }
 
-    private fun newRun(plan: Plan, seed: Long?) =
-        CallRun(plan, seed ?: plan.seed ?: Random.nextLong(1, 1_000_000), hearing, voice, whisperer)
+    /** Other minds for the caller and the Hollow, from the next call on: this one starts again. */
+    fun use(minds: Minds) {
+        if (thinking) return
+        this.minds = minds
+        trouble = null
+        play(plan, run.maze.seed)
+    }
+
+    /** Plays the caller with the model on [server], or with none, and remembers the choice. */
+    fun connect(server: Server?) {
+        this.server = server
+        runCatching { store?.set(SERVER, server?.let { listOf(it.url, it.model, it.key).joinToString("\n") }.orEmpty()) }
+        use(server?.minds(client) ?: Minds.none)
+    }
+
+    /** The minds of the server the player chose before, if any. */
+    fun saved(): Minds? = server?.minds(client)
+
+    private fun readServer(): Server? {
+        val lines = runCatching { store?.get(SERVER) }.getOrNull()?.split("\n") ?: return null
+        return if (lines.size >= 2 && lines[0].isNotBlank()) Server(lines[0], lines[1], lines.getOrElse(2) { "" }) else null
+    }
+
+    private fun newRun(plan: Plan, seed: Long?): CallRun {
+        val minds = minds
+        return CallRun(plan, seed ?: plan.seed ?: Random.nextLong(1, 1_000_000), minds.ears { trouble = it }, minds.voice, minds.whisperer)
+    }
 
     /** Runs [work] alone, then plays the sounds of what changed. */
     private fun command(work: suspend () -> Call) {
@@ -195,17 +278,12 @@ class CallModel(
         played = maxOf(played, call.plan.ordinal)
         if (call.end != End.OUT || call.plan in escaped) return
         escaped = escaped + call.plan
-        val file = progress ?: return
-        runCatching {
-            Files.createDirectories(file.parent)
-            Files.writeString(file, escaped.joinToString("\n") { it.name })
-        }
+        runCatching { store?.set(PROGRESS, escaped.joinToString(",") { it.name }) }
     }
 
     private fun readProgress(): Set<Plan> {
-        val file = progress?.takeIf { Files.exists(it) } ?: return emptySet()
-        return runCatching { Files.readAllLines(file).mapNotNull { line -> Plan.entries.firstOrNull { it.name == line.trim() } }.toSet() }
-            .getOrDefault(emptySet())
+        val saved = runCatching { store?.get(PROGRESS) }.getOrNull() ?: return emptySet()
+        return saved.split(",").mapNotNull { name -> Plan.entries.firstOrNull { it.name == name.trim() } }.toSet()
     }
 
     companion object {
@@ -215,12 +293,18 @@ class CallModel(
         /** How long a letter of the caller's line takes to appear. */
         const val LETTER: Long = 28
 
-        private fun now() = System.currentTimeMillis()
+        private const val PROGRESS = "progress"
+        private const val SERVER = "server"
 
         /** How long the caller's last line takes to say. */
         fun speaking(call: Call): Long = (call.lines.lastOrNull { it.who == Who.CALLER }?.text?.length ?: 0) * LETTER
     }
 }
+
+private val started = TimeSource.Monotonic.markNow()
+
+/** Milliseconds since the game started. */
+fun now(): Long = started.elapsedNow().inWholeMilliseconds
 
 /** How close the awake Hollow is to the caller, from 0 (far or asleep) to 1 (next to them). */
 fun danger(call: Call, maze: Maze): Float {

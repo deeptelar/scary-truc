@@ -41,7 +41,9 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontVariation
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.platform.Font
+import dev.deeptelar.scarytruc.resources.Res
+import dev.deeptelar.scarytruc.resources.PixelifySans
+import org.jetbrains.compose.resources.Font
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
@@ -53,11 +55,10 @@ import androidx.compose.ui.unit.sp
 /** One pixel of the controls' drawings. */
 internal val PX: Dp = 3.dp
 
-/** Pixelify Sans, a pixel font under the SIL Open Font License (resources/fonts/OFL.txt). Only its regular weight sits on its grid. */
-internal val PixelFont: FontFamily by lazy {
-    val data = checkNotNull(Ink::class.java.getResourceAsStream("/fonts/PixelifySans.ttf")).use { it.readBytes() }
-    FontFamily(Font("PixelifySans", data, FontWeight.Normal, FontStyle.Normal, FontVariation.Settings(FontVariation.weight(400))))
-}
+/** Pixelify Sans, a pixel font under the SIL Open Font License (licenses/PixelifySans-OFL.txt). Only its regular weight sits on its grid. */
+internal val PixelFont: FontFamily
+    @Composable get() =
+        FontFamily(Font(Res.font.PixelifySans, FontWeight.Normal, FontStyle.Normal, FontVariation.Settings(FontVariation.weight(400))))
 
 // A pixel of Pixelify Sans is 0.091 of its size: at these sizes its pixels fall on whole screen pixels.
 internal val SMALL: TextUnit = 16.5.sp // a pixel and a half: slightly soft, for notes

@@ -2,6 +2,10 @@ package dev.deeptelar.scarytruc
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -41,35 +45,91 @@ import androidx.compose.ui.input.key.type
 import androidx.compose.ui.text.TextMeasurer
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.delay
 import kotlin.random.Random
 
-/** The whole window: the phone on the left, the notebook on the right. */
+/**
+ * The whole window: the phone on the left and the notebook on the right, or, on a narrow screen
+ * like a phone's, the phone alone, with the notebook a tap away.
+ */
 @Composable
 fun Game(model: CallModel) {
-    var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
+    var now by remember { mutableLongStateOf(now()) }
     LaunchedEffect(Unit) {
         while (true) {
             delay(40)
-            now = System.currentTimeMillis()
+            now = now()
         }
     }
-    Row(Modifier.fillMaxSize().background(Ink.dark).padding(16.dp), horizontalArrangement = Arrangement.spacedBy(20.dp)) {
-        Phone(model, now, Modifier.width(440.dp).fillMaxHeight())
-        Column(Modifier.weight(1f).fillMaxHeight(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Nights(model)
-            PixelText(model.plan.title + if (model.plan == Plan.ENDLESS) " · ${model.maze.seed}" else "", color = Ink.orange)
-            PixelText(model.plan.hint, size = SMALL, color = Ink.faint, maxLines = 3)
-            Notebook(model, Modifier.weight(1f).fillMaxWidth())
-            if (!model.gemma) {
-                PixelText("Without Gemma, the caller only knows a few words: left, right, ahead, back, stay, hide, mark.", size = SMALL, color = Ink.candle, maxLines = 2)
-            } else if (model.trouble != null) {
-                PixelText("Gemma did not answer, so they heard only your keywords: ${model.trouble}", size = SMALL, color = Ink.candle, maxLines = 2)
+    BoxWithConstraints(Modifier.fillMaxSize().background(Ink.dark)) {
+        if (maxWidth < 760.dp) {
+            Phone(model, now, narrow = true, Modifier.fillMaxSize().padding(6.dp))
+            return@BoxWithConstraints
+        }
+        Row(Modifier.fillMaxSize().padding(16.dp), horizontalArrangement = Arrangement.spacedBy(20.dp)) {
+            Phone(model, now, narrow = false, Modifier.width(440.dp).fillMaxHeight())
+            Column(Modifier.weight(1f).fillMaxHeight(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Title(model)
+                    Spacer(Modifier.weight(1f))
+                    Nights(model)
+                }
+                PixelText(model.plan.title + if (model.plan == Plan.ENDLESS) " · ${model.maze.seed}" else "", color = Ink.orange)
+                PixelText(model.plan.hint, size = SMALL, color = Ink.faint, maxLines = 3)
+                Notebook(model, Modifier.weight(1f).fillMaxWidth())
+                MindLine(model)
             }
-            model.failure?.let { PixelText(it, size = SMALL, color = Ink.red, maxLines = 2) }
+        }
+    }
+}
+
+@Composable
+private fun Title(model: CallModel) {
+    val other = model.call.afterMidnight && model.plan.hollow
+    PixelText(if (other && !model.call.over) "OTHERWORLD" else "SCARY TRUC", size = BIG, color = if (other) Ink.red else Ink.orange)
+}
+
+/** Whose mind the caller has, and what went wrong with Gemma, with a way to change it. */
+@Composable
+private fun MindLine(model: CallModel) {
+    var open by remember { mutableStateOf(false) }
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        val text =
+            when {
+                !model.gemma -> "No model: the caller knows only a few words (left, right, ahead, back, stay, hide, mark)."
+                model.trouble != null -> "${model.minds.name} did not answer, so they heard only your keywords: ${model.trouble}"
+                else -> "The caller and the Hollow are played by ${model.minds.name}."
+            }
+        PixelText(text, size = SMALL, color = if (model.gemma && model.trouble == null) Ink.faint else Ink.candle, maxLines = 3)
+        PixelLink(if (open) "Close" else "Model settings", onClick = { open = !open })
+        if (open) Settings(model) { open = false }
+        model.failure?.let { PixelText(it, size = SMALL, color = Ink.red, maxLines = 2) }
+    }
+}
+
+/** Where the player connects a model that speaks the OpenAI API: their Ollama, or a hosted Gemma. */
+@Composable
+private fun Settings(model: CallModel, done: () -> Unit) {
+    val saved = model.server
+    var url by remember { mutableStateOf(saved?.url ?: Server.OLLAMA.url) }
+    var name by remember { mutableStateOf(saved?.model ?: Server.OLLAMA.model) }
+    var key by remember { mutableStateOf(saved?.key.orEmpty()) }
+    Column(Modifier.fillMaxWidth().pixelBox(Ink.paper).padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            PixelButton("Ollama", Ink.paperDark, onClick = { url = Server.OLLAMA.url; name = Server.OLLAMA.model; key = "" }, small = true)
+            PixelButton("Google AI Studio", Ink.paperDark, onClick = { url = Server.STUDIO.url; name = Server.STUDIO.model }, small = true)
+        }
+        PixelField(url, { url = it }, "Server address", Modifier.fillMaxWidth(), maxLines = 1)
+        PixelField(name, { name = it }, "Model", Modifier.fillMaxWidth(), maxLines = 1)
+        PixelField(key, { key = it }, "API key (none for Ollama)", Modifier.fillMaxWidth(), maxLines = 1)
+        PixelText("The key stays on this device. A page on https can't reach an Ollama on http.", size = SMALL, color = Ink.faint, maxLines = 3)
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            PixelButton("Use it", Ink.orange, onClick = { model.connect(Server(url.trim(), name.trim(), key.trim())); done() }, small = true)
+            PixelButton("No model", Ink.paperDark, onClick = { model.connect(null); done() }, small = true)
         }
     }
 }
@@ -78,8 +138,6 @@ fun Game(model: CallModel) {
 @Composable
 private fun Nights(model: CallModel) {
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-        PixelText(if (model.call.afterMidnight && model.plan.hollow && !model.call.over) "OTHERWORLD" else "SCARY TRUC", size = BIG, color = if (model.call.afterMidnight && model.plan.hollow) Ink.red else Ink.orange)
-        Spacer(Modifier.weight(1f))
         for (plan in Plan.entries) {
             val label = (if (plan == Plan.ENDLESS) "∞" else "${plan.ordinal + 1}") + if (plan in model.escaped) " ✓" else ""
             PixelButton(label, if (plan == model.plan) Ink.orange else Ink.paperDark, onClick = { model.play(plan) }, enabled = model.open(plan) && !model.thinking, small = true)
@@ -88,22 +146,29 @@ private fun Nights(model: CallModel) {
 }
 
 @Composable
-private fun Phone(model: CallModel, now: Long, modifier: Modifier) {
+private fun Phone(model: CallModel, now: Long, narrow: Boolean, modifier: Modifier) {
     val call = model.call
     val danger = if (model.ringing || call.over) 0f else danger(call, model.maze)
-    Column(modifier.pixelBox(Color(0xFF15111B)).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    var notebook by remember { mutableStateOf(false) }
+    Column(modifier.pixelBox(Color(0xFF15111B)).padding(if (narrow) 10.dp else 16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         StatusBar(call, danger)
         if (model.ringing) {
-            Ringing(model, now, Modifier.weight(1f).fillMaxWidth())
+            Ringing(model, now, narrow, Modifier.weight(1f).fillMaxWidth())
             return@Column
         }
-        CallerBar(call, now)
+        CallerBar(call, now) {
+            if (narrow) PixelButton(if (notebook) "Call" else "Notebook", if (notebook) Ink.orange else Ink.paperDark, onClick = { notebook = !notebook }, small = true)
+        }
         val speaking = now - model.spokeAt < CallModel.speaking(call)
-        Transcript(model, now, danger, Modifier.weight(1f).fillMaxWidth())
+        if (narrow && notebook) {
+            Notebook(model, Modifier.weight(1f).fillMaxWidth())
+        } else {
+            Transcript(model, now, danger, Modifier.weight(1f).fillMaxWidth())
+        }
         if (call.over && !model.thinking && !speaking) {
             Ending(model)
         } else {
-            Talk(model)
+            Talk(model, narrow)
         }
     }
 }
@@ -141,25 +206,35 @@ private fun StatusBar(call: Call, danger: Float) {
 /** The time on the phone: midnight comes on the night's midnight turn, a minute a turn. */
 private fun clock(call: Call): String {
     val minutes = (if (call.plan.hollow) 24 * 60 - call.plan.midnight else 23 * 60 + 20) + call.turn
-    return "%02d:%02d".format((minutes / 60) % 24, minutes % 60)
+    return "${((minutes / 60) % 24).toString().padStart(2, '0')}:${(minutes % 60).toString().padStart(2, '0')}"
 }
 
 @Composable
-private fun Ringing(model: CallModel, now: Long, modifier: Modifier) {
-    Column(modifier, horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(18.dp, Alignment.CenterVertically)) {
+private fun Ringing(model: CallModel, now: Long, narrow: Boolean, modifier: Modifier) {
+    Column(
+        modifier.verticalScroll(rememberScrollState()),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterVertically),
+    ) {
+        if (narrow) {
+            Title(model)
+            Nights(model)
+            PixelText(model.plan.title + if (model.plan == Plan.ENDLESS) " · ${model.maze.seed}" else "", color = Ink.orange)
+            PixelText(model.plan.hint, size = SMALL, color = Ink.faint)
+        }
         val shake = if ((now / 120) % 2 == 0L && (now / 1000) % 3 != 2L) 3.dp else 0.dp
-        Box(Modifier.size(120.dp).offset(x = shake).drawBehind { draw(Sprites.agent.tinted(Ink.off), center, 9.dp.toPx()) })
+        Box(Modifier.size(if (narrow) 90.dp else 120.dp).offset(x = shake).drawBehind { draw(Sprites.agent.tinted(Ink.off), center, (if (narrow) 7 else 9).dp.toPx()) })
         PixelText("Incoming call", color = Ink.faint)
         PixelText("Unknown number", size = BIG)
-        Spacer(Modifier.height(10.dp))
-        PixelButton("Answer (Enter)", Ink.green, onClick = model::answer, modifier = Modifier.width(240.dp))
+        PixelButton(if (narrow) "Answer" else "Answer (Enter)", Ink.green, onClick = model::answer, modifier = Modifier.width(240.dp))
         PixelText("Sound on. Headphones, if you dare.", size = SMALL, color = Ink.faint)
+        if (narrow) MindLine(model)
     }
 }
 
 /** Who is calling, how fast their heart beats, and for how long the call has gone on. */
 @Composable
-private fun CallerBar(call: Call, now: Long) {
+private fun CallerBar(call: Call, now: Long, extra: @Composable () -> Unit) {
     Row(Modifier.fillMaxWidth().pixelBox(Ink.paper).padding(10.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         val scared = call.panic >= CALM_ENOUGH && !call.over
         val sprite = (if (scared) Sprites.scared else Sprites.agent).tinted(if (call.end == End.TAKEN || call.end == End.DOOM) Ink.off else call.role.color)
@@ -171,6 +246,7 @@ private fun CallerBar(call: Call, now: Long) {
             PixelText(if (call.over) "—" else "♥ $bpm", size = SMALL, color = if (beat) Ink.red else Ink.faint)
         }
         PixelText(if (call.hidden && !call.over) "hiding" else "", size = SMALL, color = Ink.faint)
+        extra()
     }
 }
 
@@ -225,26 +301,29 @@ private fun Bubble(text: String, who: Who, role: Role, now: Long = 0) {
     }
 }
 
-/** Where the player talks: Enter says it. */
+/** Where the player talks: Enter or the button says it. */
 @Composable
-private fun Talk(model: CallModel) {
+private fun Talk(model: CallModel, narrow: Boolean) {
     val focus = remember { FocusRequester() }
     LaunchedEffect(model.ringing, model.call.turn) { runCatching { focus.requestFocus() } }
-    PixelField(
-        model.typed,
-        model::type,
-        if (model.thinking) "They're talking…" else "Talk to them…",
-        Modifier.fillMaxWidth().focusRequester(focus).onPreviewKeyEvent { event ->
-            if (event.type == KeyEventType.KeyDown && event.key == Key.Enter && !event.isShiftPressed) {
-                if (!model.thinking) model.send()
-                true
-            } else {
-                false
-            }
-        },
-        maxLines = 3,
-    )
-    PixelText("Enter to speak. Silence scares them.", size = SMALL, color = Ink.faint)
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+        PixelField(
+            model.typed,
+            model::type,
+            if (model.thinking) "They're talking…" else "Talk to them…",
+            Modifier.weight(1f).focusRequester(focus).onPreviewKeyEvent { event ->
+                if (event.type == KeyEventType.KeyDown && event.key == Key.Enter && !event.isShiftPressed) {
+                    if (!model.thinking) model.send()
+                    true
+                } else {
+                    false
+                }
+            },
+            maxLines = 3,
+        )
+        PixelButton("Say", Ink.orange, onClick = model::send, enabled = !model.thinking && model.typed.isNotBlank(), small = true)
+    }
+    if (!narrow) PixelText("Enter to speak. Silence scares them.", size = SMALL, color = Ink.faint)
 }
 
 /** The end of the call: how it ended, and what next. */
@@ -262,7 +341,7 @@ private fun Ending(model: CallModel) {
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             PixelButton("Same call again", Ink.paperDark, onClick = model::again, small = true)
             val next = model.plan.next
-            PixelButton(if (next == null || next == Plan.ENDLESS) "Another call" else "Next night (Enter)", Ink.orange, onClick = { model.play(next ?: Plan.ENDLESS) }, small = true)
+            PixelButton(if (next == null || next == Plan.ENDLESS) "Another call" else "Next night", Ink.orange, onClick = { model.play(next ?: Plan.ENDLESS) }, small = true)
         }
     }
 }
@@ -288,11 +367,12 @@ private fun Notebook(model: CallModel, modifier: Modifier) {
     val call = model.call
     val haunt = model.haunt
     val measurer = rememberTextMeasurer()
+    val font = PixelFont
     Column(modifier.pixelBox(Pencil.paper).padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Box(
             Modifier.weight(1f).fillMaxWidth().drawBehind {
                 if (model.ringing) return@drawBehind
-                drawNotebook(call, haunt, measurer)
+                drawNotebook(call, haunt, measurer, font)
             },
         )
         val notes = if (model.ringing) emptyList() else haunt.notes.filterKeys { it in call.mapped }.values
@@ -301,7 +381,7 @@ private fun Notebook(model: CallModel, modifier: Modifier) {
     }
 }
 
-private fun DrawScope.drawNotebook(call: Call, haunt: Haunt, measurer: TextMeasurer) {
+private fun DrawScope.drawNotebook(call: Call, haunt: Haunt, measurer: TextMeasurer, font: FontFamily) {
     val cells = call.mapped.keys + call.glimpsed.keys + call.origin
     val page = cells.associateWith { call.onPage(it) }
     val minX = page.values.minOf { it.first } - 1
@@ -314,7 +394,7 @@ private fun DrawScope.drawNotebook(call: Call, haunt: Haunt, measurer: TextMeasu
     fun corner(pos: Pos): Offset = page.getValue(pos).let { (x, y) -> Offset(left + x * cell, top + y * cell) }
     fun center(pos: Pos): Offset = corner(pos) + Offset(cell / 2, cell / 2)
     fun write(text: String, at: Offset, color: Color, size: TextUnit) {
-        val layout = measurer.measure(text, TextStyle(fontFamily = PixelFont, fontSize = size, color = color))
+        val layout = measurer.measure(text, TextStyle(fontFamily = font, fontSize = size, color = color))
         drawText(layout, topLeft = at - Offset(layout.size.width / 2f, layout.size.height / 2f))
     }
     val line = maxOf(2.dp.toPx(), cell / 18)

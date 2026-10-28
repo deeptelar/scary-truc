@@ -1,9 +1,8 @@
 package dev.deeptelar.scarytruc
 
-import javax.sound.sampled.AudioFormat
-import javax.sound.sampled.AudioSystem
-import javax.sound.sampled.Clip
-import javax.sound.sampled.FloatControl
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlin.math.PI
 import kotlin.math.exp
 import kotlin.math.sin
@@ -12,30 +11,40 @@ import kotlin.random.Random
 /** What the night sounds like at a moment of the game. */
 enum class Cue { SCREAM, STATIC, STINGER, WAKE, BELL, SIREN, WHISPER, CHIME, DEATH, RING, HANGUP, STEP }
 
+/** The drones that loop under the night. */
+enum class Drone { NIGHT, OTHERWORLD }
+
+/** Where the sounds are played: Java Sound on the desktop, Web Audio in a browser. */
+interface SoundOutput {
+    /** Plays [samples] once, [gain] decibels louder or quieter. */
+    fun play(cue: Cue, gain: Float)
+
+    /** Loops [drone], or stops every drone when it is `null`. */
+    fun drone(drone: Drone?)
+}
+
 /**
  * The sounds of the night, made from sine waves and noise when the game starts: no files. A low
  * drone plays all night, a heavier one after midnight, and radio static crackles when the Hollow
  * is near ([danger]), without saying where; now and then it crackles with nothing there. Just
- * before the Hollow steps into the light, everything goes quiet ([hushed]). Without a sound
- * device, or with [on] false, it is silent.
+ * before the Hollow steps close, everything can go quiet ([hushed]). Without an [output], or with
+ * [on] false, it is silent.
  */
 object Sound {
-    private const val RATE = 22050f
-    private val format = AudioFormat(RATE, 16, 1, true, false)
+    const val RATE: Float = 22050f
 
-    @Volatile
+    var output: SoundOutput? = null
+
     var on: Boolean = true
         set(value) {
             field = value
             drones()
         }
 
-    /** How close the Hollow is to the crew, from 0 (far or asleep) to 1 (next to someone). */
-    @Volatile
+    /** How close the Hollow is to the caller, from 0 (far or asleep) to 1 (next to them). */
     var danger: Float = 0f
 
     /** The silence before the scare: no drone, no static. */
-    @Volatile
     var hushed: Boolean = false
         set(value) {
             field = value
@@ -43,83 +52,42 @@ object Sound {
         }
 
     /** Past midnight: the Otherworld's drone. */
-    @Volatile
     var otherworld: Boolean = false
         set(value) {
             field = value
             drones()
         }
 
-    private val clips: Map<Cue, Clip> by lazy {
-        runCatching { Cue.entries.associateWith { clip(samples(it), loop = false) } }.getOrDefault(emptyMap())
-    }
-    private var drone: Clip? = null
-    private var otherDrone: Clip? = null
     private var started = false
 
-    /** Starts the drone and the static. */
-    fun start() {
+    /** Starts the drone and the static, in [scope]. */
+    fun start(scope: CoroutineScope) {
         if (started) return
         started = true
-        runCatching {
-            drone = clip(droneSamples(), loop = true)
-            otherDrone = clip(otherworldSamples(), loop = true)
-            clips.size
-        }
         drones()
-        Thread {
+        scope.launch {
             val random = Random(7)
             while (true) {
                 val d = danger
                 when {
                     !on || hushed -> Unit
                     d > 0.05f -> play(Cue.STATIC, gain = -16f + 16f * d)
-                    // Static with nothing there, now and then: the radio can't be trusted.
+                    // Static with nothing there, now and then: the line can't be trusted.
                     random.nextDouble() < 0.012 -> play(Cue.STATIC, gain = -18f)
                 }
-                Thread.sleep(if (d > 0.05f) (700 - 520 * d).toLong() + random.nextLong(120) else 400)
+                delay(if (d > 0.05f) (700 - 520 * d).toLong() + random.nextLong(120) else 400)
             }
-        }.apply {
-            isDaemon = true
-            name = "static"
-            start()
         }
     }
 
-    /** The drone that should play now, looping, and the other one stopped. */
-    @Synchronized
     private fun drones() {
-        runCatching {
-            val playing = if (!on || hushed) null else if (otherworld) otherDrone else drone
-            for (clip in listOfNotNull(drone, otherDrone)) {
-                if (clip == playing && !clip.isRunning) clip.loop(Clip.LOOP_CONTINUOUSLY)
-                if (clip != playing && clip.isRunning) clip.stop()
-            }
-        }
+        if (!started) return
+        runCatching { output?.drone(if (!on || hushed) null else if (otherworld) Drone.OTHERWORLD else Drone.NIGHT) }
     }
 
     fun play(cue: Cue, gain: Float = 0f) {
         if (!on) return
-        val clip = clips[cue] ?: return
-        runCatching {
-            clip.stop()
-            (clip.getControl(FloatControl.Type.MASTER_GAIN) as? FloatControl)?.let { it.value = gain.coerceIn(it.minimum, it.maximum) }
-            clip.framePosition = 0
-            clip.start()
-        }
-    }
-
-    private fun clip(samples: FloatArray, loop: Boolean): Clip {
-        val bytes = ByteArray(samples.size * 2)
-        for (i in samples.indices) {
-            val v = (samples[i].coerceIn(-1f, 1f) * 32767).toInt()
-            bytes[2 * i] = (v and 0xFF).toByte()
-            bytes[2 * i + 1] = (v shr 8).toByte()
-        }
-        return AudioSystem.getClip().apply {
-            open(format, bytes, 0, bytes.size)
-            if (loop) (getControl(FloatControl.Type.MASTER_GAIN) as? FloatControl)?.value = -14f
-        }
+        runCatching { output?.play(cue, gain) }
     }
 
     /** The samples of [cue], from -1 to 1. */
@@ -200,6 +168,9 @@ object Sound {
                 wave(0.22) { t, _ -> (sin(2 * PI * 70 * t) * 0.8 + (noise.nextDouble() - 0.5) * 0.4) * exp(-t * 28) }
         }
     }
+
+    /** The samples of [drone], which loop without a seam. */
+    fun samples(drone: Drone): FloatArray = if (drone == Drone.NIGHT) droneSamples() else otherworldSamples()
 
     /** Two low tones that beat against each other, and a breath of noise: loops without a seam. */
     private fun droneSamples(): FloatArray {

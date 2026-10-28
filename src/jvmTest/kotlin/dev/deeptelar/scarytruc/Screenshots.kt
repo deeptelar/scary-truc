@@ -23,12 +23,15 @@ class Screenshots {
         val plan = Plan.entries[(System.getProperty("night") ?: "2").toInt() - 1]
         val seed = System.getProperty("seed")?.toLong()
         val turns = (System.getProperty("turns") ?: "0,4,9").split(",").map { it.toInt() }
-        val model = CallModel(CoroutineScope(Dispatchers.Default), { Keywords }, Script, gemma = false, plan = plan, seed = seed, clock = false)
+        val model = CallModel(CoroutineScope(Dispatchers.Default), Minds.none, plan = plan, seed = seed, clock = false)
+        // The window on a desktop, and the page on a phone 390 wide, at its density.
         fun shoot(name: String) {
-            val scene = ImageComposeScene(1240, 800, Density(1f)) { Game(model) }
-            repeat(3) { scene.render(it * 16_000_000L) }
-            File(out, "${plan.name.lowercase()}-$name.png").writeBytes(scene.render(100_000_000L).encodeToData(EncodedImageFormat.PNG)!!.bytes)
-            scene.close()
+            for ((size, suffix) in listOf(Triple(1240, 800, 1f) to "", Triple(1170, 2532, 3f) to "-phone")) {
+                val scene = ImageComposeScene(size.first, size.second, Density(size.third)) { Game(model) }
+                repeat(3) { scene.render(it * 16_000_000L) }
+                File(out, "${plan.name.lowercase()}-$name$suffix.png").writeBytes(scene.render(100_000_000L).encodeToData(EncodedImageFormat.PNG)!!.bytes)
+                scene.close()
+            }
         }
         shoot("ringing")
         model.answer()
