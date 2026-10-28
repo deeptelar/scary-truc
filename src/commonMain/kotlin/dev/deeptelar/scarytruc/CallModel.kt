@@ -323,7 +323,7 @@ class CallModel(
         }
     }
 
-    /** The keys of an old phone, clicking as the caller's last line appears. */
+    /** The keys of a phone, pressed as the caller's last line appears. */
     private var typing: Job? = null
 
     private fun type(after: Call) {
@@ -332,7 +332,7 @@ class CallModel(
         typing =
             scope.launch {
                 for ((i, c) in line.withIndex()) {
-                    if (c != ' ' && i % 2 == 0) Sound.play(Cue.KEY, gain = -8f)
+                    if (c != ' ' && i % 2 == 0) Sound.play(Sound.KEYS.random(), gain = -8f)
                     delay(LETTER)
                 }
             }

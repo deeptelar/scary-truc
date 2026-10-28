@@ -21,8 +21,8 @@ class WebAudio : SoundOutput {
     fun unlock() {
         val context = context ?: newContext().also { context = it }
         resume(context)
-        // Every buffer now, so that the first scream doesn't wait to be made.
-        for (cue in Cue.entries) buffers.getOrPut(cue) { buffer(Sound.samples(cue)) }
+        // Every buffer now, so that the first scream doesn't wait to be made; the keys once read.
+        for (cue in Cue.entries) if (Sound.ready(cue)) buffers.getOrPut(cue) { buffer(Sound.samples(cue)) }
     }
 
     private fun buffer(samples: FloatArray): JsAny {

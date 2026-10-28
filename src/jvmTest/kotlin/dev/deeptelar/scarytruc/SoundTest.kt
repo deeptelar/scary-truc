@@ -1,5 +1,7 @@
 package dev.deeptelar.scarytruc
 
+import dev.deeptelar.scarytruc.resources.Res
+import kotlinx.coroutines.runBlocking
 import java.io.ByteArrayInputStream
 import java.io.File
 import javax.sound.sampled.AudioFileFormat
@@ -7,6 +9,7 @@ import javax.sound.sampled.AudioFormat
 import javax.sound.sampled.AudioInputStream
 import javax.sound.sampled.AudioSystem
 import kotlin.test.Test
+import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 class SoundTest {
@@ -17,6 +20,12 @@ class SoundTest {
             assertTrue(samples.isNotEmpty(), "$cue")
             assertTrue(samples.maxOf { kotlin.math.abs(it) } in 0.05f..1f, "$cue peaks at ${samples.maxOf { kotlin.math.abs(it) }}")
         }
+    }
+
+    @Test
+    fun theKeysAreFourPressesOfTheRecording() = runBlocking {
+        val bytes = Res.readBytes("files/keys.pcm")
+        assertEquals(Sound.KEYS.size * 2646 * 2, bytes.size)
     }
 
     /** Writes every cue as a WAV, to listen to them: ./gradlew test --tests '*SoundTest*' -Pshots=DIR */

@@ -1,5 +1,6 @@
 package dev.deeptelar.scarytruc
 
+import dev.deeptelar.scarytruc.resources.Res
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -9,7 +10,7 @@ import kotlin.math.sin
 import kotlin.random.Random
 
 /** What the night sounds like at a moment of the game. */
-enum class Cue { SCREAM, STATIC, STINGER, WAKE, BELL, SIREN, WHISPER, CHIME, DEATH, RING, HANGUP, STEP, KEY }
+enum class Cue { SCREAM, STATIC, STINGER, WAKE, BELL, SIREN, WHISPER, CHIME, DEATH, RING, HANGUP, STEP, KEY_1, KEY_2, KEY_3, KEY_4 }
 
 /** The drones that loop under the night. */
 enum class Drone { NIGHT, OTHERWORLD }
@@ -24,7 +25,8 @@ interface SoundOutput {
 }
 
 /**
- * The sounds of the night, made from sine waves and noise when the game starts: no files. A low
+ * The sounds of the night, made from sine waves and noise when the game starts, but for the keys
+ * of a phone, which are recorded ([KEYS]). A low
  * drone plays all night, a heavier one after midnight, and radio static crackles when the Hollow
  * is near ([danger]), without saying where; now and then it crackles with nothing there. Just
  * before the Hollow steps close, everything can go quiet ([hushed]). Without an [output], or with
@@ -60,11 +62,27 @@ object Sound {
 
     private var started = false
 
+    /** The presses of a phone's keys, cut from a recording: [KEY_LENGTH] samples each. */
+    private var keys: FloatArray? = null
+
+    /** The keys of a phone, one played at random as each letter appears. */
+    val KEYS: List<Cue> = listOf(Cue.KEY_1, Cue.KEY_2, Cue.KEY_3, Cue.KEY_4)
+
+    private const val KEY_LENGTH = 2646
+
+    /** Whether [cue] can be played: the keys only once their recording is read. */
+    fun ready(cue: Cue): Boolean = cue !in KEYS || keys != null
+
     /** Starts the drone and the static, in [scope]. */
     fun start(scope: CoroutineScope) {
         if (started) return
         started = true
         drones()
+        // "Typing on phone" by freesound_community, from Pixabay: mono, 16 bits, 22050 Hz.
+        scope.launch {
+            val bytes = runCatching { Res.readBytes("files/keys.pcm") }.getOrNull() ?: return@launch
+            keys = FloatArray(bytes.size / 2) { i -> ((bytes[2 * i].toInt() and 0xFF) or (bytes[2 * i + 1].toInt() shl 8)).toShort() / 32768f }
+        }
         scope.launch {
             val random = Random(7)
             while (true) {
@@ -86,7 +104,7 @@ object Sound {
     }
 
     fun play(cue: Cue, gain: Float = 0f) {
-        if (!on) return
+        if (!on || !ready(cue)) return
         runCatching { output?.play(cue, gain) }
     }
 
@@ -163,8 +181,10 @@ object Sound {
                 wave(1.2) { t, _ ->
                     if ((t % 0.4) < 0.18) sin(2 * PI * 620 * t) * 0.35 * envelope(t % 0.4, 0.005, 0.18) else 0.0
                 }
-            // A key of an old phone: a short, dry click.
-            Cue.KEY -> wave(0.03) { t, _ -> ((noise.nextDouble() - 0.5) * 0.6 + sin(2 * PI * 2400 * t) * 0.25) * exp(-t * 220) }
+            // A key of an old phone, pressed: recorded, or a short, dry click until the recording is read.
+            Cue.KEY_1, Cue.KEY_2, Cue.KEY_3, Cue.KEY_4 ->
+                keys?.let { val at = KEYS.indexOf(cue) * KEY_LENGTH; it.copyOfRange(at, at + KEY_LENGTH) }
+                    ?: wave(0.03) { t, _ -> ((noise.nextDouble() - 0.5) * 0.6 + sin(2 * PI * 2400 * t) * 0.25) * exp(-t * 220) }
             // A footstep on a wet floor, heard through the phone: a dull knock and a splash.
             Cue.STEP ->
                 wave(0.22) { t, _ -> (sin(2 * PI * 70 * t) * 0.8 + (noise.nextDouble() - 0.5) * 0.4) * exp(-t * 28) }
