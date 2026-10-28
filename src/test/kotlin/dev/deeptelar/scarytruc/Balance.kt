@@ -4,73 +4,43 @@ import kotlinx.coroutines.runBlocking
 import kotlin.test.Test
 
 /**
- * How hard each night is, played by instinct: with no help, and with a simple helper that spends
- * its one play a turn on whoever is about to walk into a doom. It prints and checks nothing:
- * ./gradlew test --tests '*Balance*' -Pbalance=200 -i
+ * How the nights play for a guide who knows only what the caller says: they follow arrows and the
+ * cold, keep to the right wall, stay away from anything strange, and say hide when it's close.
+ * Prints the outcomes, nothing to pass: ./gradlew test --tests '*Balance*' -Pbalance=40
  */
 class Balance {
     @Test
-    fun nights() =
-        runBlocking {
-            val nights = System.getProperty("balance")?.toInt() ?: return@runBlocking
-            for (plan in Plan.entries) {
-                for (helped in listOf(0, 1, 2)) {
-                    var saved = 0
-                    var total = 0
-                    val deaths = mutableMapOf<String, Int>()
-                    for (i in 1..nights) {
-                        // The fixed nights of the plans, but on other mazes of the same size, to see the spread.
-                        val run = NightRun(plan, if (i == 1 && plan.seed != null) plan.seed else 1000L + i, Instinct)
-                        run.begin()
-                        while (!run.night.over) {
-                            if (helped > 0) help(run, guide = helped == 2)
-                            run.next()
-                        }
-                        saved += run.night.saved
-                        total += plan.crew.size
-                        run.night.crew.filter { it.fate == Fate.DEAD }.forEach { deaths.merge(it.death!!, 1, Int::plus) }
-                        run.night.log.filter { "ran into the Hollow" in it }.forEach { _ -> deaths.merge("ran into it", 1, Int::plus) }
-                        deaths.merge("kept at dawn", run.night.lost.size, Int::plus)
-                    }
-                    println("BALANCE ${plan.name} ${listOf("alone ", "helped", "guided")[helped]} saved ${100 * saved / total}% deaths $deaths")
-                }
+    fun nights() = runBlocking {
+        val seeds = (System.getProperty("balance") ?: return@runBlocking).toInt()
+        for (plan in Plan.entries) {
+            val ends = mutableMapOf<String, Int>()
+            val turns = mutableListOf<Int>()
+            val taken = mutableListOf<Int>()
+            for (seed in 1L..seeds) {
+                val run = CallRun(plan, seed, Keywords, Script)
+                var call = run.begin()
+                while (!call.over) call = run.say(explore(call, run.maze, run.haunt))
+                val end = call.end!!.name + if (call.end == End.OUT && call.afterMidnight) " after midnight" else ""
+                ends[end] = (ends[end] ?: 0) + 1
+                if (call.end == End.OUT) turns += call.turn
+                if (call.end == End.TAKEN) taken += call.turn
+                if (call.end == End.TAKEN && taken.size == 1 && System.getProperty("show") == plan.name) call.lines.forEach { println("LINE ${it.who}: ${it.text}") }
             }
+            println("BALANCE ${plan.name} (midnight ${plan.midnight}): $ends, out after ${turns.sorted().let { if (it.isEmpty()) "-" else "${it.first()}..${it[it.size / 2]}..${it.last()}" }} turns, taken on ${taken.sorted()}")
         }
-
-    private fun help(run: NightRun, guide: Boolean) {
-        val night = run.night
-        for (move in night.moves) {
-            val agent = night.lost.first { it.role == move.role }
-            val to = move.go?.let { agent.at + it } ?: continue
-            if (run.maze.doomAt(to) == null) continue
-            val kind = if (agent.role == Role.CRITIC) MarkKind.TREAT else MarkKind.TRICK
-            if (run.place(to, kind)) return
-        }
-        // The Hollow close to someone: a treat on its way, as a decoy.
-        val hollow = night.hollow ?: return guide(run, guide)
-        if (hollow.eating == 0 && night.marks.none { it.kind == MarkKind.TREAT }) {
-            val prey = night.lost.minByOrNull { run.maze.distances(hollow.at)[it.at] ?: 99 }
-            val steps = prey?.let { run.maze.distances(hollow.at)[it.at] }
-            if (prey != null && steps != null && steps in 2..5) {
-                var at = hollow.at
-                repeat(steps / 2) { at += run.maze.way(at, prey.at)!!.first }
-                if (run.place(at, MarkKind.TREAT)) return
-                // No decoy there: a lantern in its way, next to the prey.
-                if (run.place(prey.at + run.maze.way(prey.at, hollow.at)!!.first, MarkKind.TRICK)) return
-            }
-        }
-        guide(run, guide)
     }
 
-    /** A treat on the way out, for someone heading elsewhere, while the bag has candy to spare. */
-    private fun guide(run: NightRun, guide: Boolean) {
-        val night = run.night
-        if (!guide || night.played || night.candy < 2) return
-        val dooms = run.maze.dooms.map { it.at }.toSet()
-        for (agent in night.lost.filter { it.role != Role.CRITIC }.sortedBy { run.maze.distances(it.at)[run.maze.gate] }) {
-            val (dir, _) = run.maze.way(agent.at, run.maze.gate, dooms) ?: continue
-            if (night.moves.firstOrNull { it.role == agent.role }?.go == dir) continue
-            if (run.place(agent.at + dir, MarkKind.TREAT)) return
-        }
+    fun explore(call: Call, maze: Maze, haunt: Haunt): String {
+        val said = call.lines.lastOrNull { it.who == Who.CALLER }?.text.orEmpty()
+        if ("still here" in said || "I can hear it" in said && ("close" in said || "corner" in said)) return "Shh. Hide. Breathe slowly, I'm here with you."
+        val words = listOf("ahead", "right", "back", "left")
+        val open = (0..3).filter { maze.canGo(call.at, call.facing.turned(it)) }
+        maze.exits(call.at).firstOrNull { call.at + it == maze.gate }?.let { return "Go " + words[call.facing.side(it)] }
+        haunt.arrows[call.at]?.let { return "Follow the arrow, go " + words[call.facing.side(it)] }
+        // Away from what they hear: breathing or footsteps "from" a way.
+        val heard = listOf("ahead", "my right", "behind me", "my left").indexOfFirst { ("from $it" in said) }
+        fun strange(quarter: Int) = quarter == heard || (call.at + call.facing.turned(quarter)).let { maze.doomAt(it) != null || it in haunt.oddities }
+        val choice = listOf(1, 0, 3, 2).filter { it in open }.let { ways -> ways.firstOrNull { !strange(it) } ?: ways.firstOrNull { maze.doomAt(call.at + call.facing.turned(it)) == null } }
+        return if (choice == null) "Stay" else "Okay, breathe. Go ${words[choice]}"
     }
 }

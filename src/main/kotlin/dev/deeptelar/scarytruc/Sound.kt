@@ -10,7 +10,7 @@ import kotlin.math.sin
 import kotlin.random.Random
 
 /** What the night sounds like at a moment of the game. */
-enum class Cue { SCREAM, STATIC, STINGER, WAKE, BELL, SIREN, WHISPER, CHIME, DEATH, TREAT, TICK }
+enum class Cue { SCREAM, STATIC, STINGER, WAKE, BELL, SIREN, WHISPER, CHIME, DEATH, RING, HANGUP, STEP }
 
 /**
  * The sounds of the night, made from sine waves and noise when the game starts: no files. A low
@@ -178,14 +178,26 @@ object Sound {
                 }
             }
             Cue.CHIME -> wave(0.7) { t, _ -> (sin(2 * PI * 880 * t) + sin(2 * PI * 1318.5 * t)) / 2 * exp(-t * 5) * 0.6 }
-            Cue.TREAT -> wave(0.25) { t, _ -> sin(2 * PI * (1200 + 800 * t) * t) * exp(-t * 14) * 0.4 }
             // A long fall.
             Cue.DEATH ->
                 wave(1.4) { t, _ ->
                     val pitch = 420 * exp(-t * 1.6)
                     (saw(pitch * t) * 0.5 + (noise.nextDouble() - 0.5) * 0.2) * envelope(t, 0.02, 1.4)
                 }
-            Cue.TICK -> wave(0.05) { t, _ -> sin(2 * PI * 1800 * t) * exp(-t * 90) * 0.35 }
+            // An old phone ringing: two bursts of a warbling double tone.
+            Cue.RING ->
+                wave(2.0) { t, _ ->
+                    val on = (t % 0.6) < 0.4 && t < 1.2
+                    if (!on) 0.0 else (sin(2 * PI * 440 * t) + sin(2 * PI * 480 * t)) * 0.3 * (0.6 + 0.4 * sin(2 * PI * 20 * t))
+                }
+            // The line goes dead: three short, high beeps.
+            Cue.HANGUP ->
+                wave(1.2) { t, _ ->
+                    if ((t % 0.4) < 0.18) sin(2 * PI * 620 * t) * 0.35 * envelope(t % 0.4, 0.005, 0.18) else 0.0
+                }
+            // A footstep on a wet floor, heard through the phone: a dull knock and a splash.
+            Cue.STEP ->
+                wave(0.22) { t, _ -> (sin(2 * PI * 70 * t) * 0.8 + (noise.nextDouble() - 0.5) * 0.4) * exp(-t * 28) }
         }
     }
 
@@ -213,42 +225,4 @@ object Sound {
 
     /** Rises over [attack] seconds and falls to nothing at [length]. */
     private fun envelope(t: Double, attack: Double, length: Double): Double = if (t < attack) t / attack else (1 - (t - attack) / (length - attack)).coerceAtLeast(0.0)
-}
-
-/** The sounds a turn calls for, from the night [before] it to the night [after] it. */
-fun cues(before: Night, after: Night, maze: Maze): List<Cue> =
-    buildList {
-        val deadBefore = before.crew.count { it.fate == Fate.DEAD }
-        if (after.crew.count { it.fate == Fate.DEAD } > deadBefore) add(Cue.DEATH)
-        if (after.saved > before.saved) add(Cue.CHIME)
-        if (after.candy > before.candy && after.turn > before.turn) add(Cue.CHIME)
-        if (before.hollow?.awake == false && after.hollow?.awake == true) add(Cue.WAKE)
-        val seen = after.hollow?.let { it.at in after.lit(maze) } == true
-        val seenBefore = before.hollow?.let { it.at in before.lit(maze) } == true
-        if (seen && !seenBefore) add(Cue.STINGER)
-        if (!before.afterMidnight && after.afterMidnight) {
-            add(Cue.BELL)
-            add(Cue.SIREN)
-        }
-        if (after.whisper != null && after.whisper != before.whisper) add(Cue.WHISPER)
-    }
-
-/** How close the awake Hollow is to the nearest of the crew, from 0 to 1, for the heartbeat. */
-fun danger(night: Night, maze: Maze): Float {
-    val hollow = night.hollow?.takeIf { it.awake } ?: return 0f
-    val steps = maze.distances(hollow.at)
-    val nearest = night.lost.mapNotNull { steps[it.at] }.minOrNull() ?: return 0f
-    return ((7 - nearest) / 6f).coerceIn(0f, 1f)
-}
-
-/**
- * Whether the Hollow is about to step into a lantern's light: awake, still in the dark, and a step
- * or two from the light. The moment for silence.
- */
-fun imminent(night: Night, maze: Maze): Boolean {
-    val hollow = night.hollow?.takeIf { it.awake } ?: return false
-    val lit = night.lit(maze)
-    if (hollow.at in lit) return false
-    val steps = maze.distances(hollow.at)
-    return lit.any { (steps[it] ?: 99) <= 2 }
 }

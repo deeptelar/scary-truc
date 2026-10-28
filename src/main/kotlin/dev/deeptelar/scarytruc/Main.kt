@@ -1,6 +1,7 @@
 package dev.deeptelar.scarytruc
 
 import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.isCtrlPressed
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.type
@@ -26,29 +27,31 @@ import java.nio.file.Path
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
 
-/** The model of the crew: `SCARY_TRUC_MODEL`, or Gemma 4 12B. */
+/** The model of the caller: `SCARY_TRUC_MODEL`, or Gemma 4 12B. */
 val modelName: String = System.getenv("SCARY_TRUC_MODEL") ?: "gemma4:12b"
 
 /**
- * `scary-truc [--night 1-6] [--seed N] [--instinct] [--mute]`: opens a night in the maze. With Ollama running
- * and the model pulled, Gemma plays the crew; otherwise, or with `--instinct`, they follow their
- * instincts. The best night of each plan is kept in `~/.scary-truc/progress`.
+ * `scary-truc [--night 1-5] [--seed N] [--no-gemma] [--mute]`: the phone rings. With Ollama running
+ * and the model pulled, Gemma plays the caller; otherwise, or with `--no-gemma`, the caller knows
+ * a few words and says what they see as it is. The nights someone got out of are kept in
+ * `~/.scary-truc/progress`.
  */
 fun main(args: Array<String>) {
     val seed = args.valueOf("--seed")?.toLongOrNull()
     val plan = args.valueOf("--night")?.toIntOrNull()?.let { Plan.entries.getOrNull(it - 1) } ?: if (seed != null) Plan.ENDLESS else Plan.FIRST
     val client = HttpClient(CIO)
     val ollama = ollamaUrl(System.getenv("OLLAMA_HOST"))
-    val gemma = "--instinct" !in args && runBlocking { pulled(client, ollama, modelName) }
-    if (!gemma && "--instinct" !in args) {
-        println("Gemma is not here ($modelName at $ollama), so the crew follows its instincts. To give them minds: ollama pull $modelName")
+    val off = "--no-gemma" in args || "--instinct" in args
+    val gemma = !off && runBlocking { pulled(client, ollama, modelName) }
+    if (!gemma && !off) {
+        println("Gemma is not here ($modelName at $ollama), so the caller knows only a few words. To give them a mind: ollama pull $modelName")
     }
     val model =
         OpenAiChatModel.ollama(
             client,
             model = modelName,
             baseUrl = "$ollama/v1",
-            // A turn needs a quick answer, not a long thought.
+            // A phone call needs a quick answer, not a long thought.
             parameters = buildJsonObject { put("reasoning_effort", "none") },
             timeout = 2.minutes,
         )
@@ -57,9 +60,10 @@ fun main(args: Array<String>) {
     val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     val home = Path.of(System.getProperty("user.home"), ".scary-truc")
     val game =
-        GameModel(
+        CallModel(
             scope,
-            { trouble -> if (gemma) Gemma(model, trouble = trouble) else Instinct },
+            { trouble -> if (gemma) GemmaEars(model, trouble = trouble) else Keywords },
+            if (gemma) GemmaVoice(model) else Script,
             gemma,
             if (gemma) GemmaWhispers(model) else Echoes,
             plan,
@@ -75,19 +79,15 @@ fun main(args: Array<String>) {
             onKeyEvent = { event ->
                 when {
                     event.type != KeyEventType.KeyDown -> false
-                    game.night.over && (event.key == Key.Spacebar || event.key == Key.Enter) -> {
+                    game.ringing && (event.key == Key.Enter || event.key == Key.Spacebar) -> {
+                        game.answer()
+                        true
+                    }
+                    game.call.over && !game.thinking && event.key == Key.Enter -> {
                         game.play(game.plan.next ?: Plan.ENDLESS)
                         true
                     }
-                    event.key == Key.Spacebar -> {
-                        game.pause()
-                        true
-                    }
-                    event.key == Key.Enter -> {
-                        game.next()
-                        true
-                    }
-                    event.key == Key.M -> {
+                    event.key == Key.M && event.isCtrlPressed -> {
                         Sound.on = !Sound.on
                         true
                     }
