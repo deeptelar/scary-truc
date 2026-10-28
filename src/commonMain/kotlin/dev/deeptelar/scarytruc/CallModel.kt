@@ -301,7 +301,8 @@ class CallModel(
             if (before.hollow?.awake == false && after.hollow?.awake == true) Sound.play(Cue.WAKE)
             if (!before.afterMidnight && after.afterMidnight) {
                 Sound.play(Cue.BELL)
-                delay(1200)
+                // The siren once the toll has rung out a little.
+                delay(2500)
                 Sound.play(Cue.SIREN)
             }
             if (after.lines.count { it.who == Who.HOLLOW } > before.lines.count { it.who == Who.HOLLOW }) Sound.play(Cue.WHISPER)

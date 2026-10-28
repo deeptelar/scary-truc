@@ -29,7 +29,7 @@ interface SoundOutput {
 
 /**
  * The sounds of the night, made from sine waves and noise when the game starts, but for the
- * footsteps, which are recorded ([STEPS]). A low
+ * footsteps ([STEPS]) and the bell of midnight, which are recorded. A low
  * drone plays all night, a heavier one after midnight, and radio static crackles when the Hollow
  * is near ([danger]), without saying where; now and then it crackles with nothing there. Just
  * before the Hollow steps close, everything can go quiet ([hushed]). Without an [output], or with
@@ -68,8 +68,9 @@ object Sound {
     /** Footsteps, one played at random for each step the caller walks. */
     val STEPS: List<Cue> = listOf(Cue.STEP_1, Cue.STEP_2, Cue.STEP_3, Cue.STEP_4)
 
-    // Mono, 16 bits, 22050 Hz: "Footsteps on parquet" by KRNBEATZ, from Pixabay.
-    private val recordings = listOf(Recording("files/steps.pcm", STEPS, 7717))
+    // Mono, 16 bits, 22050 Hz: "Footsteps on parquet" by KRNBEATZ and "Creepy church bell" by
+    // freesound_community, both from Pixabay.
+    private val recordings = listOf(Recording("files/steps.pcm", STEPS, 7717), Recording("files/bell.pcm", listOf(Cue.BELL), 99225))
 
     /** The recorded cues read so far. */
     private var recorded: Map<Cue, FloatArray> = emptyMap()
@@ -150,7 +151,7 @@ object Sound {
                     val rumble = sin(2 * PI * 38 * t) * (0.6 + 0.4 * sin(2 * PI * 7 * t))
                     (rumble * 0.7 + (noise.nextDouble() - 0.5) * 0.35) * envelope(t, 0.4, 1.8)
                 }
-            // A church bell for midnight.
+            // A church bell for midnight, until its recording is read.
             Cue.BELL ->
                 wave(2.6) { t, _ ->
                     (sin(2 * PI * 196 * t) + 0.5 * sin(2 * PI * 392.7 * t) + 0.3 * sin(2 * PI * 587 * t) + 0.2 * sin(2 * PI * 466 * t)) / 2 * exp(-t * 1.4)

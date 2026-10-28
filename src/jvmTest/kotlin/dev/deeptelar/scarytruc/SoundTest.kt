@@ -28,11 +28,12 @@ class SoundTest {
     }
 
     @Test
-    fun theFootstepsAreFourStepsOfTheRecording() = runBlocking {
+    fun theRecordingsAreRead() = runBlocking {
         assertEquals(Sound.STEPS.size * 7717 * 2, Res.readBytes("files/steps.pcm").size)
+        assertEquals(99225 * 2, Res.readBytes("files/bell.pcm").size)
         val scope = CoroutineScope(Dispatchers.Default)
         Sound.start(scope)
-        withTimeout(5_000) { while (!Sound.ready(Cue.STEP_4)) delay(10) }
+        withTimeout(5_000) { while (!Sound.ready(Cue.STEP_4) || !Sound.ready(Cue.BELL)) delay(10) }
         scope.cancel()
         assertEquals(7717, Sound.samples(Cue.STEP_2).size)
     }
