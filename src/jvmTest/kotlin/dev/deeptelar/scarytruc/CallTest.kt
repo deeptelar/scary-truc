@@ -73,6 +73,16 @@ class CallTest {
     }
 
     @Test
+    fun leftWithoutAnAnswerTheyChooseSomewhereNewAndAskWhichWay() {
+        val (here, dir) = corridor
+        val alone = quiet(here, dir, Order.NONE).copy(said = "", mapped = mapOf(here to emptySet(), here + dir.opposite to emptySet())).walk(maze, empty)
+        assertTrue(alone.walked > 0, "they went somewhere")
+        assertTrue(alone.facts.any { it.startsWith("So I chose myself") })
+        val call = quiet(here, dir, Order.STAY).walk(maze, empty)
+        assertTrue(call.facts.last().startsWith("Which way do I go:"), call.facts.last())
+    }
+
+    @Test
     fun aWayIsFromWhereTheCallerFaces() {
         val (here, dir) = corridor
         val call = quiet(here, dir.turned(1), Order.LEFT).walk(maze, empty)

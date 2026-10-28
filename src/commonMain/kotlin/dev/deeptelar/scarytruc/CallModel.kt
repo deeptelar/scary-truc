@@ -185,12 +185,20 @@ class CallModel(
             scope.launch {
                 while (true) {
                     delay(250)
-                    if (ringing || thinking || call.over) continue
-                    val since = maxOf(spokeAt + speaking(), lastKey)
-                    if (now() - since > silence) say("")
+                    if ((waited(now()) ?: 0f) >= 1f) say("")
                 }
             }
         }
+    }
+
+    /**
+     * How much of the caller's patience is gone, from 0 to 1, while they wait for the player: once
+     * they are done speaking, and since the player last typed. `null` when they don't wait.
+     */
+    fun waited(now: Long): Float? {
+        if (!clock || ringing || thinking || call.over) return null
+        val since = maxOf(spokeAt + speaking(), lastKey)
+        return ((now - since).toFloat() / silence).coerceIn(0f, 1f)
     }
 
     fun answer() {

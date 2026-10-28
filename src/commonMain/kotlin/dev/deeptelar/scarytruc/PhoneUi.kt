@@ -174,7 +174,7 @@ private fun Phone(model: CallModel, now: Long, narrow: Boolean, modifier: Modifi
                     if (call.over && !model.thinking && !speaking) {
                         Ending(model, lcd)
                     } else {
-                        Talk(model, narrow, lcd, notebook) { notebook = !notebook }
+                        Talk(model, now, narrow, lcd, notebook) { notebook = !notebook }
                     }
                 }
             }
@@ -422,7 +422,7 @@ private fun Said(text: String, who: Who, lcd: Lcd, now: Long = 0) {
 
 /** Where the player talks: Enter or Say says it; the microphone listens instead. */
 @Composable
-private fun Talk(model: CallModel, narrow: Boolean, lcd: Lcd, notebook: Boolean, toggleNotebook: () -> Unit) {
+private fun Talk(model: CallModel, now: Long, narrow: Boolean, lcd: Lcd, notebook: Boolean, toggleNotebook: () -> Unit) {
     val focus = remember { FocusRequester() }
     LaunchedEffect(model.ringing, model.call.turn) { runCatching { focus.requestFocus() } }
     PixelField(
@@ -447,6 +447,9 @@ private fun Talk(model: CallModel, narrow: Boolean, lcd: Lcd, notebook: Boolean,
         hint = lcd.faint,
         size = SMALL,
     )
+    // Their patience: a bar that empties while they wait, and then they choose themselves.
+    val left = 1f - (model.waited(now) ?: 0f)
+    Box(Modifier.fillMaxWidth().height(3.dp).drawBehind { drawRect(lcd.ink, size = size.copy(width = size.width * left)) })
     Softkeys(
         lcd,
         model.microphone?.let { (if (model.listening) "Stop" else "Mic") to model::listen },

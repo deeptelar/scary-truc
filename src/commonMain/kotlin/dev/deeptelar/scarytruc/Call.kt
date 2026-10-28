@@ -277,13 +277,18 @@ fun Call.walk(maze: Maze, haunt: Haunt): Call {
 
     var order = heard.order
     var bolted = false
+    // Left without an answer, they choose for themselves.
+    if (said.isBlank()) {
+        order = instinct(maze)
+        if (order != Order.NONE) facts += "So I chose myself."
+    }
     when {
         // Kind words hold them for a turn; anything else, and they may run.
         panic >= BOLT && heard.calm <= 0 && chance(1) < 0.6 -> {
             bolted = true
             order = Order.NONE
         }
-        order.turn != null && trust < DOUBT && chance(2) < 0.5 -> {
+        said.isNotBlank() && order.turn != null && trust < DOUBT && chance(2) < 0.5 -> {
             facts += "I didn't go ${order.word}: I don't trust you enough."
             order = Order.NONE
         }
@@ -633,6 +638,10 @@ private fun Call.look(maze: Maze, haunt: Haunt, facts: List<String>): Call {
         }
     }
 
+    // They ask which way, naming the ways they see: the stranger answers, or they choose themselves.
+    val ways = listOf(0, 3, 1, 2).filter { maze.canGo(at, facing.turned(it)) }.map { listOf("ahead", "right", "back", "left")[it] }
+    if (ways.size > 1) seen += "Which way do I go: ${ways.dropLast(1).joinToString(", ")} or ${ways.last()}?"
+
     // Finding what they were told to look for makes the stranger worth listening to.
     if (heard?.order?.turn != null && walked > 0 && (at in haunt.notes || at in haunt.arrows || toGate <= COLD)) trust += 5
     return copy(
@@ -644,6 +653,22 @@ private fun Call.look(maze: Maze, haunt: Haunt, facts: List<String>): Call {
         drawn = drawn,
         glimpsed = glimpsed,
     )
+}
+
+/**
+ * Where the caller goes when the stranger says nothing: somewhere they haven't been, away from what
+ * they hear, and back only when there is nothing else. They can't see a doom for what it is.
+ */
+private fun Call.instinct(maze: Maze): Order {
+    val random = Random(seed * 7 + turn)
+    val open = listOf(0, 1, 3, 2).filter { maze.canGo(at, facing.turned(it)) }
+    if (open.isEmpty()) return Order.NONE
+    val heard = hollow?.takeIf { it.awake && (maze.distances(at)[it.at] ?: 99) <= HEARING }?.let { maze.way(at, it.at)?.first }?.let { facing.side(it) }
+    val choice =
+        open.filter { it != heard }.ifEmpty { open }
+            .sortedWith(compareBy({ it == 2 }, { at + facing.turned(it) in mapped }, { random.nextDouble() }))
+            .first()
+    return Order.entries.first { it.turn == choice }
 }
 
 /** The turn to write in [Call.drawn] for a cell drawn on [turn]: in a panic, as if half faded already. */
