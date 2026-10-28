@@ -96,7 +96,7 @@ fun Game(model: CallModel) {
 /** Whose mind the caller has, and what went wrong with it. */
 private fun mind(model: CallModel): String =
     when {
-        !model.gemma -> "No model: the caller knows only a few words (left, right, ahead, back, stay, hide, mark). Options > Model to add one."
+        !model.gemma -> "No model: the caller knows only a few words (left, right, ahead, back, stay, hide, mark, take, use). Menu > Model to add one."
         model.trouble != null -> "${model.minds.name} did not answer, so they heard only your keywords: ${model.trouble}"
         else -> "The caller and the Hollow are played by ${model.minds.name}."
     }
@@ -131,7 +131,7 @@ private class Lcd(val paper: Color, val ink: Color) {
 }
 
 /** What the phone shows when no call is on. */
-private enum class Screen { CALLS, OPTIONS }
+private enum class Screen { CALLS, MENU, HELP, MODEL }
 
 /**
  * The phone: a monochrome screen in a plastic body, with softkeys under the screen. On a narrow
@@ -156,8 +156,10 @@ private fun Phone(model: CallModel, now: Long, narrow: Boolean, modifier: Modifi
         ) {
             StatusBar(call, danger, lcd)
             when {
-                model.ringing && screen == Screen.OPTIONS -> Options(model, lcd) { screen = Screen.CALLS }
-                model.ringing -> Calls(model, now, lcd, Modifier.weight(1f)) { screen = Screen.OPTIONS }
+                model.ringing && screen == Screen.MENU -> Menu(lcd, { screen = it })
+                model.ringing && screen == Screen.HELP -> Help(lcd) { screen = Screen.MENU }
+                model.ringing && screen == Screen.MODEL -> Options(model, lcd) { screen = Screen.MENU }
+                model.ringing -> Calls(model, now, lcd, Modifier.weight(1f)) { screen = Screen.MENU }
                 else -> {
                     CallerBar(model, now, lcd)
                     val speaking = now - model.spokeAt < model.speaking()
@@ -292,6 +294,7 @@ private fun Calls(model: CallModel, now: Long, lcd: Lcd, modifier: Modifier, opt
         Spacer(Modifier.height(6.dp))
         PixelText("after ${model.plan.film}", size = SMALL, color = lcd.ink)
         PixelText(model.plan.hint, size = SMALL, color = lcd.faint)
+        if (model.best.isEmpty()) PixelText("First call? Menu > How to save them.", size = SMALL, color = lcd.ink)
         Spacer(Modifier.height(8.dp))
         // The phone rings: its picture shakes.
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
@@ -303,7 +306,7 @@ private fun Calls(model: CallModel, now: Long, lcd: Lcd, modifier: Modifier, opt
             }
         }
     }
-    Softkeys(lcd, "Options" to options, "Answer" to model::answer, null)
+    Softkeys(lcd, "Menu" to options, "Answer" to model::answer, null)
 }
 
 /** A heart in pixels: the fonts of the web draw ♥ in colour. */
@@ -324,6 +327,50 @@ private val HANDSET =
         "....###..#",
         "........##",
     )
+
+/** The options of the phone, as a menu of the time: one line each, the first in reverse. */
+@Composable
+private fun ColumnScope.Menu(lcd: Lcd, go: (Screen) -> Unit) {
+    Header("Menu", lcd)
+    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        for ((i, entry) in listOf("How to save them" to Screen.HELP, "Model" to Screen.MODEL).withIndex()) {
+            PixelText(
+                entry.first,
+                Modifier.fillMaxWidth().background(if (i == 0) lcd.ink else lcd.paper).clickable { go(entry.second) }.padding(horizontal = 6.dp, vertical = 3.dp),
+                color = if (i == 0) lcd.paper else lcd.ink,
+                maxLines = 1,
+            )
+        }
+    }
+    Softkeys(lcd, "Back" to { go(Screen.CALLS) }, null, null)
+}
+
+/** How to save them, in the words of whoever built the mazes: the rules of the game, read as a threat. */
+private val LETTER =
+    listOf(
+        "I built these places. I fill them, one at a time, and sometimes one of them finds a phone. You may try to take them back from me. Here is how. Not that it matters.",
+        "They see. You don't. Tell them where to go from where they face: ahead, left, right, back. They will tell you the ways they see.",
+        "Your notebook remembers for a while, then it forgets. Tell them to scratch a mark on my walls. Marks stay.",
+        "The ones before them left notes. Read them. They learned what my doors and my floors do. They learned too late.",
+        "The way out is cold. I never could seal the draft.",
+        "Something of mine sleeps in every maze. It is blind. It hears. Fear is loud, so keep them calm, and when it comes, tell them to hide and be still.",
+        "Kind words hold them together. Silence frightens them, and if you leave them alone too long, they will choose for themselves. They choose badly.",
+        "I leave things in my corners. A battery buys time. A flare makes my pet run. A stone, thrown, makes it follow the noise. Tell them to take it. Tell them to use it.",
+        "At midnight I move the walls. Your notebook will lie to you then. My cold won't.",
+        "Go on. Answer. They are waiting.",
+    )
+
+@Composable
+private fun ColumnScope.Help(lcd: Lcd, back: () -> Unit) {
+    Header("How to save them", lcd)
+    Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        for (paragraph in LETTER) PixelText(paragraph, size = SMALL, color = lcd.ink)
+        Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.CenterEnd) {
+            PixelText("- the one who built the maze", size = SMALL, color = lcd.faint)
+        }
+    }
+    Softkeys(lcd, "Back" to back, null, null)
+}
 
 /**
  * Where the player connects a model that speaks the OpenAI API: Gemma on OpenRouter with their own
