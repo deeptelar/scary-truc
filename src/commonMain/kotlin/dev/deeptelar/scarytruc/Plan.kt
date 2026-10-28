@@ -26,7 +26,7 @@ enum class Plan(
         "The Descent",
         Role.SCOUT,
         "It's a cave. Wet rock everywhere, so tight, and water dripping somewhere.",
-        "It hunts blind, by sound, and it sleeps right beside the way out. Get the Scout past it calm.",
+        "It hunts blind, by sound, and it sleeps right beside the way out. Get them past it calm.",
         listOf(
             "We came down six. I'm the last. It can't see. It hears. If it's close, don't move. Don't breathe.",
             DoomKind.PIT.lesson,
@@ -124,7 +124,7 @@ enum class Plan(
         "Ring",
         Role.CRITIC,
         "It's old stone, wet, round like the inside of a well. There's a TV on the floor, showing static.",
-        "The Critic doesn't trust you, and the notes agree. The short way is a trap. The chalk arrows can prove you right.",
+        "They don't trust you, and the notes agree. The short way is a trap. The chalk arrows can prove you right.",
         listOf(
             "Don't trust the voice on the phone.",
             DoomKind.MOUTH.lesson,

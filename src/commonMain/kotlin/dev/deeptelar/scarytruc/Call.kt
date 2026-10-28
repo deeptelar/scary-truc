@@ -4,11 +4,10 @@ import kotlinx.serialization.Serializable
 import kotlin.random.Random
 
 /**
- * Who is on the phone: one of the crew, a different one each night. Gemma plays their [voice].
+ * How the caller is: jumpy, methodical, joking or doubting, one for each call. Gemma plays their [voice].
  * They start the call with [trust] in the stranger who picked up, and with [panic].
  */
 enum class Role(
-    val title: String,
     val voice: String,
     /** What they fear most, which only the Hollow knows and whispers back. */
     val fear: String,
@@ -16,25 +15,21 @@ enum class Role(
     val panic: Int,
 ) {
     PLANNER(
-        "Planner",
         "You want a plan: steps, numbers, a reason for everything. Not knowing scares you more than the dark.",
         "a plan of theirs that failed and cost everyone",
         trust = 50, panic = 35,
     ),
     SCOUT(
-        "Scout",
         "You are jumpy and you talk fast, and every sound makes you want to run.",
         "being left behind, alone in the dark, forgotten",
         trust = 60, panic = 50,
     ),
     CODER(
-        "Coder",
         "You cope with nervous jokes about snacks and bugs, and they get worse the more scared you are.",
         "the bug they shipped that took everything down at 3 a.m.",
         trust = 55, panic = 40,
     ),
     CRITIC(
-        "Critic",
         "You doubt everything, the stranger on the phone most of all, and you say so.",
         "the cruel review they wrote that made someone quit",
         trust = 25, panic = 30,
@@ -163,6 +158,8 @@ data class Call(
     val plan: Plan,
     val seed: Long,
     val role: Role,
+    /** The caller's name, a different one on every try: the [role] is only how they are. */
+    val name: String,
     val at: Pos,
     val facing: Dir,
     val battery: Int,
@@ -239,6 +236,7 @@ data class Call(
                     plan = plan,
                     seed = seed,
                     role = role,
+                    name = NAMES[Random(seed).nextInt(NAMES.size)],
                     at = start,
                     facing = maze.exits(start).first(),
                     battery = plan.battery,
@@ -247,6 +245,7 @@ data class Call(
             val opening =
                 listOf(
                     "I just woke up here. I don't know how I got here.",
+                    "My name is ${NAMES[Random(seed).nextInt(NAMES.size)]}.",
                     plan.setting,
                     "It's dark. My phone is my only light, and you're the only one who picked up.",
                 )
@@ -685,6 +684,13 @@ fun Call.ink(pos: Pos): Float {
 const val FADE: Int = 6
 
 private fun pointing(side: Int): String = listOf("ahead", "to my right", "back the way I came", "to my left")[side]
+
+/** First names for callers: no one in particular. */
+private val NAMES =
+    listOf(
+        "Alex", "Sam", "Noa", "Jordan", "Maya", "Leo", "Iris", "Nico", "Ruth", "Theo", "Lena", "Omar",
+        "Ada", "Hugo", "Mira", "Joel", "Vera", "Ivan", "Clara", "Eli", "Tess", "Rafa", "June", "Milo",
+    )
 
 /** At or above it, the caller may bolt down any corridor, whatever they were told. */
 const val BOLT: Int = 85

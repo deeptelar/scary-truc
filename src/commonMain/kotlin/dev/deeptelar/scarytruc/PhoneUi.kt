@@ -290,7 +290,7 @@ private fun Calls(model: CallModel, now: Long, lcd: Lcd, modifier: Modifier, opt
             }
         }
         Spacer(Modifier.height(6.dp))
-        PixelText("after ${model.plan.film}. ${model.plan.role.title} is calling.", size = SMALL, color = lcd.ink)
+        PixelText("after ${model.plan.film}", size = SMALL, color = lcd.ink)
         PixelText(model.plan.hint, size = SMALL, color = lcd.faint)
         Spacer(Modifier.height(8.dp))
         // The phone rings: its picture shakes.
@@ -364,7 +364,7 @@ private fun CallerBar(model: CallModel, now: Long, lcd: Lcd) {
             PixelText("$bpm", size = SMALL, color = lcd.faint)
         }
         Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
-            PixelText(call.role.title + if (call.hidden && !call.over) " (hiding)" else "", color = lcd.ink, maxLines = 1)
+            PixelText(call.name + if (call.hidden && !call.over) " (hiding)" else "", color = lcd.ink, maxLines = 1)
         }
         // What they carry, in reverse, as a phone of the time showed its icons.
         for (item in call.carried) PixelText(item.word, Modifier.background(lcd.ink).padding(horizontal = 4.dp, vertical = 1.dp), size = SMALL, color = lcd.paper)
@@ -466,7 +466,7 @@ private fun Ending(model: CallModel, lcd: Lcd) {
         PixelText("Call ended", color = lcd.ink)
         PixelText(
             when (call.end) {
-                End.OUT -> "${call.role.title} got out."
+                End.OUT -> "${call.name} got out."
                 End.BATTERY -> "The battery died."
                 else -> "Taken by ${call.death}."
             },
@@ -474,7 +474,7 @@ private fun Ending(model: CallModel, lcd: Lcd) {
             color = lcd.ink,
         )
         call.away?.takeIf { it > 0 }?.let { steps ->
-            PixelText("${call.role.title} was $steps step${if (steps == 1) "" else "s"} from the way out.", size = SMALL, color = lcd.ink)
+            PixelText("${call.name} was $steps step${if (steps == 1) "" else "s"} from the way out.", size = SMALL, color = lcd.ink)
         }
         val best = model.best[call.plan]
         if (best != null && call.end != End.OUT) PixelText(if (best == 0) "Once, you got them out." else "Your closest: $best.", size = SMALL, color = lcd.faint)

@@ -92,7 +92,7 @@ class GemmaEars(
     override suspend fun listen(call: Call): Heard {
         if (call.said.isBlank()) return Heard(Order.NONE, 0)
         return try {
-            val understood = model.ask<Understood>(prompt(call), system = system(call.role))
+            val understood = model.ask<Understood>(prompt(call), system = system(call))
             trouble(null)
             val order = Order.of(understood.order) ?: return keywords.listen(call)
             Heard(order, understood.calm.coerceIn(-2, 2), Item.of(understood.item), Order.of(understood.toward)?.takeIf { it.turn != null })
@@ -115,8 +115,8 @@ class GemmaEars(
             (if (call.carried.isEmpty()) "" else " You carry: ${call.carried.joinToString { it.word }}.")
     }
 
-    private fun system(role: Role): String =
-        "You are the ${role.title}, an AI agent lost in a dark maze, on the phone with a stranger who guides you. " +
+    private fun system(call: Call): String =
+        "You are ${call.name}, lost in a dark maze, on the phone with a stranger who guides you. " +
             "You decide what you understood from the stranger's words, and how they made you feel."
 }
 
@@ -148,7 +148,7 @@ class GemmaVoice(
 ) : Voice {
     override suspend fun speak(call: Call): String =
         try {
-            model.chat(prompt(call), system = system(call.role)).trim().trim('"', '“', '”').replace(Regex("\\*[^*]*\\*"), "").trim()
+            model.chat(prompt(call), system = system(call)).trim().trim('"', '“', '”').replace(Regex("\\*[^*]*\\*"), "").trim()
                 .take(400).takeIf { it.length > 3 } ?: script.speak(call)
         } catch (e: CancellationException) {
             throw e
@@ -188,9 +188,9 @@ class GemmaVoice(
             call.facts.joinToString("\n") { "- $it" } + "\n$ending"
     }
 
-    private fun system(role: Role): String =
-        "You are the ${role.title}, an AI agent who woke up alone in a dark maze with no memory of how you got there. " +
-            "Your phone is your only light, and a stranger picked up your call. ${role.voice} " +
+    private fun system(call: Call): String =
+        "You are ${call.name}, who woke up alone in a dark maze with no memory of how you got there. " +
+            "Your phone is your only light, and a stranger picked up your call. ${call.role.voice} " +
             "Speak only your words on the phone: two to four short sentences, no actions, no asterisks. " +
             "Say every fact you are given, in your own words, and keep left, right, ahead and behind exactly as given. " +
             "Never mention a way, a door or a thing that is not in the facts."
@@ -229,7 +229,7 @@ class GemmaWhispers(
         }
 
     private fun prompt(call: Call): String =
-        "Speak on the line to the stranger who guides the ${call.role.title}. The ${call.role.title}'s secret fear: ${call.role.fear}. " +
+        "Speak on the line to the stranger who guides ${call.name}. ${call.name}'s secret fear: ${call.role.fear}. " +
             (call.lines.lastOrNull { it.who == Who.HOLLOW }?.let { "Last time you said: \"${it.text}\". Say something new. " } ?: "") +
             "One sentence, at most 12 words, intimate and cruel. No quotation marks."
 
