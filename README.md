@@ -52,9 +52,21 @@ there.
 ```
 
 Pixelify Sans is under the SIL Open Font License ([licenses/](licenses/PixelifySans-OFL.txt)).
-The footsteps are four steps cut from a sound effect by
-[KRNBEATZ](https://pixabay.com/users/krnbeatz-52298700/?utm_source=link-attribution&utm_medium=referral&utm_campaign=music&utm_content=422586)
-from [Pixabay](https://pixabay.com/?utm_source=link-attribution&utm_medium=referral&utm_campaign=music&utm_content=422586), and
-the bell of midnight is a toll of a sound effect by
-[freesound_community](https://pixabay.com/users/freesound_community-46691455/?utm_source=link-attribution&utm_medium=referral&utm_campaign=music&utm_content=33827)
-from [Pixabay](https://pixabay.com/?utm_source=link-attribution&utm_medium=referral&utm_campaign=music&utm_content=33827).
+
+The sounds are cut from sound effects on [Pixabay](https://pixabay.com/sound-effects/):
+
+- Phone ring: [Andre Gautawa](https://pixabay.com/users/gautawa-47468133/?utm_source=link-attribution&utm_medium=referral&utm_campaign=music&utm_content=272648)
+- Caller's message: [Elio](https://pixabay.com/users/son_duquotidient-44285139/?utm_source=link-attribution&utm_medium=referral&utm_campaign=music&utm_content=391098)
+- Footsteps: [KRNBEATZ](https://pixabay.com/users/krnbeatz-52298700/?utm_source=link-attribution&utm_medium=referral&utm_campaign=music&utm_content=422586)
+- Radio interference: [freesound_community](https://pixabay.com/users/freesound_community-46691455/?utm_source=link-attribution&utm_medium=referral&utm_campaign=music&utm_content=7122)
+- The Hollow waking: [DRAGON-STUDIO](https://pixabay.com/users/dragon-studio-38165424/?utm_source=link-attribution&utm_medium=referral&utm_campaign=music&utm_content=472380)
+- The Hollow's breath: [Aman Kumar](https://pixabay.com/users/tanweraman-29554143/?utm_source=link-attribution&utm_medium=referral&utm_campaign=music&utm_content=392363)
+- Jump scare: [Gavin Mogensen](https://pixabay.com/users/fronbondi_skegs-23154649/?utm_source=link-attribution&utm_medium=referral&utm_campaign=music&utm_content=503610)
+- Midnight bell: [freesound_community](https://pixabay.com/users/freesound_community-46691455/?utm_source=link-attribution&utm_medium=referral&utm_campaign=music&utm_content=33827)
+- Midnight horn: [Alexander Jauk](https://pixabay.com/users/alex_jauk-16800354/?utm_source=link-attribution&utm_medium=referral&utm_campaign=music&utm_content=228913)
+- Sobbing: [DRAGON-STUDIO](https://pixabay.com/users/dragon-studio-38165424/?utm_source=link-attribution&utm_medium=referral&utm_campaign=music&utm_content=372482)
+- Woman's screams: [Dilip](https://pixabay.com/users/virtual_vibes-51361309/?utm_source=link-attribution&utm_medium=referral&utm_campaign=music&utm_content=379381) and [Dilip](https://pixabay.com/users/virtual_vibes-51361309/?utm_source=link-attribution&utm_medium=referral&utm_campaign=music&utm_content=379382)
+- Man's screams: [Official Profile](https://pixabay.com/users/universfield-28281460/?utm_source=link-attribution&utm_medium=referral&utm_campaign=music&utm_content=123078) and [Hiran Vinodya](https://pixabay.com/users/vinodadora-30315691/?utm_source=link-attribution&utm_medium=referral&utm_campaign=music&utm_content=128357)
+- Line goes dead: [freesound_community](https://pixabay.com/users/freesound_community-46691455/?utm_source=link-attribution&utm_medium=referral&utm_campaign=music&utm_content=103906)
+- Door to the way out: [freesound_community](https://pixabay.com/users/freesound_community-46691455/?utm_source=link-attribution&utm_medium=referral&utm_campaign=music&utm_content=37271)
+- Way out: [Neo Theone](https://pixabay.com/users/mrstokes302-48032194/?utm_source=link-attribution&utm_medium=referral&utm_campaign=music&utm_content=423626)

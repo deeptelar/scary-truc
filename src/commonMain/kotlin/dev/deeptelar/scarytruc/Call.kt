@@ -160,6 +160,8 @@ data class Call(
     val role: Role,
     /** The caller's name, a different one on every try: the [role] is only how they are. */
     val name: String,
+    /** Whether the caller screams and sobs in a woman's voice or a man's. */
+    val woman: Boolean,
     val at: Pos,
     val facing: Dir,
     val battery: Int,
@@ -236,7 +238,8 @@ data class Call(
                     plan = plan,
                     seed = seed,
                     role = role,
-                    name = NAMES[Random(seed).nextInt(NAMES.size)],
+                    name = CALLERS[Random(seed).nextInt(CALLERS.size)].first,
+                    woman = CALLERS[Random(seed).nextInt(CALLERS.size)].second,
                     at = start,
                     facing = maze.exits(start).first(),
                     battery = plan.battery,
@@ -245,7 +248,7 @@ data class Call(
             val opening =
                 listOf(
                     "I just woke up here. I don't know how I got here.",
-                    "My name is ${NAMES[Random(seed).nextInt(NAMES.size)]}.",
+                    "My name is ${call.name}.",
                     plan.setting,
                     "It's dark. My phone is my only light, and you're the only one who picked up.",
                 )
@@ -685,11 +688,13 @@ const val FADE: Int = 6
 
 private fun pointing(side: Int): String = listOf("ahead", "to my right", "back the way I came", "to my left")[side]
 
-/** First names for callers: no one in particular. */
-private val NAMES =
+/** First names for callers, no one in particular, and whether they have a woman's voice. */
+private val CALLERS =
     listOf(
-        "Alex", "Sam", "Noa", "Jordan", "Maya", "Leo", "Iris", "Nico", "Ruth", "Theo", "Lena", "Omar",
-        "Ada", "Hugo", "Mira", "Joel", "Vera", "Ivan", "Clara", "Eli", "Tess", "Rafa", "June", "Milo",
+        "Alex" to false, "Sam" to true, "Noa" to true, "Jordan" to false, "Maya" to true, "Leo" to false,
+        "Iris" to true, "Nico" to false, "Ruth" to true, "Theo" to false, "Lena" to true, "Omar" to false,
+        "Ada" to true, "Hugo" to false, "Mira" to true, "Joel" to false, "Vera" to true, "Ivan" to false,
+        "Clara" to true, "Eli" to false, "Tess" to true, "Rafa" to false, "June" to true, "Milo" to false,
     )
 
 /** At or above it, the caller may bolt down any corridor, whatever they were told. */

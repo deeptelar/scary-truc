@@ -177,7 +177,8 @@ class CallModel(
         scope.launch {
             while (true) {
                 if (ringing && !call.over) Sound.play(Cue.RING)
-                delay(3000)
+                // Two rings, then a breath of quiet.
+                delay(4500)
             }
         }
         if (clock) {
@@ -275,7 +276,7 @@ class CallModel(
                 call = after
                 spokeAt = now()
                 // Their words arrive like a message on a phone of the time.
-                if (after.lines.lastOrNull { it.who == Who.CALLER } != before.lines.lastOrNull { it.who == Who.CALLER }) Sound.play(Cue.MESSAGE, gain = -6f)
+                if (after.lines.lastOrNull { it.who == Who.CALLER } != before.lines.lastOrNull { it.who == Who.CALLER }) Sound.play(Cue.MESSAGE, gain = -4f)
                 sounds(before, after)
                 if (after.over) keep(after)
             } catch (e: CancellationException) {
@@ -299,6 +300,8 @@ class CallModel(
                 delay(380)
             }
             if (before.hollow?.awake == false && after.hollow?.awake == true) Sound.play(Cue.WAKE)
+            // A woman at the edge of panic sobs into the phone.
+            if (after.woman && !after.over && before.panic < LOUD && after.panic >= LOUD) Sound.play(Cue.SOB, gain = -4f)
             if (!before.afterMidnight && after.afterMidnight) {
                 Sound.play(Cue.BELL)
                 // The siren once the toll has rung out a little.
@@ -310,7 +313,7 @@ class CallModel(
             when (after.end) {
                 End.TAKEN, End.DOOM -> {
                     delay(speaking() - 600)
-                    Sound.play(Cue.SCREAM)
+                    Sound.play(Sound.screams(after.woman).random())
                     delay(900)
                     Sound.play(Cue.HANGUP)
                 }
@@ -318,7 +321,11 @@ class CallModel(
                     delay(speaking())
                     Sound.play(Cue.HANGUP)
                 }
-                End.OUT -> Sound.play(Cue.CHIME)
+                End.OUT -> {
+                    Sound.play(Cue.DOOR)
+                    delay(2400)
+                    Sound.play(Cue.CHIME)
+                }
                 null -> Unit
             }
         }

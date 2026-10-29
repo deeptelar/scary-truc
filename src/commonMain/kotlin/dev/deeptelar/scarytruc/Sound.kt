@@ -10,10 +10,17 @@ import kotlin.math.sin
 import kotlin.random.Random
 
 /** What the night sounds like at a moment of the game. */
-enum class Cue { SCREAM, STATIC, STINGER, WAKE, BELL, SIREN, WHISPER, CHIME, DEATH, RING, HANGUP, MESSAGE, STEP_1, STEP_2, STEP_3, STEP_4 }
+enum class Cue {
+    WOMAN_SCREAM_1, WOMAN_SCREAM_2, MAN_SCREAM_1, MAN_SCREAM_2, SOB,
+    STATIC_1, STATIC_2, STATIC_3, STATIC_4,
+    STINGER, WAKE, BELL, SIREN, WHISPER, DOOR, CHIME, RING, HANGUP, MESSAGE,
+    STEP_1, STEP_2, STEP_3, STEP_4,
+}
 
-/** Sounds cut from a recording, read when the game starts: [cues] one after the other in [file], [length] samples each. */
-private class Recording(val file: String, val cues: List<Cue>, val length: Int)
+/** Sounds cut from a recording, read when the game starts: [cues] one after the other in [file], as long as each other. */
+private class Recording(val file: String, val cues: List<Cue>) {
+    constructor(file: String, cue: Cue) : this(file, listOf(cue))
+}
 
 /** The drones that loop under the night. */
 enum class Drone { NIGHT, OTHERWORLD }
@@ -28,8 +35,8 @@ interface SoundOutput {
 }
 
 /**
- * The sounds of the night, made from sine waves and noise when the game starts, but for the
- * footsteps ([STEPS]) and the bell of midnight, which are recorded. A low
+ * The sounds of the night, recorded, and made from sine waves and noise until the recordings are
+ * read; the drones are only made. A low
  * drone plays all night, a heavier one after midnight, and radio static crackles when the Hollow
  * is near ([danger]), without saying where; now and then it crackles with nothing there. Just
  * before the Hollow steps close, everything can go quiet ([hushed]). Without an [output], or with
@@ -68,9 +75,33 @@ object Sound {
     /** Footsteps, one played at random for each step the caller walks. */
     val STEPS: List<Cue> = listOf(Cue.STEP_1, Cue.STEP_2, Cue.STEP_3, Cue.STEP_4)
 
-    // Mono, 16 bits, 22050 Hz: "Footsteps on parquet" by KRNBEATZ and "Creepy church bell" by
-    // freesound_community, both from Pixabay.
-    private val recordings = listOf(Recording("files/steps.pcm", STEPS, 7717), Recording("files/bell.pcm", listOf(Cue.BELL), 99225))
+    /** Crackles of a radio, one at random each time. */
+    val STATICS: List<Cue> = listOf(Cue.STATIC_1, Cue.STATIC_2, Cue.STATIC_3, Cue.STATIC_4)
+
+    /** The last sound of a caller, in their voice. */
+    fun screams(woman: Boolean): List<Cue> = if (woman) listOf(Cue.WOMAN_SCREAM_1, Cue.WOMAN_SCREAM_2) else listOf(Cue.MAN_SCREAM_1, Cue.MAN_SCREAM_2)
+
+    // Mono, 16 bits, 22050 Hz, cut from sound effects on Pixabay; the README names who made them.
+    private val recordings =
+        listOf(
+            Recording("files/steps.pcm", STEPS),
+            Recording("files/static.pcm", STATICS),
+            Recording("files/woman-scream-1.pcm", Cue.WOMAN_SCREAM_1),
+            Recording("files/woman-scream-2.pcm", Cue.WOMAN_SCREAM_2),
+            Recording("files/man-scream-1.pcm", Cue.MAN_SCREAM_1),
+            Recording("files/man-scream-2.pcm", Cue.MAN_SCREAM_2),
+            Recording("files/sob.pcm", Cue.SOB),
+            Recording("files/stinger.pcm", Cue.STINGER),
+            Recording("files/growl.pcm", Cue.WAKE),
+            Recording("files/bell.pcm", Cue.BELL),
+            Recording("files/siren.pcm", Cue.SIREN),
+            Recording("files/breath.pcm", Cue.WHISPER),
+            Recording("files/door.pcm", Cue.DOOR),
+            Recording("files/success.pcm", Cue.CHIME),
+            Recording("files/ring.pcm", Cue.RING),
+            Recording("files/hangup.pcm", Cue.HANGUP),
+            Recording("files/message.pcm", Cue.MESSAGE),
+        )
 
     /** The recorded cues read so far. */
     private var recorded: Map<Cue, FloatArray> = emptyMap()
@@ -83,11 +114,13 @@ object Sound {
         if (started) return
         started = true
         drones()
-        for (recording in recordings) {
-            scope.launch {
-                val bytes = runCatching { Res.readBytes(recording.file) }.getOrNull() ?: return@launch
+        // One after the other, so that each adds to what the last one read.
+        scope.launch {
+            for (recording in recordings) {
+                val bytes = runCatching { Res.readBytes(recording.file) }.getOrNull() ?: continue
                 val samples = FloatArray(bytes.size / 2) { i -> ((bytes[2 * i].toInt() and 0xFF) or (bytes[2 * i + 1].toInt() shl 8)).toShort() / 32768f }
-                recorded = recorded + recording.cues.withIndex().associate { (i, cue) -> cue to samples.copyOfRange(i * recording.length, (i + 1) * recording.length) }
+                val length = samples.size / recording.cues.size
+                recorded = recorded + recording.cues.withIndex().associate { (i, cue) -> cue to samples.copyOfRange(i * length, (i + 1) * length) }
             }
         }
         scope.launch {
@@ -96,9 +129,9 @@ object Sound {
                 val d = danger
                 when {
                     !on || hushed -> Unit
-                    d > 0.05f -> play(Cue.STATIC, gain = -16f + 16f * d)
+                    d > 0.05f -> play(STATICS.random(random), gain = -16f + 16f * d)
                     // Static with nothing there, now and then: the line can't be trusted.
-                    random.nextDouble() < 0.012 -> play(Cue.STATIC, gain = -18f)
+                    random.nextDouble() < 0.012 -> play(STATICS.random(random), gain = -18f)
                 }
                 delay(if (d > 0.05f) (700 - 520 * d).toLong() + random.nextLong(120) else 400)
             }
@@ -115,19 +148,19 @@ object Sound {
         runCatching { output?.play(cue, gain) }
     }
 
-    /** The samples of [cue], from -1 to 1. */
+    /** The samples of [cue], from -1 to 1: its recording, or until it is read, a sound made like it. */
     fun samples(cue: Cue): FloatArray {
         recorded[cue]?.let { return it }
         val noise = Random(cue.ordinal)
         return when (cue) {
             // A thin, wavering scream that rises and breaks.
-            Cue.SCREAM ->
+            Cue.WOMAN_SCREAM_1, Cue.WOMAN_SCREAM_2, Cue.MAN_SCREAM_1, Cue.MAN_SCREAM_2, Cue.SOB ->
                 wave(0.9) { t, _ ->
                     val pitch = 700 + 900 * t / 0.9 * (1 - t / 0.9) * 4 + 40 * sin(2 * PI * 9 * t)
                     (saw(pitch * t) * 0.45 + (noise.nextDouble() - 0.5) * 0.3) * envelope(t, 0.03, 0.9)
                 }
             // Radio static: crackles of noise that come and go.
-            Cue.STATIC -> {
+            Cue.STATIC_1, Cue.STATIC_2, Cue.STATIC_3, Cue.STATIC_4 -> {
                 var gate = 0.0
                 var last = 0.0
                 wave(0.35) { t, i ->
@@ -151,7 +184,7 @@ object Sound {
                     val rumble = sin(2 * PI * 38 * t) * (0.6 + 0.4 * sin(2 * PI * 7 * t))
                     (rumble * 0.7 + (noise.nextDouble() - 0.5) * 0.35) * envelope(t, 0.4, 1.8)
                 }
-            // A church bell for midnight, until its recording is read.
+            // A church bell for midnight.
             Cue.BELL ->
                 wave(2.6) { t, _ ->
                     (sin(2 * PI * 196 * t) + 0.5 * sin(2 * PI * 392.7 * t) + 0.3 * sin(2 * PI * 587 * t) + 0.2 * sin(2 * PI * 466 * t)) / 2 * exp(-t * 1.4)
@@ -171,13 +204,7 @@ object Sound {
                     low * 2.2 * (0.55 + 0.45 * sin(2 * PI * 4.5 * t)) * envelope(t, 0.15, 1.5)
                 }
             }
-            Cue.CHIME -> wave(0.7) { t, _ -> (sin(2 * PI * 880 * t) + sin(2 * PI * 1318.5 * t)) / 2 * exp(-t * 5) * 0.6 }
-            // A long fall.
-            Cue.DEATH ->
-                wave(1.4) { t, _ ->
-                    val pitch = 420 * exp(-t * 1.6)
-                    (saw(pitch * t) * 0.5 + (noise.nextDouble() - 0.5) * 0.2) * envelope(t, 0.02, 1.4)
-                }
+            Cue.DOOR, Cue.CHIME -> wave(0.7) { t, _ -> (sin(2 * PI * 880 * t) + sin(2 * PI * 1318.5 * t)) / 2 * exp(-t * 5) * 0.6 }
             // An old phone ringing: two bursts of a warbling double tone.
             Cue.RING ->
                 wave(2.0) { t, _ ->
@@ -209,7 +236,7 @@ object Sound {
                     (if (sin(2 * PI * 1760 * t) >= 0) 0.22 else -0.22) * edge
                 }
             }
-            // Until its recording is read, a footstep is a dull knock and a splash.
+            // A footstep: a dull knock and a splash.
             Cue.STEP_1, Cue.STEP_2, Cue.STEP_3, Cue.STEP_4 ->
                 wave(0.22) { t, _ -> (sin(2 * PI * 70 * t) * 0.8 + (noise.nextDouble() - 0.5) * 0.4) * exp(-t * 28) }
         }
