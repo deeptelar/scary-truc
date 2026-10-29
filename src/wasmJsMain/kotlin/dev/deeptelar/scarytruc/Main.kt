@@ -22,6 +22,9 @@ fun main() {
     val game = CallModel(scope, store = store)
     game.saved()?.let { game.use(it) }
     game.onAnswer = audio::unlock
+    // A browser plays sound only after a tap: the first one anywhere opens it, so the ring is heard
+    // while the phone rings, before a call is picked.
+    onGesture(audio::unlock)
     if (WebMicrophone.available) game.microphone = WebMicrophone()
     ComposeViewport(document.body!!) {
         Game(game)
@@ -34,6 +37,9 @@ private class LocalStore : Store {
 
     override fun set(key: String, value: String) = localSet("scary-truc.$key", value)
 }
+
+private fun onGesture(open: () -> Unit): Unit =
+    js("{ for (const type of ['pointerdown', 'pointerup', 'touchend', 'keydown']) window.addEventListener(type, () => open(), { capture: true }); }")
 
 private fun localGet(key: String): String? = js("window.localStorage.getItem(key)")
 
