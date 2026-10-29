@@ -329,8 +329,10 @@ class CallModel(
             if (after.woman && !after.over && before.panic < LOUD && after.panic >= LOUD) Sound.play(Cue.SOB, gain = -4f)
             if (!before.afterMidnight && after.afterMidnight) {
                 Sound.play(Cue.BELL)
-                // The siren once the toll has rung out a little.
-                delay(2500)
+                // The walls grind as they move, and the siren once the toll has rung out a little.
+                delay(1200)
+                Sound.play(Cue.GRIND, gain = -2f)
+                delay(1800)
                 Sound.play(Cue.SIREN)
             }
             if (after.lines.count { it.who == Who.HOLLOW } > before.lines.count { it.who == Who.HOLLOW }) Sound.play(Cue.WHISPER)
@@ -338,8 +340,21 @@ class CallModel(
             when (after.end) {
                 End.TAKEN, End.DOOM -> {
                     delay(speaking() - 600)
-                    Sound.play(Sound.screams(after.woman).random())
-                    delay(900)
+                    // What took them is heard first; a pit is only a long fall.
+                    val doom = DoomKind.entries.firstOrNull { it.word == after.death }.takeIf { after.end == End.DOOM }
+                    if (doom == DoomKind.PIT) {
+                        Sound.play(Sound.fall(after.woman))
+                        delay(2200)
+                    } else {
+                        when (doom) {
+                            DoomKind.MOUTH -> Sound.play(Cue.CRUNCH)
+                            DoomKind.MIRROR -> Sound.play(Cue.SHATTER)
+                            else -> Sound.play(Cue.ROAR)
+                        }
+                        delay(700)
+                        Sound.play(Sound.screams(after.woman).random())
+                        delay(900)
+                    }
                     Sound.play(Cue.HANGUP)
                 }
                 End.BATTERY -> {

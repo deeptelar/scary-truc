@@ -17,6 +17,7 @@ enum class Cue {
     STEP_1, STEP_2, STEP_3, STEP_4, RUN,
     WOMAN_BREATH_1, WOMAN_BREATH_2, WOMAN_BREATH_3, WOMAN_BREATH_4, MAN_BREATH_1, MAN_BREATH_2,
     SNIFF, FLARE, STONE,
+    WOMAN_FALL, MAN_FALL, CRUNCH, SHATTER, ROAR, GRIND,
 }
 
 /** Sounds cut from a recording, read when the game starts: [cues] one after the other in [file], as long as each other. */
@@ -93,6 +94,9 @@ object Sound {
     private val WOMAN_BREATHS = listOf(Cue.WOMAN_BREATH_1, Cue.WOMAN_BREATH_2, Cue.WOMAN_BREATH_3, Cue.WOMAN_BREATH_4)
     private val MAN_BREATHS = listOf(Cue.MAN_BREATH_1, Cue.MAN_BREATH_2)
 
+    /** A caller falling into a pit with no bottom, in their voice. */
+    fun fall(woman: Boolean): Cue = if (woman) Cue.WOMAN_FALL else Cue.MAN_FALL
+
     /** A caller's breaths on the line, in their voice, one played at random after another. */
     fun breaths(woman: Boolean): List<Cue> = if (woman) WOMAN_BREATHS else MAN_BREATHS
 
@@ -125,6 +129,12 @@ object Sound {
             Recording("files/flare.pcm", Cue.FLARE),
             Recording("files/stone.pcm", Cue.STONE),
             Recording("files/run.pcm", Cue.RUN),
+            Recording("files/woman-fall.pcm", Cue.WOMAN_FALL),
+            Recording("files/man-fall.pcm", Cue.MAN_FALL),
+            Recording("files/crunch.pcm", Cue.CRUNCH),
+            Recording("files/shatter.pcm", Cue.SHATTER),
+            Recording("files/roar.pcm", Cue.ROAR),
+            Recording("files/grind.pcm", Cue.GRIND),
         )
 
     /** The recorded cues read so far. */
@@ -181,13 +191,13 @@ object Sound {
         val noise = Random(cue.ordinal)
         return when (cue) {
             // A thin, wavering scream that rises and breaks.
-            Cue.WOMAN_SCREAM_1, Cue.WOMAN_SCREAM_2, Cue.MAN_SCREAM_1, Cue.MAN_SCREAM_2, Cue.SOB ->
+            Cue.WOMAN_SCREAM_1, Cue.WOMAN_SCREAM_2, Cue.MAN_SCREAM_1, Cue.MAN_SCREAM_2, Cue.SOB, Cue.WOMAN_FALL, Cue.MAN_FALL ->
                 wave(0.9) { t, _ ->
                     val pitch = 700 + 900 * t / 0.9 * (1 - t / 0.9) * 4 + 40 * sin(2 * PI * 9 * t)
                     (saw(pitch * t) * 0.45 + (noise.nextDouble() - 0.5) * 0.3) * envelope(t, 0.03, 0.9)
                 }
-            // Radio static: crackles of noise that come and go.
-            Cue.STATIC_1, Cue.STATIC_2, Cue.STATIC_3, Cue.STATIC_4 -> {
+            // Radio static: crackles of noise that come and go; something that cracks or breaks.
+            Cue.STATIC_1, Cue.STATIC_2, Cue.STATIC_3, Cue.STATIC_4, Cue.CRUNCH, Cue.SHATTER -> {
                 var gate = 0.0
                 var last = 0.0
                 wave(0.35) { t, i ->
@@ -205,8 +215,8 @@ object Sound {
                     val cluster = listOf(220.0, 233.1, 311.1, 466.2, 622.3).sumOf { sin(2 * PI * it * t) } / 5
                     (cluster * 0.8 + (noise.nextDouble() - 0.5) * 0.5 * exp(-t * 12)) * exp(-t * 2.2)
                 }
-            // Something waking: a low, rough growl.
-            Cue.WAKE ->
+            // Something waking: a low, rough growl. Its roar, and the walls that move, sound the same.
+            Cue.WAKE, Cue.ROAR, Cue.GRIND ->
                 wave(1.8) { t, _ ->
                     val rumble = sin(2 * PI * 38 * t) * (0.6 + 0.4 * sin(2 * PI * 7 * t))
                     (rumble * 0.7 + (noise.nextDouble() - 0.5) * 0.35) * envelope(t, 0.4, 1.8)
