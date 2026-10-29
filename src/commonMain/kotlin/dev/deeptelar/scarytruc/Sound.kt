@@ -18,6 +18,7 @@ enum class Cue {
     WOMAN_BREATH_1, WOMAN_BREATH_2, WOMAN_BREATH_3, WOMAN_BREATH_4, MAN_BREATH_1, MAN_BREATH_2,
     SNIFF, FLARE, STONE,
     WOMAN_FALL, MAN_FALL, CRUNCH, SHATTER, ROAR, GRIND,
+    PICKUP, LOW_BATTERY, POWER_OFF, BATTERY_IN,
 }
 
 /** Sounds cut from a recording, read when the game starts: [cues] one after the other in [file], as long as each other. */
@@ -32,6 +33,9 @@ enum class Drone { NIGHT, MINE, OTHERWORLD }
 interface SoundOutput {
     /** Plays [samples] once, [gain] decibels louder or quieter. */
     fun play(cue: Cue, gain: Float)
+
+    /** Cuts [cue] short where it is playing. */
+    fun stop(cue: Cue)
 
     /** Loops [drone], or stops every drone when it is `null`. */
     fun drone(drone: Drone?)
@@ -135,6 +139,10 @@ object Sound {
             Recording("files/shatter.pcm", Cue.SHATTER),
             Recording("files/roar.pcm", Cue.ROAR),
             Recording("files/grind.pcm", Cue.GRIND),
+            Recording("files/pickup.pcm", Cue.PICKUP),
+            Recording("files/low-battery.pcm", Cue.LOW_BATTERY),
+            Recording("files/power-off.pcm", Cue.POWER_OFF),
+            Recording("files/battery-in.pcm", Cue.BATTERY_IN),
         )
 
     /** The recorded cues read so far. */
@@ -183,6 +191,10 @@ object Sound {
     fun play(cue: Cue, gain: Float = 0f) {
         if (!on || !ready(cue)) return
         runCatching { output?.play(cue, gain) }
+    }
+
+    fun stop(cue: Cue) {
+        runCatching { output?.stop(cue) }
     }
 
     /** The samples of [cue], from -1 to 1: its recording, or until it is read, a sound made like it. */
@@ -248,8 +260,8 @@ object Sound {
                     val on = (t % 0.6) < 0.4 && t < 1.2
                     if (!on) 0.0 else (sin(2 * PI * 440 * t) + sin(2 * PI * 480 * t)) * 0.3 * (0.6 + 0.4 * sin(2 * PI * 20 * t))
                 }
-            // The line goes dead: three short, high beeps.
-            Cue.HANGUP ->
+            // The line goes dead: three short, high beeps. A phone's battery beeps like it.
+            Cue.HANGUP, Cue.LOW_BATTERY, Cue.POWER_OFF ->
                 wave(1.2) { t, _ ->
                     if ((t % 0.4) < 0.18) sin(2 * PI * 620 * t) * 0.35 * envelope(t % 0.4, 0.005, 0.18) else 0.0
                 }
@@ -273,8 +285,8 @@ object Sound {
                     (if (sin(2 * PI * 1760 * t) >= 0) 0.22 else -0.22) * edge
                 }
             }
-            // A footstep: a dull knock and a splash. Running, or a stone that falls, sounds the same.
-            Cue.STEP_1, Cue.STEP_2, Cue.STEP_3, Cue.STEP_4, Cue.RUN, Cue.STONE ->
+            // A footstep: a dull knock and a splash. Running, a stone that falls or a click sound the same.
+            Cue.STEP_1, Cue.STEP_2, Cue.STEP_3, Cue.STEP_4, Cue.RUN, Cue.STONE, Cue.PICKUP, Cue.BATTERY_IN ->
                 wave(0.22) { t, _ -> (sin(2 * PI * 70 * t) * 0.8 + (noise.nextDouble() - 0.5) * 0.4) * exp(-t * 28) }
         }
     }

@@ -23,6 +23,11 @@ class JavaSound : SoundOutput {
     }
 
     @Synchronized
+    override fun stop(cue: Cue) {
+        clips[cue]?.stop()
+    }
+
+    @Synchronized
     override fun drone(drone: Drone?) {
         val playing =
             drone?.let {

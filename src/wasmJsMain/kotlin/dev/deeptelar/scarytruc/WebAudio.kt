@@ -16,6 +16,8 @@ class WebAudio : SoundOutput {
     private val droneBuffers = mutableMapOf<Drone, Pair<FloatArray, JsAny>>()
     private var droning: FloatArray? = null
     private var source: JsAny? = null
+    /** The last source of each cue, to cut it short. */
+    private val playing = mutableMapOf<Cue, JsAny>()
 
     /** Opens the sound, from inside a tap. */
     fun unlock() {
@@ -34,7 +36,11 @@ class WebAudio : SoundOutput {
     override fun play(cue: Cue, gain: Float) {
         val context = context ?: return
         val buffer = buffers.getOrPut(cue) { buffer(Sound.samples(cue)) }
-        start(context, buffer, decibels(gain), false)
+        playing[cue] = start(context, buffer, decibels(gain), false)
+    }
+
+    override fun stop(cue: Cue) {
+        playing.remove(cue)?.let { stop(it) }
     }
 
     override fun drone(drone: Drone?) {

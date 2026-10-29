@@ -216,6 +216,8 @@ class CallModel(
     fun answer() {
         if (!ringing) return
         onAnswer()
+        Sound.stop(Cue.RING)
+        Sound.play(Cue.PICKUP)
         ringing = false
         command { run.begin() }
     }
@@ -318,6 +320,9 @@ class CallModel(
                 }
             }
             if (after.sniffed) Sound.play(Cue.SNIFF)
+            if (Item.BATTERY in before.carried && Item.BATTERY !in after.carried) Sound.play(Cue.BATTERY_IN)
+            // The phone beeps as its last bar goes, and again near the end.
+            if (!after.over && listOf(20, 10).any { before.battery > it && after.battery <= it }) Sound.play(Cue.LOW_BATTERY, gain = -3f)
             if (Item.FLARE in before.carried && Item.FLARE !in after.carried) Sound.play(Cue.FLARE)
             if (Item.STONE in before.carried && Item.STONE !in after.carried) {
                 // Thrown, and a moment later it hits.
@@ -359,6 +364,8 @@ class CallModel(
                 }
                 End.BATTERY -> {
                     delay(speaking())
+                    Sound.play(Cue.POWER_OFF)
+                    delay(700)
                     Sound.play(Cue.HANGUP)
                 }
                 End.OUT -> {
