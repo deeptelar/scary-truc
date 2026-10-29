@@ -50,7 +50,7 @@ class JavaSound : SoundOutput {
         }
         return AudioSystem.getClip().apply {
             open(format, bytes, 0, bytes.size)
-            if (loop) (getControl(FloatControl.Type.MASTER_GAIN) as? FloatControl)?.value = -14f
+            if (loop) (getControl(FloatControl.Type.MASTER_GAIN) as? FloatControl)?.value = -8f
         }
     }
 }

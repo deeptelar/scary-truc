@@ -150,6 +150,8 @@ object Sound {
     fun millis(cue: Cue): Long = (samples(cue).size * 1000L / RATE).toLong()
 
     // Mono, 16 bits, 22050 Hz, cut from sound effects on Pixabay; the README names who made them.
+    // Levelled by their loudest 400 ms: the scares near -8 dB and everything else at -18, so that
+    // a scare is the loudest thing of the night; the drones at -14, and played 8 dB down.
     private val recordings =
         listOf(
             Recording("files/steps.pcm", STEPS),
@@ -246,7 +248,7 @@ object Sound {
             while (true) {
                 val d = danger
                 if (on && d > 0.2f) {
-                    play(Cue.HEARTBEAT, gain = -14f + 12f * d)
+                    play(Cue.HEARTBEAT, gain = -6f + 12f * d)
                     delay((1100 - 500 * d).toLong())
                 } else {
                     delay(300)

@@ -53,7 +53,7 @@ class WebAudio : SoundOutput {
         droning = samples
         if (drone != null && samples != null) {
             val buffer = droneBuffers[drone]?.takeIf { it.first === samples }?.second ?: buffer(samples).also { droneBuffers[drone] = samples to it }
-            source = start(context, buffer, decibels(-14f), true)
+            source = start(context, buffer, decibels(-8f), true)
         }
     }
 

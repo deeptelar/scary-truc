@@ -247,6 +247,7 @@ class CallModel(
         typed = ""
         ringing = true
         Sound.danger = 0f
+        Sound.hushed = false
         Sound.otherworld = false
         Sound.place = plan.drone
         // Each call has its own midnight.
@@ -315,13 +316,13 @@ class CallModel(
         scope.launch {
             // What the caller did, before where they went.
             when {
-                after.bumped -> Sound.play(Sound.WALLS.random(), gain = -3f)
-                !before.hidden && after.hidden -> Sound.play(Sound.RUSTLES.random(), gain = -3f)
-                after.marks.size > before.marks.size -> Sound.play(Cue.SCRATCH, gain = -3f)
+                after.bumped -> Sound.play(Sound.WALLS.random())
+                !before.hidden && after.hidden -> Sound.play(Sound.RUSTLES.random())
+                after.marks.size > before.marks.size -> Sound.play(Cue.SCRATCH)
                 after.carried.size > before.carried.size -> Sound.play(Cue.PICK)
             }
             if (after.ran) {
-                Sound.play(Cue.RUN, gain = -2f)
+                Sound.play(Cue.RUN)
                 delay(Sound.millis(Cue.RUN) - 1500)
             } else {
                 repeat(after.walked) {
@@ -332,12 +333,12 @@ class CallModel(
             if (after.sniffed) Sound.play(Cue.SNIFF)
             if (Item.BATTERY in before.carried && Item.BATTERY !in after.carried) Sound.play(Cue.BATTERY_IN)
             // The phone beeps as its last bar goes, and again near the end.
-            if (!after.over && listOf(20, 10).any { before.battery > it && after.battery <= it }) Sound.play(Cue.LOW_BATTERY, gain = -3f)
+            if (!after.over && listOf(20, 10).any { before.battery > it && after.battery <= it }) Sound.play(Cue.LOW_BATTERY)
             if (Item.FLARE in before.carried && Item.FLARE !in after.carried) Sound.play(Cue.FLARE)
             if (Item.STONE in before.carried && Item.STONE !in after.carried) {
                 // Thrown, and a moment later it hits.
                 delay(350)
-                Sound.play(Cue.STONE, gain = -2f)
+                Sound.play(Cue.STONE)
             }
             after.hollow?.takeIf { before.hollow?.awake == false && it.awake }?.let { hollow ->
                 // Next to the caller it growls; far away, it howls.
@@ -345,23 +346,26 @@ class CallModel(
                 Sound.play(if (far) Cue.HOWL else Cue.WAKE, gain = if (far) -4f else 0f)
             }
             // A caller at the edge of panic sobs into the phone.
-            if (!after.over && before.panic < LOUD && after.panic >= LOUD) Sound.play(Sound.sob(after.woman), gain = -4f)
+            if (!after.over && before.panic < LOUD && after.panic >= LOUD) Sound.play(Sound.sob(after.woman))
             // Near the way out, a cold draft: stronger the closer it is.
             val toGate = maze.distances(maze.gate)[after.at] ?: 99
-            if (!after.over && after.walked > 0 && toGate <= 3) Sound.play(Cue.WIND, gain = -10f + 3f * (3 - toGate))
+            if (!after.over && after.walked > 0 && toGate <= 3) Sound.play(Cue.WIND, gain = -8f + 3f * (3 - toGate))
             if (!before.afterMidnight && after.afterMidnight) {
                 Sound.play(Cue.BELL)
                 // The walls grind as they move, and the siren once the toll has rung out a little.
                 delay(1200)
-                Sound.play(Cue.GRIND, gain = -2f)
+                Sound.play(Cue.GRIND)
                 delay(1800)
                 Sound.play(Cue.SIREN)
             }
             if (after.lines.count { it.who == Who.HOLLOW } > before.lines.count { it.who == Who.HOLLOW }) Sound.play(Cue.WHISPER)
-            if (danger(after, maze) >= 0.75f && danger(before, run.mazeOf(before)) < 0.75f) Sound.play(Cue.STINGER, gain = -3f)
+            if (danger(after, maze) >= 0.75f && danger(before, run.mazeOf(before)) < 0.75f) Sound.play(Cue.STINGER)
             when (after.end) {
                 End.TAKEN, End.DOOM -> {
-                    delay(speaking() - 600)
+                    // The drone and the static stop half a second before, so that what took them hits harder.
+                    delay(speaking() - 1100)
+                    Sound.hushed = true
+                    delay(500)
                     // What took them is heard first; a pit is only a long fall.
                     val doom = DoomKind.entries.firstOrNull { it.word == after.death }.takeIf { after.end == End.DOOM }
                     if (doom == DoomKind.PIT) {
@@ -378,6 +382,7 @@ class CallModel(
                         delay(900)
                     }
                     Sound.play(Cue.HANGUP)
+                    Sound.hushed = false
                 }
                 End.BATTERY -> {
                     delay(speaking())
