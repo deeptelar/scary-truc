@@ -182,6 +182,17 @@ class CallModel(
                 delay(4500)
             }
         }
+        scope.launch {
+            while (true) {
+                delay(300)
+                // While Gemma finds the caller's words, the line carries their breathing.
+                if (thinking && !ringing && !call.over) {
+                    val breath = Sound.breaths(call.woman).random()
+                    Sound.play(breath, gain = -3f)
+                    delay(Sound.millis(breath) - 300)
+                }
+            }
+        }
         if (clock) {
             scope.launch {
                 while (true) {
@@ -297,9 +308,21 @@ class CallModel(
         Sound.otherworld = after.afterMidnight && !after.over
         Sound.danger = if (after.over) 0f else danger(after, maze)
         scope.launch {
-            repeat(after.walked) {
-                Sound.play(Sound.STEPS.random(), gain = -4f)
-                delay(380)
+            if (after.ran) {
+                Sound.play(Cue.RUN, gain = -2f)
+                delay(Sound.millis(Cue.RUN) - 1500)
+            } else {
+                repeat(after.walked) {
+                    Sound.play(Sound.STEPS.random(), gain = -4f)
+                    delay(380)
+                }
+            }
+            if (after.sniffed) Sound.play(Cue.SNIFF)
+            if (Item.FLARE in before.carried && Item.FLARE !in after.carried) Sound.play(Cue.FLARE)
+            if (Item.STONE in before.carried && Item.STONE !in after.carried) {
+                // Thrown, and a moment later it hits.
+                delay(350)
+                Sound.play(Cue.STONE, gain = -2f)
             }
             if (before.hollow?.awake == false && after.hollow?.awake == true) Sound.play(Cue.WAKE)
             // A woman at the edge of panic sobs into the phone.

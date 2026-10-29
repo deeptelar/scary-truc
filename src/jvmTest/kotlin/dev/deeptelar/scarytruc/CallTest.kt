@@ -156,6 +156,8 @@ class CallTest {
         val hidden = quiet(here, dir, Order.HIDE).copy(hollow = awake, panic = 20).walk(maze, empty)
         assertNull(hidden.end)
         assertTrue(hidden.panic > 20, "it was right there")
+        assertTrue(hidden.sniffed, "it sniffed them")
+        assertFalse(caught.sniffed)
     }
 
     @Test
@@ -164,6 +166,7 @@ class CallTest {
         val panicked = (0..40).map { quiet(here, dir, Order.STAY).copy(panic = 100, turn = it, mapped = emptyMap()).walk(maze, empty) }
         val ran = panicked.first { it.lostTrack && !it.over }
         assertTrue(ran.mapped.isEmpty(), "nothing is drawn while lost")
+        assertTrue(ran.ran, "they ran")
         val known = ran.copy(mapped = mapOf(ran.at to emptySet()), marks = listOf(Mark(ran.at, 1)), heard = Heard(Order.MARK, 0), panic = 0)
         assertFalse(known.walk(maze, empty).lostTrack)
     }

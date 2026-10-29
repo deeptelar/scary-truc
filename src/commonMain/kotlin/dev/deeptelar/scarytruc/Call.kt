@@ -198,6 +198,10 @@ data class Call(
     val death: String? = null,
     /** How many steps the caller walked this turn, for the sound of footsteps. */
     val walked: Int = 0,
+    /** Whether the caller ran in a panic this turn, for the sound of running. */
+    val ran: Boolean = false,
+    /** Whether the Hollow passed the hidden caller this turn, sniffing, for its sound. */
+    val sniffed: Boolean = false,
     /** Once the call is over: how many steps the caller was from the way out. */
     val away: Int? = null,
 ) {
@@ -312,6 +316,7 @@ fun Call.walk(maze: Maze, haunt: Haunt): Call {
     var walked = 0
     val random = Random(seed * 17 + turn)
     var woke = false
+    var sniffed = false
 
     /** The Hollow's move: it wakes to midnight or a noise close by, and goes for what it hears. */
     fun hunt() {
@@ -348,6 +353,7 @@ fun Call.walk(maze: Maze, haunt: Haunt): Call {
         val it = hollow?.takeIf { h -> h.awake && h.at == at } ?: return false
         if (hidden && panic < CALM_ENOUGH) {
             facts += "It was here. Right here, next to me. It sniffed the air, and it went on."
+            sniffed = true
             panic += 15
             hollow = it.copy(deaf = DEAF)
             return false
@@ -538,6 +544,8 @@ fun Call.walk(maze: Maze, haunt: Haunt): Call {
             end = end,
             death = death,
             walked = walked,
+            ran = bolted && walked > 0,
+            sniffed = sniffed,
             panic = panic.coerceIn(0, 100),
             trust = trust.coerceIn(0, 100),
         )
