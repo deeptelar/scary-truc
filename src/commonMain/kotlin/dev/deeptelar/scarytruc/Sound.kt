@@ -22,8 +22,8 @@ private class Recording(val file: String, val cues: List<Cue>) {
     constructor(file: String, cue: Cue) : this(file, listOf(cue))
 }
 
-/** The drones that loop under the night. */
-enum class Drone { NIGHT, OTHERWORLD }
+/** The drones that loop under the night: [MINE] in the cave, [NIGHT] everywhere else. */
+enum class Drone { NIGHT, MINE, OTHERWORLD }
 
 /** Where the sounds are played: Java Sound on the desktop, Web Audio in a browser. */
 interface SoundOutput {
@@ -58,6 +58,13 @@ object Sound {
 
     /** The silence before the scare: no drone, no static. */
     var hushed: Boolean = false
+        set(value) {
+            field = value
+            drones()
+        }
+
+    /** The drone of the call's place, until midnight. */
+    var place: Drone = Drone.NIGHT
         set(value) {
             field = value
             drones()
@@ -121,7 +128,7 @@ object Sound {
                 val length = samples.size / recording.cues.size
                 recorded = recorded + recording.cues.withIndex().associate { (i, cue) -> cue to samples.copyOfRange(i * length, (i + 1) * length) }
             }
-            for ((drone, file) in listOf(Drone.NIGHT to "files/ambient.pcm", Drone.OTHERWORLD to "files/otherworld.pcm")) {
+            for ((drone, file) in listOf(Drone.NIGHT to "files/ambient.pcm", Drone.MINE to "files/mine.pcm", Drone.OTHERWORLD to "files/otherworld.pcm")) {
                 madeDrones = madeDrones + (drone to (read(file) ?: continue))
                 drones()
             }
@@ -143,7 +150,7 @@ object Sound {
 
     private fun drones() {
         if (!started) return
-        runCatching { output?.drone(if (!on || hushed) null else if (otherworld) Drone.OTHERWORLD else Drone.NIGHT) }
+        runCatching { output?.drone(if (!on || hushed) null else if (otherworld) Drone.OTHERWORLD else place) }
     }
 
     fun play(cue: Cue, gain: Float = 0f) {
@@ -253,7 +260,7 @@ object Sound {
      * so that an output can tell when to make its loop again.
      */
     fun samples(drone: Drone): FloatArray =
-        madeDrones[drone] ?: (if (drone == Drone.NIGHT) droneSamples() else otherworldSamples()).also { madeDrones = madeDrones + (drone to it) }
+        madeDrones[drone] ?: (if (drone == Drone.OTHERWORLD) otherworldSamples() else droneSamples()).also { madeDrones = madeDrones + (drone to it) }
 
     /** A recording in [file]: mono, 16 bits, at [RATE]. */
     private suspend fun read(file: String): FloatArray? {

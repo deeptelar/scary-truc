@@ -6,7 +6,7 @@ package dev.deeptelar.scarytruc
  * [setting] is where the caller wakes up, in their words. [notes] lie in the maze, the first at the
  * start and the others at the digits 2 to 9 of [rows]; [oddities] are what the `o`s are, in reading
  * order. `b`, `f` and `s` are a phone battery, a flare and a stone to pick up. [awake] is a Hollow
- * that hunts from the first second.
+ * that hunts from the first second. [drone] is what the place sounds like until midnight.
  */
 enum class Plan(
     val title: String,
@@ -20,6 +20,7 @@ enum class Plan(
     val midnight: Int = 7,
     val awake: Boolean = false,
     val battery: Int = 100,
+    val drone: Drone = Drone.NIGHT,
 ) {
     CAVE(
         "The Cave",
@@ -50,6 +51,7 @@ enum class Plan(
         ),
         // Long enough to get past the lair before it wakes, if they are quick and quiet.
         midnight = 12,
+        drone = Drone.MINE,
     ),
     WOODS(
         "The Woods",

@@ -174,6 +174,7 @@ class CallModel(
         private set
 
     init {
+        Sound.place = plan.drone
         scope.launch {
             while (true) {
                 if (ringing && !call.over) Sound.play(Cue.RING)
@@ -233,6 +234,7 @@ class CallModel(
         ringing = true
         Sound.danger = 0f
         Sound.otherworld = false
+        Sound.place = plan.drone
     }
 
     /** Other minds for the caller and the Hollow, from the next call on: this one starts again. */
