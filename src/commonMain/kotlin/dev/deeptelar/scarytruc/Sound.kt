@@ -114,16 +114,17 @@ object Sound {
         if (started) return
         started = true
         drones()
-        // One after the other, so that each adds to what the last one read; the long drone last.
+        // One after the other, so that each adds to what the last one read; the long drones last.
         scope.launch {
             for (recording in recordings) {
                 val samples = read(recording.file) ?: continue
                 val length = samples.size / recording.cues.size
                 recorded = recorded + recording.cues.withIndex().associate { (i, cue) -> cue to samples.copyOfRange(i * length, (i + 1) * length) }
             }
-            val night = read("files/ambient.pcm") ?: return@launch
-            madeDrones = mapOf(Drone.NIGHT to night, Drone.OTHERWORLD to lowered(night, 0.79))
-            drones()
+            for ((drone, file) in listOf(Drone.NIGHT to "files/ambient.pcm", Drone.OTHERWORLD to "files/otherworld.pcm")) {
+                madeDrones = madeDrones + (drone to (read(file) ?: continue))
+                drones()
+            }
         }
         scope.launch {
             val random = Random(7)
@@ -259,15 +260,6 @@ object Sound {
         val bytes = runCatching { Res.readBytes(file) }.getOrNull() ?: return null
         return FloatArray(bytes.size / 2) { i -> ((bytes[2 * i].toInt() and 0xFF) or (bytes[2 * i + 1].toInt() shl 8)).toShort() / 32768f }
     }
-
-    /** [loop] played slower by [speed], and so lower: it still loops without a seam. */
-    private fun lowered(loop: FloatArray, speed: Double): FloatArray =
-        FloatArray((loop.size / speed).toInt()) { i ->
-            val at = i * speed
-            val j = at.toInt()
-            val f = (at - j).toFloat()
-            loop[j % loop.size] * (1 - f) + loop[(j + 1) % loop.size] * f
-        }
 
     /** Two low tones that beat against each other, and a breath of noise: loops without a seam. */
     private fun droneSamples(): FloatArray {
