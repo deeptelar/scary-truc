@@ -85,6 +85,7 @@ enum class Plan(
             "#    3#         #",
             "#################",
         ),
+        drone = Drone.WOODS,
     ),
     CUBE(
         "The Cube",
@@ -120,6 +121,7 @@ enum class Plan(
             "#################",
         ),
         midnight = 9,
+        drone = Drone.CUBE,
     ),
     TAPE(
         "The Tape",
@@ -149,6 +151,7 @@ enum class Plan(
             "#s#      P     S#",
             "#################",
         ),
+        drone = Drone.TAPE,
     ),
     HEDGE(
         "The Hedge",
@@ -178,6 +181,7 @@ enum class Plan(
             "#################",
         ),
         midnight = 4,
+        drone = Drone.HEDGE,
     ),
     SHIP(
         "The Ship",
@@ -207,6 +211,7 @@ enum class Plan(
             "#################",
         ),
         awake = true,
+        drone = Drone.SHIP,
     ),
     ;
 

@@ -2,8 +2,10 @@ package dev.deeptelar.scarytruc
 
 import dev.deeptelar.scarytruc.resources.Res
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlin.concurrent.Volatile
 import kotlin.math.PI
 import kotlin.math.exp
 import kotlin.math.sin
@@ -27,8 +29,17 @@ private class Recording(val file: String, val cues: List<Cue>) {
     constructor(file: String, cue: Cue) : this(file, listOf(cue))
 }
 
-/** The drones that loop under the night: [MINE] in the cave, [NIGHT] everywhere else. */
-enum class Drone { NIGHT, MINE, OTHERWORLD }
+/** The drones that loop under the night: one for each place, and [OTHERWORLD] after midnight. Each is read from [file] only once it is wanted. */
+enum class Drone(val file: String) {
+    NIGHT("files/ambient.pcm"),
+    MINE("files/mine.pcm"),
+    WOODS("files/woods.pcm"),
+    CUBE("files/cube.pcm"),
+    TAPE("files/tape.pcm"),
+    HEDGE("files/hedge.pcm"),
+    SHIP("files/ship.pcm"),
+    OTHERWORLD("files/otherworld.pcm"),
+}
 
 /** Where the sounds are played: Java Sound on the desktop, Web Audio in a browser. */
 interface SoundOutput {
@@ -75,8 +86,12 @@ object Sound {
     var place: Drone = Drone.NIGHT
         set(value) {
             field = value
+            wanted.trySend(value)
             drones()
         }
+
+    /** The drones of the places picked, to read: only those, since each is a large recording. */
+    private val wanted = Channel<Drone>(Channel.UNLIMITED)
 
     /** Past midnight: the Otherworld's drone. */
     var otherworld: Boolean = false
@@ -166,6 +181,7 @@ object Sound {
         )
 
     /** The recorded cues read so far. */
+    @Volatile
     private var recorded: Map<Cue, FloatArray> = emptyMap()
 
     /** Whether [cue] can be played: a recorded one only once its recording is read. */
@@ -176,17 +192,24 @@ object Sound {
         if (started) return
         started = true
         drones()
-        // One after the other, so that each adds to what the last one read; the long drones last.
+        // One after the other, so that each adds to what the last one read: the drone of this place
+        // first, then the cues, the Otherworld's drone, and the drone of each place picked later.
         scope.launch {
+            val loaded = mutableSetOf<Drone>()
+
+            suspend fun load(drone: Drone) {
+                if (!loaded.add(drone)) return
+                readDrones = readDrones + (drone to (read(drone.file) ?: return))
+                drones()
+            }
+            load(place)
             for (recording in recordings) {
                 val samples = read(recording.file) ?: continue
                 val length = samples.size / recording.cues.size
                 recorded = recorded + recording.cues.withIndex().associate { (i, cue) -> cue to samples.copyOfRange(i * length, (i + 1) * length) }
             }
-            for ((drone, file) in listOf(Drone.NIGHT to "files/ambient.pcm", Drone.MINE to "files/mine.pcm", Drone.OTHERWORLD to "files/otherworld.pcm")) {
-                madeDrones = madeDrones + (drone to (read(file) ?: continue))
-                drones()
-            }
+            load(Drone.OTHERWORLD)
+            for (drone in wanted) load(drone)
         }
         scope.launch {
             val random = Random(7)
@@ -323,7 +346,11 @@ object Sound {
         }
     }
 
-    /** The drones as made so far: until the recording is read, from sine waves. */
+    /** The drones read so far. */
+    @Volatile
+    private var readDrones: Map<Drone, FloatArray> = emptyMap()
+
+    /** The drones made from sine waves, for until their recording is read. */
     private var madeDrones: Map<Drone, FloatArray> = emptyMap()
 
     /**
@@ -331,7 +358,7 @@ object Sound {
      * so that an output can tell when to make its loop again.
      */
     fun samples(drone: Drone): FloatArray =
-        madeDrones[drone] ?: (if (drone == Drone.OTHERWORLD) otherworldSamples() else droneSamples()).also { madeDrones = madeDrones + (drone to it) }
+        readDrones[drone] ?: madeDrones[drone] ?: (if (drone == Drone.OTHERWORLD) otherworldSamples() else droneSamples()).also { madeDrones = madeDrones + (drone to it) }
 
     /** A recording in [file]: mono, 16 bits, at [RATE]. */
     private suspend fun read(file: String): FloatArray? {
