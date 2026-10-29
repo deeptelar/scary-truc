@@ -98,6 +98,7 @@ class CallTest {
         assertEquals(here, call.at)
         assertTrue(call.trust < plan.role.trust)
         assertEquals(0, call.walked)
+        assertTrue(call.bumped, "they walked into it")
     }
 
     @Test

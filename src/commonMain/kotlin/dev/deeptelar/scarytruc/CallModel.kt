@@ -310,6 +310,13 @@ class CallModel(
         Sound.otherworld = after.afterMidnight && !after.over
         Sound.danger = if (after.over) 0f else danger(after, maze)
         scope.launch {
+            // What the caller did, before where they went.
+            when {
+                after.bumped -> Sound.play(Sound.WALLS.random(), gain = -3f)
+                !before.hidden && after.hidden -> Sound.play(Sound.RUSTLES.random(), gain = -3f)
+                after.marks.size > before.marks.size -> Sound.play(Cue.SCRATCH, gain = -3f)
+                after.carried.size > before.carried.size -> Sound.play(Cue.PICK)
+            }
             if (after.ran) {
                 Sound.play(Cue.RUN, gain = -2f)
                 delay(Sound.millis(Cue.RUN) - 1500)
@@ -329,9 +336,16 @@ class CallModel(
                 delay(350)
                 Sound.play(Cue.STONE, gain = -2f)
             }
-            if (before.hollow?.awake == false && after.hollow?.awake == true) Sound.play(Cue.WAKE)
-            // A woman at the edge of panic sobs into the phone.
-            if (after.woman && !after.over && before.panic < LOUD && after.panic >= LOUD) Sound.play(Cue.SOB, gain = -4f)
+            after.hollow?.takeIf { before.hollow?.awake == false && it.awake }?.let { hollow ->
+                // Next to the caller it growls; far away, it howls.
+                val far = (maze.distances(hollow.at)[after.at] ?: 99) > 3
+                Sound.play(if (far) Cue.HOWL else Cue.WAKE, gain = if (far) -4f else 0f)
+            }
+            // A caller at the edge of panic sobs into the phone.
+            if (!after.over && before.panic < LOUD && after.panic >= LOUD) Sound.play(Sound.sob(after.woman), gain = -4f)
+            // Near the way out, a cold draft: stronger the closer it is.
+            val toGate = maze.distances(maze.gate)[after.at] ?: 99
+            if (!after.over && after.walked > 0 && toGate <= 3) Sound.play(Cue.WIND, gain = -10f + 3f * (3 - toGate))
             if (!before.afterMidnight && after.afterMidnight) {
                 Sound.play(Cue.BELL)
                 // The walls grind as they move, and the siren once the toll has rung out a little.

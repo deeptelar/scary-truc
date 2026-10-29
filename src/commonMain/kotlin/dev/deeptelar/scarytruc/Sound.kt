@@ -19,6 +19,7 @@ enum class Cue {
     SNIFF, FLARE, STONE,
     WOMAN_FALL, MAN_FALL, CRUNCH, SHATTER, ROAR, GRIND,
     PICKUP, LOW_BATTERY, POWER_OFF, BATTERY_IN,
+    SCRATCH, PICK, WALL_1, WALL_2, RUSTLE_1, RUSTLE_2, HOWL, MAN_SOB, HEARTBEAT, WIND,
 }
 
 /** Sounds cut from a recording, read when the game starts: [cues] one after the other in [file], as long as each other. */
@@ -92,6 +93,15 @@ object Sound {
     /** Crackles of a radio, one at random each time. */
     val STATICS: List<Cue> = listOf(Cue.STATIC_1, Cue.STATIC_2, Cue.STATIC_3, Cue.STATIC_4)
 
+    /** A caller walking into a wall, one at random. */
+    val WALLS: List<Cue> = listOf(Cue.WALL_1, Cue.WALL_2)
+
+    /** Clothes as a caller crouches, one at random. */
+    val RUSTLES: List<Cue> = listOf(Cue.RUSTLE_1, Cue.RUSTLE_2)
+
+    /** A caller at the edge of panic, in their voice. */
+    fun sob(woman: Boolean): Cue = if (woman) Cue.SOB else Cue.MAN_SOB
+
     /** The last sound of a caller, in their voice. */
     fun screams(woman: Boolean): List<Cue> = if (woman) listOf(Cue.WOMAN_SCREAM_1, Cue.WOMAN_SCREAM_2) else listOf(Cue.MAN_SCREAM_1, Cue.MAN_SCREAM_2)
 
@@ -143,6 +153,16 @@ object Sound {
             Recording("files/low-battery.pcm", Cue.LOW_BATTERY),
             Recording("files/power-off.pcm", Cue.POWER_OFF),
             Recording("files/battery-in.pcm", Cue.BATTERY_IN),
+            Recording("files/scratch.pcm", Cue.SCRATCH),
+            Recording("files/pick.pcm", Cue.PICK),
+            Recording("files/wall-1.pcm", Cue.WALL_1),
+            Recording("files/wall-2.pcm", Cue.WALL_2),
+            Recording("files/rustle-1.pcm", Cue.RUSTLE_1),
+            Recording("files/rustle-2.pcm", Cue.RUSTLE_2),
+            Recording("files/howl.pcm", Cue.HOWL),
+            Recording("files/man-sob.pcm", Cue.MAN_SOB),
+            Recording("files/heartbeat.pcm", Cue.HEARTBEAT),
+            Recording("files/wind.pcm", Cue.WIND),
         )
 
     /** The recorded cues read so far. */
@@ -181,6 +201,18 @@ object Sound {
                 delay(if (d > 0.05f) (700 - 520 * d).toLong() + random.nextLong(120) else 400)
             }
         }
+        scope.launch {
+            // The caller's heart, faster and louder as the Hollow comes; it beats on in the silence before the scare.
+            while (true) {
+                val d = danger
+                if (on && d > 0.2f) {
+                    play(Cue.HEARTBEAT, gain = -14f + 12f * d)
+                    delay((1100 - 500 * d).toLong())
+                } else {
+                    delay(300)
+                }
+            }
+        }
     }
 
     private fun drones() {
@@ -203,13 +235,13 @@ object Sound {
         val noise = Random(cue.ordinal)
         return when (cue) {
             // A thin, wavering scream that rises and breaks.
-            Cue.WOMAN_SCREAM_1, Cue.WOMAN_SCREAM_2, Cue.MAN_SCREAM_1, Cue.MAN_SCREAM_2, Cue.SOB, Cue.WOMAN_FALL, Cue.MAN_FALL ->
+            Cue.WOMAN_SCREAM_1, Cue.WOMAN_SCREAM_2, Cue.MAN_SCREAM_1, Cue.MAN_SCREAM_2, Cue.SOB, Cue.MAN_SOB, Cue.WOMAN_FALL, Cue.MAN_FALL ->
                 wave(0.9) { t, _ ->
                     val pitch = 700 + 900 * t / 0.9 * (1 - t / 0.9) * 4 + 40 * sin(2 * PI * 9 * t)
                     (saw(pitch * t) * 0.45 + (noise.nextDouble() - 0.5) * 0.3) * envelope(t, 0.03, 0.9)
                 }
             // Radio static: crackles of noise that come and go; something that cracks or breaks.
-            Cue.STATIC_1, Cue.STATIC_2, Cue.STATIC_3, Cue.STATIC_4, Cue.CRUNCH, Cue.SHATTER -> {
+            Cue.STATIC_1, Cue.STATIC_2, Cue.STATIC_3, Cue.STATIC_4, Cue.CRUNCH, Cue.SHATTER, Cue.SCRATCH, Cue.RUSTLE_1, Cue.RUSTLE_2 -> {
                 var gate = 0.0
                 var last = 0.0
                 wave(0.35) { t, i ->
@@ -228,7 +260,7 @@ object Sound {
                     (cluster * 0.8 + (noise.nextDouble() - 0.5) * 0.5 * exp(-t * 12)) * exp(-t * 2.2)
                 }
             // Something waking: a low, rough growl. Its roar, and the walls that move, sound the same.
-            Cue.WAKE, Cue.ROAR, Cue.GRIND ->
+            Cue.WAKE, Cue.HOWL, Cue.ROAR, Cue.GRIND ->
                 wave(1.8) { t, _ ->
                     val rumble = sin(2 * PI * 38 * t) * (0.6 + 0.4 * sin(2 * PI * 7 * t))
                     (rumble * 0.7 + (noise.nextDouble() - 0.5) * 0.35) * envelope(t, 0.4, 1.8)
@@ -246,7 +278,7 @@ object Sound {
                     (sin(phase) + 0.3 * sin(3 * phase)) * 0.45 * envelope(t, 0.3, 4.0)
                 }
             // A breath that almost says something; a caller's breath, a sniff, a flare's hiss.
-            Cue.WHISPER, Cue.WOMAN_BREATH_1, Cue.WOMAN_BREATH_2, Cue.WOMAN_BREATH_3, Cue.WOMAN_BREATH_4, Cue.MAN_BREATH_1, Cue.MAN_BREATH_2, Cue.SNIFF, Cue.FLARE -> {
+            Cue.WHISPER, Cue.WOMAN_BREATH_1, Cue.WOMAN_BREATH_2, Cue.WOMAN_BREATH_3, Cue.WOMAN_BREATH_4, Cue.MAN_BREATH_1, Cue.MAN_BREATH_2, Cue.SNIFF, Cue.FLARE, Cue.WIND -> {
                 var low = 0.0
                 wave(1.5) { t, _ ->
                     low += (noise.nextDouble() - 0.5 - low) * 0.18
@@ -286,7 +318,7 @@ object Sound {
                 }
             }
             // A footstep: a dull knock and a splash. Running, a stone that falls or a click sound the same.
-            Cue.STEP_1, Cue.STEP_2, Cue.STEP_3, Cue.STEP_4, Cue.RUN, Cue.STONE, Cue.PICKUP, Cue.BATTERY_IN ->
+            Cue.STEP_1, Cue.STEP_2, Cue.STEP_3, Cue.STEP_4, Cue.RUN, Cue.STONE, Cue.PICKUP, Cue.BATTERY_IN, Cue.PICK, Cue.WALL_1, Cue.WALL_2, Cue.HEARTBEAT ->
                 wave(0.22) { t, _ -> (sin(2 * PI * 70 * t) * 0.8 + (noise.nextDouble() - 0.5) * 0.4) * exp(-t * 28) }
         }
     }
