@@ -36,7 +36,7 @@ interface SoundOutput {
 
 /**
  * The sounds of the night, recorded, and made from sine waves and noise until the recordings are
- * read; the drones are only made. A low
+ * read. A low
  * drone plays all night, a heavier one after midnight, and radio static crackles when the Hollow
  * is near ([danger]), without saying where; now and then it crackles with nothing there. Just
  * before the Hollow steps close, everything can go quiet ([hushed]). Without an [output], or with
@@ -114,14 +114,16 @@ object Sound {
         if (started) return
         started = true
         drones()
-        // One after the other, so that each adds to what the last one read.
+        // One after the other, so that each adds to what the last one read; the long drone last.
         scope.launch {
             for (recording in recordings) {
-                val bytes = runCatching { Res.readBytes(recording.file) }.getOrNull() ?: continue
-                val samples = FloatArray(bytes.size / 2) { i -> ((bytes[2 * i].toInt() and 0xFF) or (bytes[2 * i + 1].toInt() shl 8)).toShort() / 32768f }
+                val samples = read(recording.file) ?: continue
                 val length = samples.size / recording.cues.size
                 recorded = recorded + recording.cues.withIndex().associate { (i, cue) -> cue to samples.copyOfRange(i * length, (i + 1) * length) }
             }
+            val night = read("files/ambient.pcm") ?: return@launch
+            madeDrones = mapOf(Drone.NIGHT to night, Drone.OTHERWORLD to lowered(night, 0.79))
+            drones()
         }
         scope.launch {
             val random = Random(7)
@@ -242,8 +244,30 @@ object Sound {
         }
     }
 
-    /** The samples of [drone], which loop without a seam. */
-    fun samples(drone: Drone): FloatArray = if (drone == Drone.NIGHT) droneSamples() else otherworldSamples()
+    /** The drones as made so far: until the recording is read, from sine waves. */
+    private var madeDrones: Map<Drone, FloatArray> = emptyMap()
+
+    /**
+     * The samples of [drone], which loop without a seam: the same array until the recording is read,
+     * so that an output can tell when to make its loop again.
+     */
+    fun samples(drone: Drone): FloatArray =
+        madeDrones[drone] ?: (if (drone == Drone.NIGHT) droneSamples() else otherworldSamples()).also { madeDrones = madeDrones + (drone to it) }
+
+    /** A recording in [file]: mono, 16 bits, at [RATE]. */
+    private suspend fun read(file: String): FloatArray? {
+        val bytes = runCatching { Res.readBytes(file) }.getOrNull() ?: return null
+        return FloatArray(bytes.size / 2) { i -> ((bytes[2 * i].toInt() and 0xFF) or (bytes[2 * i + 1].toInt() shl 8)).toShort() / 32768f }
+    }
+
+    /** [loop] played slower by [speed], and so lower: it still loops without a seam. */
+    private fun lowered(loop: FloatArray, speed: Double): FloatArray =
+        FloatArray((loop.size / speed).toInt()) { i ->
+            val at = i * speed
+            val j = at.toInt()
+            val f = (at - j).toFloat()
+            loop[j % loop.size] * (1 - f) + loop[(j + 1) % loop.size] * f
+        }
 
     /** Two low tones that beat against each other, and a breath of noise: loops without a seam. */
     private fun droneSamples(): FloatArray {

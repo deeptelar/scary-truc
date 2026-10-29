@@ -13,8 +13,8 @@ import kotlin.math.pow
 class WebAudio : SoundOutput {
     private var context: JsAny? = null
     private val buffers = mutableMapOf<Cue, JsAny>()
-    private val droneBuffers = mutableMapOf<Drone, JsAny>()
-    private var droning: Drone? = null
+    private val droneBuffers = mutableMapOf<Drone, Pair<FloatArray, JsAny>>()
+    private var droning: FloatArray? = null
     private var source: JsAny? = null
 
     /** Opens the sound, from inside a tap. */
@@ -39,12 +39,14 @@ class WebAudio : SoundOutput {
 
     override fun drone(drone: Drone?) {
         val context = context ?: return
-        if (drone == droning) return
+        // A drone's samples change once its recording is read: then its loop is made again.
+        val samples = drone?.let { Sound.samples(it) }
+        if (samples === droning) return
         source?.let { stop(it) }
         source = null
-        droning = drone
-        if (drone != null) {
-            val buffer = droneBuffers.getOrPut(drone) { buffer(Sound.samples(drone)) }
+        droning = samples
+        if (drone != null && samples != null) {
+            val buffer = droneBuffers[drone]?.takeIf { it.first === samples }?.second ?: buffer(samples).also { droneBuffers[drone] = samples to it }
             source = start(context, buffer, decibels(-14f), true)
         }
     }

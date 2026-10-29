@@ -10,9 +10,8 @@ class JavaSound : SoundOutput {
     private val format = AudioFormat(Sound.RATE, 16, 1, true, false)
     /** A clip per cue, made when it is first played: the keys are read from a file after the start. */
     private val clips = mutableMapOf<Cue, Clip>()
-    private val drones: Map<Drone, Clip> by lazy {
-        runCatching { Drone.entries.associateWith { clip(Sound.samples(it), loop = true) } }.getOrDefault(emptyMap())
-    }
+    /** A loop per drone, with the samples it was made of: made again when they change. */
+    private val drones = mutableMapOf<Drone, Pair<FloatArray, Clip>>()
 
     @Synchronized
     override fun play(cue: Cue, gain: Float) {
@@ -25,8 +24,13 @@ class JavaSound : SoundOutput {
 
     @Synchronized
     override fun drone(drone: Drone?) {
-        val playing = drone?.let { drones[it] }
-        for (clip in drones.values) {
+        val playing =
+            drone?.let {
+                val samples = Sound.samples(it)
+                drones[it]?.takeIf { made -> made.first === samples }?.second
+                    ?: runCatching { clip(samples, loop = true) }.getOrNull()?.also { clip -> drones.put(it, samples to clip)?.second?.close() }
+            }
+        for ((_, clip) in drones.values) {
             if (clip == playing && !clip.isRunning) clip.loop(Clip.LOOP_CONTINUOUSLY)
             if (clip != playing && clip.isRunning) clip.stop()
         }

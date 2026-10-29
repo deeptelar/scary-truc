@@ -32,9 +32,11 @@ class SoundTest {
         assertEquals(Sound.STEPS.size * 7717 * 2, Res.readBytes("files/steps.pcm").size)
         val scope = CoroutineScope(Dispatchers.Default)
         Sound.start(scope)
-        withTimeout(10_000) { while (!Cue.entries.all { Sound.ready(it) }) delay(10) }
+        val made = Sound.samples(Drone.NIGHT)
+        withTimeout(10_000) { while (!Cue.entries.all { Sound.ready(it) } || Sound.samples(Drone.NIGHT) === made) delay(10) }
         scope.cancel()
         assertEquals(7717, Sound.samples(Cue.STEP_2).size)
+        assertTrue(Sound.samples(Drone.OTHERWORLD).size > Sound.samples(Drone.NIGHT).size)
     }
 
     /** Writes every cue as a WAV, to listen to them: ./gradlew test --tests '*SoundTest*' -Pshots=DIR */
