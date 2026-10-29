@@ -175,6 +175,7 @@ class CallModel(
 
     init {
         Sound.place = plan.drone
+        Sound.midnight = Drone.MIDNIGHT.random()
         scope.launch {
             while (true) {
                 if (ringing && !call.over) Sound.play(Cue.RING)
@@ -248,6 +249,8 @@ class CallModel(
         Sound.danger = 0f
         Sound.otherworld = false
         Sound.place = plan.drone
+        // Each call has its own midnight.
+        Sound.midnight = Drone.MIDNIGHT.random()
     }
 
     /** Other minds for the caller and the Hollow, from the next call on: this one starts again. */

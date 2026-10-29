@@ -20,7 +20,7 @@ enum class Plan(
     val midnight: Int = 7,
     val awake: Boolean = false,
     val battery: Int = 100,
-    val drone: Drone = Drone.NIGHT,
+    val drone: Drone,
 ) {
     CAVE(
         "The Cave",

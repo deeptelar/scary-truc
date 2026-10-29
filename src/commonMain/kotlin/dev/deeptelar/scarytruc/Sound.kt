@@ -29,9 +29,11 @@ private class Recording(val file: String, val cues: List<Cue>) {
     constructor(file: String, cue: Cue) : this(file, listOf(cue))
 }
 
-/** The drones that loop under the night: one for each place, and [OTHERWORLD] after midnight. Each is read from [file] only once it is wanted. */
+/**
+ * The drones that loop under the night: one for each place, and after midnight one of [MIDNIGHT].
+ * Each is read from [file] only once it is wanted.
+ */
 enum class Drone(val file: String) {
-    NIGHT("files/ambient.pcm"),
     MINE("files/mine.pcm"),
     WOODS("files/woods.pcm"),
     CUBE("files/cube.pcm"),
@@ -39,6 +41,13 @@ enum class Drone(val file: String) {
     HEDGE("files/hedge.pcm"),
     SHIP("files/ship.pcm"),
     OTHERWORLD("files/otherworld.pcm"),
+    DARK("files/ambient.pcm"),
+    ;
+
+    companion object {
+        /** The drones that can play after midnight, one for each call. */
+        val MIDNIGHT: List<Drone> = listOf(OTHERWORLD, DARK)
+    }
 }
 
 /** Where the sounds are played: Java Sound on the desktop, Web Audio in a browser. */
@@ -83,20 +92,28 @@ object Sound {
         }
 
     /** The drone of the call's place, until midnight. */
-    var place: Drone = Drone.NIGHT
+    var place: Drone = Drone.MINE
         set(value) {
             field = value
             wanted.trySend(value)
             drones()
         }
 
-    /** The drones of the places picked, to read: only those, since each is a large recording. */
+    /** The drones of the places picked and of their midnights, to read: only those, since each is a large recording. */
     private val wanted = Channel<Drone>(Channel.UNLIMITED)
 
-    /** Past midnight: the Otherworld's drone. */
+    /** Past midnight: the [midnight] drone instead of the place's. */
     var otherworld: Boolean = false
         set(value) {
             field = value
+            drones()
+        }
+
+    /** The drone after midnight, one of [Drone.MIDNIGHT]. */
+    var midnight: Drone = Drone.OTHERWORLD
+        set(value) {
+            field = value
+            wanted.trySend(value)
             drones()
         }
 
@@ -193,7 +210,7 @@ object Sound {
         started = true
         drones()
         // One after the other, so that each adds to what the last one read: the drone of this place
-        // first, then the cues, the Otherworld's drone, and the drone of each place picked later.
+        // first, then the cues, the drone after midnight, and each drone wanted later.
         scope.launch {
             val loaded = mutableSetOf<Drone>()
 
@@ -208,7 +225,7 @@ object Sound {
                 val length = samples.size / recording.cues.size
                 recorded = recorded + recording.cues.withIndex().associate { (i, cue) -> cue to samples.copyOfRange(i * length, (i + 1) * length) }
             }
-            load(Drone.OTHERWORLD)
+            load(midnight)
             for (drone in wanted) load(drone)
         }
         scope.launch {
@@ -240,7 +257,7 @@ object Sound {
 
     private fun drones() {
         if (!started) return
-        runCatching { output?.drone(if (!on || hushed) null else if (otherworld) Drone.OTHERWORLD else place) }
+        runCatching { output?.drone(if (!on || hushed) null else if (otherworld) midnight else place) }
     }
 
     fun play(cue: Cue, gain: Float = 0f) {

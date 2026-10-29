@@ -31,6 +31,7 @@ class SoundTest {
     fun everyCueIsRecorded() = runBlocking {
         assertEquals(Sound.STEPS.size * 7717 * 2, Res.readBytes("files/steps.pcm").size)
         val scope = CoroutineScope(Dispatchers.Default)
+        Sound.midnight = Drone.OTHERWORLD
         Sound.start(scope)
         val made = Sound.samples(Drone.OTHERWORLD)
         withTimeout(10_000) { while (!Cue.entries.all { Sound.ready(it) } || Sound.samples(Drone.OTHERWORLD) === made) delay(10) }
