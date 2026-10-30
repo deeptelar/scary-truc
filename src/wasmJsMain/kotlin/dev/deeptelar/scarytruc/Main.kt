@@ -43,7 +43,11 @@ fun main() {
     ComposeViewport(document.body!!) {
         Game(game)
     }
+    gone()
 }
+
+/** Takes the page's loading screen away, once the game has drawn. */
+private fun gone(): Unit = js("requestAnimationFrame(() => requestAnimationFrame(() => document.getElementById('loading')?.remove()))")
 
 /** Keeps values in the browser's `localStorage`, so they survive a reload. */
 private class LocalStore : Store {

@@ -6,8 +6,27 @@
     <title>Scary Truc</title>
     <meta name="description" content="A phone rings at midnight. Someone is lost in a maze with something that hunts by sound, and you are the only one who picked up. A horror game on Telar and Gemma.">
     <meta name="theme-color" content="#0E0A14">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://deeptelar.github.io/scary-truc/">
+    <meta property="og:title" content="Scary Truc">
+    <meta property="og:description" content="A phone rings at midnight. Someone is lost with something that hunts by sound, and you are the only one who picked up.">
+    <meta property="og:image" content="https://deeptelar.github.io/scary-truc/preview.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:image:alt" content="Scary Truc: an old phone with an unknown number calling.">
+    <meta name="twitter:card" content="summary_large_image">
     <style>
         html, body { width: 100%; height: 100%; margin: 0; padding: 0; overflow: hidden; background: #0E0A14; }
+        #loading { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; padding: 24px; box-sizing: border-box; color: #C6F0D8; font: 16px monospace; text-align: center; }
+        #loading p { margin: 0; }
+        #loading .bars { display: flex; align-items: flex-end; gap: 4px; height: 30px; }
+        #loading .bars i { width: 8px; background: currentColor; opacity: .15; animation: bar 2.5s steps(1) infinite; }
+        #loading .bars i:nth-child(1) { height: 6px; }
+        #loading .bars i:nth-child(2) { height: 12px; animation-delay: .4s; }
+        #loading .bars i:nth-child(3) { height: 18px; animation-delay: .8s; }
+        #loading .bars i:nth-child(4) { height: 24px; animation-delay: 1.2s; }
+        #loading .bars i:nth-child(5) { height: 30px; animation-delay: 1.6s; }
+        @keyframes bar { 0% { opacity: 1; } 35% { opacity: .15; } }
     </style>
     <meta name="build" content="dev">
     <script>
@@ -29,11 +48,24 @@
                 }
             };
             const stack = error => (error && error.stack ? '\n' + error.stack : '');
+            // While the game hasn't come, what goes wrong is the end of it: the player is told.
+            const dead = () => {
+                const text = document.getElementById('loading-text');
+                if (text) text.textContent = spanish ? 'Se ha cortado la línea. Recarga la página.' : 'The line went dead. Reload the page.';
+            };
+            const spanish = navigator.language.startsWith('es');
+            addEventListener('DOMContentLoaded', () => {
+                document.getElementById('loading-text').textContent = spanish ? 'Número desconocido llamando...' : 'Unknown number calling...';
+            });
             window.addEventListener('error', e => {
                 const place = e.filename ? ` at ${e.filename}:${e.lineno}:${e.colno}` : '';
                 report(e.message ? e.message + place + stack(e.error) : 'could not load ' + (e.target.src || e.target.href));
+                dead();
             }, true);
-            window.addEventListener('unhandledrejection', e => report('rejected: ' + e.reason + stack(e.reason)));
+            window.addEventListener('unhandledrejection', e => {
+                report('rejected: ' + e.reason + stack(e.reason));
+                dead();
+            });
             const error = console.error;
             console.error = (...args) => {
                 // Every visit, from the wasm runtime: not a fault of ours.
@@ -42,8 +74,12 @@
             };
         })();
     </script>
-    <script type="application/javascript" src="scaryTruc.js"></script>
+    <script type="application/javascript" src="scaryTruc.js" defer></script>
 </head>
 <body>
+<div id="loading" role="status">
+    <div class="bars"><i></i><i></i><i></i><i></i><i></i></div>
+    <p id="loading-text">Unknown number calling...</p>
+</div>
 </body>
 </html>
