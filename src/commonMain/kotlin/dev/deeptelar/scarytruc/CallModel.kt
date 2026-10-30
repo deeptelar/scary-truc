@@ -28,12 +28,14 @@ interface Store {
 /** A server with the OpenAI API, and the model on it that plays the caller and the Hollow. */
 data class Server(val url: String, val model: String, val key: String = "") {
     /** The minds of [model] on this server, asked through [client]. */
-    fun minds(client: HttpClient): Minds {
+    fun minds(client: HttpClient): Minds = Minds.of(chat(client), model)
+
+    /** [model] on this server, asked through [client]. */
+    fun chat(client: HttpClient): ChatModel {
         // Ollama thinks before it answers unless told not to; a phone call can't wait for that.
         val ollama = ":11434" in url || "ollama" in url
         val parameters = if (ollama) JsonObject(mapOf("reasoning_effort" to JsonPrimitive("none"))) else JsonObject(emptyMap())
-        val chat = OpenAiChatModel(client, apiKey = key.ifBlank { null }, model = model, parameters = parameters, baseUrl = url.trimEnd('/'), timeout = 1.minutes)
-        return Minds.of(chat, model)
+        return OpenAiChatModel(client, apiKey = key.ifBlank { null }, model = model, parameters = parameters, baseUrl = url.trimEnd('/'), timeout = 1.minutes)
     }
 
     companion object {

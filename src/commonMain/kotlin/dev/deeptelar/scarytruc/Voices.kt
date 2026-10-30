@@ -163,19 +163,21 @@ data class Understood(
 
 /**
  * The caller's ears played by Gemma: it reads the stranger's words as the caller would, the way
- * and the tone. When Gemma cannot answer, or names no deed it knows, the [keywords] decide.
+ * and the tone. When Gemma cannot answer, or names no deed it knows, the [keywords] decide. With
+ * [shortcuts], a bare order and words of the other language are understood without Gemma.
  */
 class GemmaEars(
     private val model: ChatModel,
     private val keywords: Ears = Keywords,
     private val trouble: (String?) -> Unit = {},
+    private val shortcuts: Boolean = true,
 ) : Ears {
     override suspend fun listen(call: Call): Heard {
         if (call.said.isBlank()) return Heard(Order.NONE, 0)
         // Words of another language the caller knows, or a shortcut, "left" or "hide", need no
         // model: they are understood at once, and the same every time.
-        if (Keywords.foreign(call.said, call.lang)) return Heard(Order.NONE, 0, foreign = true)
-        Keywords.bare(call.said, call.lang)?.let { return Heard(it, 0) }
+        if (shortcuts && Keywords.foreign(call.said, call.lang)) return Heard(Order.NONE, 0, foreign = true)
+        if (shortcuts) Keywords.bare(call.said, call.lang)?.let { return Heard(it, 0) }
         return try {
             val understood = model.ask<Understood>(prompt(call), system = system(call))
             trouble(null)
