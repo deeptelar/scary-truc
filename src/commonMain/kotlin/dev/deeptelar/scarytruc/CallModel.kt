@@ -242,17 +242,6 @@ class CallModel(
                 delay(100)
             }
         }
-        scope.launch {
-            while (true) {
-                delay(300)
-                // While Gemma finds the caller's words, the line carries their breathing.
-                if (thinking && !ringing && !call.over) {
-                    val breath = Sound.breaths(call.woman).random()
-                    Sound.play(breath, gain = -3f)
-                    delay(Sound.millis(breath) - 300)
-                }
-            }
-        }
         if (clock) {
             scope.launch {
                 while (true) {

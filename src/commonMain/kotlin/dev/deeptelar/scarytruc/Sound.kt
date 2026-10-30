@@ -17,7 +17,6 @@ enum class Cue {
     STATIC_1, STATIC_2, STATIC_3, STATIC_4,
     STINGER, WAKE, BELL, SIREN, WHISPER, DOOR, CHIME, RING, HANGUP, MESSAGE,
     STEP_1, STEP_2, STEP_3, STEP_4, RUN,
-    WOMAN_BREATH_1, WOMAN_BREATH_2, WOMAN_BREATH_3, WOMAN_BREATH_4, MAN_BREATH_1, MAN_BREATH_2,
     SNIFF, FLARE, STONE,
     WOMAN_FALL, MAN_FALL, CRUNCH, SHATTER, ROAR, GRIND,
     PICKUP, LOW_BATTERY, POWER_OFF, BATTERY_IN,
@@ -146,14 +145,8 @@ object Sound {
     /** The last sound of a caller, in their voice. */
     fun screams(woman: Boolean): List<Cue> = if (woman) listOf(Cue.WOMAN_SCREAM_1, Cue.WOMAN_SCREAM_2) else listOf(Cue.MAN_SCREAM_1, Cue.MAN_SCREAM_2)
 
-    private val WOMAN_BREATHS = listOf(Cue.WOMAN_BREATH_1, Cue.WOMAN_BREATH_2, Cue.WOMAN_BREATH_3, Cue.WOMAN_BREATH_4)
-    private val MAN_BREATHS = listOf(Cue.MAN_BREATH_1, Cue.MAN_BREATH_2)
-
     /** A caller falling into a pit with no bottom, in their voice. */
     fun fall(woman: Boolean): Cue = if (woman) Cue.WOMAN_FALL else Cue.MAN_FALL
-
-    /** A caller's breaths on the line, in their voice, one played at random after another. */
-    fun breaths(woman: Boolean): List<Cue> = if (woman) WOMAN_BREATHS else MAN_BREATHS
 
     /** How long [cue] lasts, in milliseconds. */
     fun millis(cue: Cue): Long = (samples(cue).size * 1000L / RATE).toLong()
@@ -179,8 +172,6 @@ object Sound {
             Recording("files/ring.pcm", Cue.RING),
             Recording("files/hangup.pcm", Cue.HANGUP),
             Recording("files/message.pcm", Cue.MESSAGE),
-            Recording("files/woman-breath.pcm", WOMAN_BREATHS),
-            Recording("files/man-breath.pcm", MAN_BREATHS),
             Recording("files/sniff.pcm", Cue.SNIFF),
             Recording("files/flare.pcm", Cue.FLARE),
             Recording("files/stone.pcm", Cue.STONE),
@@ -339,7 +330,7 @@ object Sound {
                     (sin(phase) + 0.3 * sin(3 * phase)) * 0.45 * envelope(t, 0.3, 4.0)
                 }
             // A breath that almost says something; a caller's breath, a sniff, a flare's hiss.
-            Cue.WHISPER, Cue.WOMAN_BREATH_1, Cue.WOMAN_BREATH_2, Cue.WOMAN_BREATH_3, Cue.WOMAN_BREATH_4, Cue.MAN_BREATH_1, Cue.MAN_BREATH_2, Cue.SNIFF, Cue.FLARE, Cue.WIND -> {
+            Cue.WHISPER, Cue.SNIFF, Cue.FLARE, Cue.WIND -> {
                 var low = 0.0
                 wave(1.5) { t, _ ->
                     low += (noise.nextDouble() - 0.5 - low) * 0.18

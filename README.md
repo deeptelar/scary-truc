@@ -6,7 +6,7 @@
 
 It's past midnight and your phone is ringing. **Unknown number.**
 
-You answer, and someone is breathing on the line, fast and shallow. They woke up somewhere
+You answer, and someone is whispering on the line, too fast, too close. They woke up somewhere
 they shouldn't be. They don't know how they got there. The others who came with them are gone,
 and out of every number in that phone, you're the one who picked up.
 
@@ -160,8 +160,6 @@ The sounds are cut from sound effects on [Pixabay](https://pixabay.com/sound-eff
 - Heartbeat: [freesound_community](https://pixabay.com/users/freesound_community-46691455/?utm_source=link-attribution&utm_medium=referral&utm_campaign=music&utm_content=96879)
 - Draft near the way out: [Jurij](https://pixabay.com/users/soundreality-31074404/?utm_source=link-attribution&utm_medium=referral&utm_campaign=music&utm_content=457957)
 - Running in a panic: [freesound_community](https://pixabay.com/users/freesound_community-46691455/?utm_source=link-attribution&utm_medium=referral&utm_campaign=music&utm_content=47595)
-- Woman breathing on the line: [Hasin Amanda](https://pixabay.com/users/hasin2004-46173687/?utm_source=link-attribution&utm_medium=referral&utm_campaign=music&utm_content=247449)
-- Man breathing on the line: [freesound_community](https://pixabay.com/users/freesound_community-46691455/?utm_source=link-attribution&utm_medium=referral&utm_campaign=music&utm_content=83103)
 - Flare: [freesound_community](https://pixabay.com/users/freesound_community-46691455/?utm_source=link-attribution&utm_medium=referral&utm_campaign=music&utm_content=19895)
 - Thrown stone: [LoLa Joy](https://pixabay.com/users/u_xg7ssi08yr-48039129/?utm_source=link-attribution&utm_medium=referral&utm_campaign=music&utm_content=572428)
 - Radio interference: [freesound_community](https://pixabay.com/users/freesound_community-46691455/?utm_source=link-attribution&utm_medium=referral&utm_campaign=music&utm_content=7122)
