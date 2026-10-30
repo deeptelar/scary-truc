@@ -138,7 +138,7 @@ private class Lcd(val paper: Color, val ink: Color) {
 
         fun of(call: Call, ringing: Boolean, danger: Float, now: Long): Lcd {
             val inverted = call.afterMidnight && !ringing && !call.over
-            val flicker = danger >= 0.5f && Random(now / 110).nextFloat() < danger * 0.35f
+            val flicker = interfered(danger, now) && Random(now / 110).nextFloat() < danger * 0.35f
             val paper = if (flicker) UNLIT else if (inverted) DARK else LIGHT
             return Lcd(paper, if (inverted) LIGHT else DARK)
         }
@@ -871,16 +871,24 @@ private fun Transcript(model: CallModel, now: Long, danger: Float, lcd: Lcd, mod
             var text = line.text
             if (i == last) text = text.take(shown.coerceAtLeast(0))
             // Static eats the words when the Hollow is close.
-            if (i == last && danger >= 0.5f) text = static(text, danger, now / 90 + i)
+            if (i == last) text = static(text, danger, now)
             if (i > last && i == lines.lastIndex && line.who == Who.LINE && shown < lines[last].text.length) return@items
             if (text.isNotEmpty() || line.who != Who.CALLER) Said(text, line.who, lcd, now)
         }
     }
 }
 
-private fun static(text: String, danger: Float, tick: Long): String {
-    val random = Random(tick)
-    return text.map { c -> if (c != ' ' && random.nextFloat() < (danger - 0.4f) * 0.25f) "░▒▓#"[random.nextInt(4)] else c }.joinToString("")
+private const val STATIC_EVERY = 2000L
+private const val STATIC_BURST = 600f
+
+/** Interference comes in bursts, longer the closer the Hollow is: between them the screen can be read. */
+internal fun interfered(danger: Float, now: Long): Boolean = danger >= 0.5f && now % STATIC_EVERY < (danger * STATIC_BURST).toLong()
+
+/** [text] with a few letters lost, during a burst of interference. */
+internal fun static(text: String, danger: Float, now: Long): String {
+    if (!interfered(danger, now)) return text
+    val random = Random(now / 90)
+    return text.map { c -> if (c != ' ' && random.nextFloat() < (danger - 0.4f) * 0.12f) "░▒▓#"[random.nextInt(4)] else c }.joinToString("")
 }
 
 /** One line of the call: the caller's plain, the player's in reverse on the right, the Hollow's shaking in reverse. */
