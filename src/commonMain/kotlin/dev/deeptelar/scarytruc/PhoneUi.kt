@@ -48,6 +48,7 @@ import androidx.compose.ui.input.key.type
 import androidx.compose.ui.text.TextMeasurer
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.TextUnit
@@ -157,6 +158,7 @@ private fun Phone(model: CallModel, now: Long, narrow: Boolean, modifier: Modifi
         ) {
             StatusBar(call, danger, lcd)
             when {
+                model.locked -> Locked(lcd, model::unlock)
                 model.ringing && screen == Screen.MENU -> Menu(lcd, { screen = it })
                 model.ringing && screen == Screen.HELP -> Help(lcd, now, { screen = Screen.CALLS }, { screen = Screen.CALLS; model.answer() })
                 model.ringing && screen == Screen.MODEL -> Options(model, lcd) { screen = Screen.MENU }
@@ -308,6 +310,41 @@ private fun Calls(model: CallModel, now: Long, lcd: Lcd, modifier: Modifier, opt
         }
     }
     Softkeys(lcd, "Menu" to options, "Answer" to model::answer, null)
+}
+
+/** A padlock, as a phone of the time showed its keys locked. */
+private val PADLOCK =
+    listOf(
+        "...#####...",
+        "..#.....#..",
+        "..#.....#..",
+        "..#.....#..",
+        "###########",
+        "###########",
+        "#####.#####",
+        "#####.#####",
+        "######.####",
+        "###########",
+        "###########",
+    )
+
+/**
+ * The phone as the page opens: its keys locked. Unlocking it is the tap a browser waits for before
+ * it plays a sound, so the phone rings the moment it is unlocked.
+ */
+@Composable
+private fun ColumnScope.Locked(lcd: Lcd, unlock: () -> Unit) {
+    Header("SCARY TRUC", lcd)
+    Column(
+        Modifier.weight(1f).fillMaxWidth().clickable(onClick = unlock),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(14.dp, Alignment.CenterVertically),
+    ) {
+        Box(Modifier.size(60.dp).drawBehind { draw(Sprite(PADLOCK, mapOf('#' to lcd.ink)), center, 5.dp.toPx()) })
+        PixelText("Keys locked", color = lcd.ink)
+        PixelText("Turn the sound up, and unlock. Someone is about to call.", Modifier.fillMaxWidth(), size = SMALL, color = lcd.faint, align = TextAlign.Center)
+    }
+    Softkeys(lcd, null, "Unlock" to unlock, null)
 }
 
 /** A heart in pixels: the fonts of the web draw ♥ in colour. */

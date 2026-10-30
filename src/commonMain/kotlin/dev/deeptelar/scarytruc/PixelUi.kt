@@ -36,6 +36,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
@@ -103,10 +104,11 @@ internal fun PixelText(
     size: TextUnit = BODY,
     color: Color = Ink.text,
     maxLines: Int = Int.MAX_VALUE,
+    align: TextAlign = TextAlign.Start,
 ) = BasicText(
     text,
     modifier,
-    style = TextStyle(fontFamily = PixelFont, fontSize = size, color = color, lineHeight = size * 1.25f, fontFeatureSettings = PLAIN),
+    style = TextStyle(fontFamily = PixelFont, fontSize = size, color = color, lineHeight = size * 1.25f, fontFeatureSettings = PLAIN, textAlign = align),
     overflow = TextOverflow.Ellipsis,
     maxLines = maxLines,
 )

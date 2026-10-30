@@ -80,6 +80,8 @@ class Minds(
  * @param minds the minds of the caller and the Hollow; [use] changes them.
  * @param store where the nights someone got out of are kept, or `null` to keep nothing.
  * @param clock whether silence counts; without it, only [send] moves the call on.
+ * @param locked whether the phone opens locked: a browser plays sound only after a tap, so the
+ *   player unlocks it first, and hears it ring.
  */
 class CallModel(
     private val scope: CoroutineScope,
@@ -89,7 +91,15 @@ class CallModel(
     private val store: Store? = null,
     private val clock: Boolean = true,
     private val silence: Long = SILENCE,
+    locked: Boolean = false,
 ) {
+    /** The phone's keys are locked: nothing rings until the player unlocks it. */
+    var locked: Boolean by mutableStateOf(locked)
+        private set
+
+    /** When the phone rings next. */
+    private var ringAt = 0L
+
     /** Why the last turn was understood without Gemma. */
     var trouble: String? by mutableStateOf(null)
         private set
@@ -178,9 +188,12 @@ class CallModel(
         Sound.midnight = Drone.MIDNIGHT.random()
         scope.launch {
             while (true) {
-                if (ringing && !call.over) Sound.play(Cue.RING)
-                // Two rings, then a breath of quiet.
-                delay(4500)
+                if (ringing && !locked && !call.over && now() >= ringAt) {
+                    Sound.play(Cue.RING)
+                    // Two rings, then a breath of quiet.
+                    ringAt = now() + 4500
+                }
+                delay(100)
             }
         }
         scope.launch {
@@ -212,6 +225,13 @@ class CallModel(
         if (!clock || ringing || thinking || call.over) return null
         val since = maxOf(spokeAt + speaking(), lastKey)
         return ((now - since).toFloat() / silence).coerceIn(0f, 1f)
+    }
+
+    /** Unlocks the phone, from inside a tap: its sound opens, and it rings at once. */
+    fun unlock() {
+        onAnswer()
+        locked = false
+        ringAt = 0L
     }
 
     fun answer() {

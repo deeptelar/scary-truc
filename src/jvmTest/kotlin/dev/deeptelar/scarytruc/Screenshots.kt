@@ -33,6 +33,10 @@ class Screenshots {
                 scene.close()
             }
         }
+        // The page as it opens, locked until a tap.
+        val locked = ImageComposeScene(1170, 2532, Density(3f)) { Game(CallModel(CoroutineScope(Dispatchers.Default), Minds.none, plan = plan, seed = seed, clock = false, locked = true)) }
+        File(out, "locked-phone.png").writeBytes(locked.render(0L).encodeToData(EncodedImageFormat.PNG)!!.bytes)
+        locked.close()
         shoot("ringing")
         // The pages of how to save them, as a phone shows them, in both frames of their pictures.
         if (System.getProperty("guide") != null) {

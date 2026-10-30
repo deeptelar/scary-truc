@@ -199,6 +199,9 @@ object Sound {
             Recording("files/wind.pcm", Cue.WIND),
         )
 
+    /** The cues read before the rest: what is heard before the call starts. */
+    private val FIRST = setOf(Cue.RING, Cue.PICKUP)
+
     /** The recorded cues read so far. */
     @Volatile
     private var recorded: Map<Cue, FloatArray> = emptyMap()
@@ -211,8 +214,8 @@ object Sound {
         if (started) return
         started = true
         drones()
-        // One after the other, so that each adds to what the last one read: the drone of this place
-        // first, then the cues, the drone after midnight, and each drone wanted later.
+        // One after the other, so that each adds to what the last one read: the ring and the pickup,
+        // the drone of this place, the other cues, the drone after midnight, and each drone wanted later.
         scope.launch {
             val loaded = mutableSetOf<Drone>()
 
@@ -221,12 +224,17 @@ object Sound {
                 readDrones = readDrones + (drone to (read(drone.file) ?: return))
                 drones()
             }
-            load(place)
-            for (recording in recordings) {
-                val samples = read(recording.file) ?: continue
+            suspend fun read(recording: Recording) {
+                val samples = read(recording.file) ?: return
                 val length = samples.size / recording.cues.size
                 recorded = recorded + recording.cues.withIndex().associate { (i, cue) -> cue to samples.copyOfRange(i * length, (i + 1) * length) }
             }
+            // The ring before anything else: the phone rings as soon as the page opens, and a large
+            // drone read first kept it silent for as long as a phone took to download it.
+            val first = recordings.filter { it.cues.any { cue -> cue in FIRST } }
+            for (recording in first) read(recording)
+            load(place)
+            for (recording in recordings - first.toSet()) read(recording)
             load(midnight)
             for (drone in wanted) load(drone)
         }

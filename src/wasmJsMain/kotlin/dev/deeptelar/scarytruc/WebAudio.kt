@@ -23,6 +23,10 @@ class WebAudio : SoundOutput {
     fun unlock() {
         val context = context ?: newContext().also { context = it }
         resume(context)
+        // An iPhone plays it through the silent switch, and starts its sound only once something
+        // played inside the tap: a sample of silence.
+        playback()
+        start(context, newBuffer(context, 1, Sound.RATE.toDouble()), 0.0, false)
         // Every buffer now, so that the first scream doesn't wait to be made; the keys once read.
         for (cue in Cue.entries) if (Sound.ready(cue)) buffers.getOrPut(cue) { buffer(Sound.samples(cue)) }
     }
@@ -61,6 +65,8 @@ class WebAudio : SoundOutput {
 }
 
 private fun newContext(): JsAny = js("new (window.AudioContext || window.webkitAudioContext)()")
+
+private fun playback(): Unit = js("{ try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch (e) {} }")
 
 private fun resume(context: JsAny): Unit = js("{ if (context.state !== 'running') context.resume(); }")
 

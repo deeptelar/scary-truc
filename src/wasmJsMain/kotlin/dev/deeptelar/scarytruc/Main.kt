@@ -19,11 +19,11 @@ fun main() {
     Sound.output = audio
     Sound.start(scope)
     val store = LocalStore()
-    val game = CallModel(scope, store = store)
+    val game = CallModel(scope, store = store, locked = true)
     game.saved()?.let { game.use(it) }
     game.onAnswer = audio::unlock
-    // A browser plays sound only after a tap: the first one anywhere opens it, so the ring is heard
-    // while the phone rings, before a call is picked.
+    // A browser plays sound only after a tap: the phone opens locked, and the first tap anywhere
+    // opens the sound too.
     onGesture(audio::unlock)
     if (WebMicrophone.available) game.microphone = WebMicrophone()
     ComposeViewport(document.body!!) {
