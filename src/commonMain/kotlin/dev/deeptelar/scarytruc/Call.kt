@@ -70,6 +70,8 @@ data class Heard(
     val item: Item? = null,
     /** Where to throw the stone: a way from where the caller faces. */
     val toward: Order? = null,
+    /** Whether the stranger asked them to say again what is around them. */
+    val again: Boolean = false,
 )
 
 /** What lies in a maze to pick up, and is used once. [code] is its letter in a drawn maze. */
@@ -187,6 +189,13 @@ data class Call(
     val said: String = "",
     val heard: Heard? = null,
     val facts: List<String> = emptyList(),
+    /**
+     * What the caller already said about where they stand, since they last moved: they don't say it
+     * again unless the stranger asks.
+     */
+    val told: Set<String> = emptySet(),
+    /** The notes the caller read out: a note is read out once. */
+    val read: Set<Pos> = emptySet(),
     val lines: List<Line> = emptyList(),
     /** The turn the Hollow last spoke on the line. */
     val whispered: Int = -99,
@@ -592,6 +601,8 @@ private fun Call.look(maze: Maze, haunt: Haunt, facts: List<String>): Call {
         seen += "Wait. I know this place. I've been here before."
         panic -= 10
     }
+    // What happened is said; what is around them, from here on, only once.
+    val happened = seen.size
     var drawn = drawn
     if (!lostTrack) {
         mapped = mapped + (at to maze.exits(at).toSet())
@@ -630,12 +641,12 @@ private fun Call.look(maze: Maze, haunt: Haunt, facts: List<String>): Call {
 
     haunt.arrows[at]?.let { seen += "A chalk arrow on the wall here points ${pointing(facing.side(it))}." }
     haunt.notes[at]?.let {
-        seen += "A note on the floor here, in pencil: \"$it\""
+        seen += if (at in read) "The note I already read is here." else "A note on the floor here, in pencil: \"$it\""
         if (walked > 0 || turn == 0) panic -= 6
     }
     haunt.oddities[at]?.let { seen += "Here, on the floor: $it." }
     haunt.items[at]?.takeIf { at !in taken }?.let { seen += "Here, on the floor: ${it.thing}. I could take it." }
-    mark?.let { seen += "My own mark is scratched on the wall here: the number ${it.number}." }
+    mark?.takeIf { heard?.order != Order.MARK || facts.none { fact -> fact.startsWith("I scratched") } }?.let { seen += "My own mark is scratched on the wall here: the number ${it.number}." }
 
     val toGate = maze.distances(at)[maze.gate] ?: 99
     if (toGate <= COLD) seen += if (toGate <= 1) "The air is freezing here. There's a draft." else "The air is cold here, colder than anywhere else."
@@ -668,8 +679,13 @@ private fun Call.look(maze: Maze, haunt: Haunt, facts: List<String>): Call {
 
     // Finding what they were told to look for makes the stranger worth listening to.
     if (heard?.order?.turn != null && walked > 0 && (at in haunt.notes || at in haunt.arrows || toGate <= COLD)) trust += 5
+    // Standing where they stood, they say only what changed, unless the stranger asked again.
+    val around = seen.drop(happened)
+    val stayed = turn > 0 && walked == 0 && heard?.again != true
     return copy(
-        facts = seen,
+        facts = seen.take(happened) + if (stayed) around.filter { it !in told } else around,
+        told = if (stayed) told + around else around.toSet(),
+        read = if (at in haunt.notes) read + at else read,
         panic = panic.coerceIn(0, 100),
         trust = trust.coerceIn(0, 100),
         lostTrack = lostTrack,

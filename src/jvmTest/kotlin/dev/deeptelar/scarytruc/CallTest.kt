@@ -16,7 +16,7 @@ class CallTest {
 
     /** A quiet call at [at], facing [facing], with nothing in the maze but the dooms. */
     private fun quiet(at: Pos, facing: Dir, order: Order, calm: Int = 0) =
-        Call.begin(plan, maze, empty).copy(at = at, facing = facing, hollow = null, said = "go", heard = Heard(order, calm), facts = emptyList())
+        Call.begin(plan, maze, empty).copy(at = at, facing = facing, hollow = null, said = "go", heard = Heard(order, calm), facts = emptyList(), told = emptySet())
 
     /** A corridor cell, its two ways, and no doom, gate or start next to it. */
     private val corridor: Pair<Pos, Dir> =
@@ -104,6 +104,17 @@ class CallTest {
         assertTrue(alone.facts.any { it.startsWith("So I chose myself") })
         val call = quiet(here, dir, Order.STAY).walk(maze, empty)
         assertTrue(call.facts.last().startsWith("Which way do I go:"), call.facts.last())
+    }
+
+    @Test
+    fun whatIsAroundIsSaidOnceUnlessTheStrangerAsksAgain() {
+        val (here, dir) = corridor
+        val first = quiet(here, dir, Order.STAY).walk(maze, empty)
+        assertTrue(first.facts.any { it.startsWith("Which way do I go:") })
+        val second = first.copy(heard = Heard(Order.STAY, 0), said = "stay").walk(maze, empty)
+        assertEquals(listOf("I stayed where I was."), second.facts)
+        val asked = second.copy(heard = Heard(Order.NONE, 0, again = true), said = "what do you see?").walk(maze, empty)
+        assertTrue(asked.facts.any { it.startsWith("Which way do I go:") }, asked.facts.toString())
     }
 
     @Test

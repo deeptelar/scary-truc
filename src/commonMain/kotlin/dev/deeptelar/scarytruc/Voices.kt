@@ -51,6 +51,8 @@ object Keywords : Ears {
         )
     private val ways = listOf(Order.LEFT, Order.RIGHT, Order.AHEAD, Order.BACK)
     private val soothing = listOf("breathe", "okay", "ok", "safe", "i'm here", "with you", "slow", "calm", "you can", "good", "well done", "fine", "it's alright", "together")
+    /** Words that ask the caller to say again what is around them. */
+    private val again = listOf("repeat", "again", "what do you see", "what can you see", "describe", "look around", "where are you", "what's around", "say that")
     private val harsh = listOf("hurry", "stupid", "idiot", "die", "dead", "useless", "shut up", "!!", "fast")
 
     override suspend fun listen(call: Call): Heard {
@@ -61,7 +63,7 @@ object Keywords : Ears {
         val calm = soothing.count { find(said, it) != null } - harsh.count { said.contains(it) } - if (shouting) 1 else 0
         val item = items.firstOrNull { (_, words) -> words.any { find(said, it) != null } }?.first
         val toward = ways.mapNotNull { way -> orders.first { it.first == way }.second.mapNotNull { find(said, it) }.minOrNull()?.let { way to it } }.minByOrNull { it.second }?.first
-        return Heard(order ?: Order.NONE, calm.coerceIn(-2, 2), item.takeIf { order == Order.USE }, toward.takeIf { order == Order.USE })
+        return Heard(order ?: Order.NONE, calm.coerceIn(-2, 2), item.takeIf { order == Order.USE }, toward.takeIf { order == Order.USE }, again.any { find(said, it) != null })
     }
 
     /** Words that go around an order and change nothing: "go left now" is "left". */
@@ -91,6 +93,8 @@ data class Understood(
     val item: String = "none",
     @Description("When you are to throw the stone: where, ahead, left, right or back; otherwise none")
     val toward: String = "none",
+    @Description("Whether the stranger asks you to repeat, or to say what you see around you")
+    val again: Boolean = false,
 )
 
 /**
@@ -110,7 +114,7 @@ class GemmaEars(
             val understood = model.ask<Understood>(prompt(call), system = system(call))
             trouble(null)
             val order = Order.of(understood.order) ?: return keywords.listen(call)
-            Heard(order, understood.calm.coerceIn(-2, 2), Item.of(understood.item), Order.of(understood.toward)?.takeIf { it.turn != null })
+            Heard(order, understood.calm.coerceIn(-2, 2), Item.of(understood.item), Order.of(understood.toward)?.takeIf { it.turn != null }, understood.again)
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
@@ -149,7 +153,8 @@ object Script : Voice {
                 else -> listOf("Okay.", "Alright.", "Listen.")
             }
         if (call.over && call.end != End.OUT) return (call.facts + start.first()).joinToString(" ")
-        return (listOf(start[random.nextInt(start.size)]) + call.facts).joinToString(" ")
+        // Nothing new to say: they wait for the stranger.
+        return (listOf(start[random.nextInt(start.size)]) + call.facts.ifEmpty { listOf("Nothing's changed. Tell me what to do.") }).joinToString(" ")
     }
 }
 
@@ -200,8 +205,14 @@ class GemmaVoice(
                 null -> "Answer the stranger if they asked something, and say what happened and what you see."
             }
         val carried = if (call.carried.isEmpty()) "" else " You carry: ${call.carried.joinToString { it.thing }}."
-        return "$said\n$feeling $trust$carried\nWhat happened, and what is around you now (\"I\" is you, \"you\" is the stranger):\n" +
-            call.facts.joinToString("\n") { "- $it" } + "\n$ending"
+        val before = call.lines.lastOrNull { it.who == Who.CALLER }?.let { "You last said: \"${it.text}\"\nDon't say it again: only what is new.\n" }.orEmpty()
+        val facts =
+            if (call.facts.isEmpty()) {
+                "Nothing new happened, and nothing changed around you. Answer the stranger in a few words, or ask them what to do.\n"
+            } else {
+                "What happened, and what is new around you (\"I\" is you, \"you\" is the stranger):\n" + call.facts.joinToString("\n") { "- $it" } + "\n"
+            }
+        return "$said\n$feeling $trust$carried\n$before$facts$ending"
     }
 
     private fun system(call: Call): String =
@@ -209,6 +220,7 @@ class GemmaVoice(
             "Your phone is your only light, and a stranger picked up your call. ${call.role.voice} " +
             "Speak only your words on the phone: two to four short sentences, no actions, no asterisks. " +
             "Say every fact you are given, in your own words, and keep left, right, ahead and behind exactly as given. " +
+            "Never repeat what you said before, unless the stranger asks you to. " +
             "Never mention a way, a door or a thing that is not in the facts."
 }
 
