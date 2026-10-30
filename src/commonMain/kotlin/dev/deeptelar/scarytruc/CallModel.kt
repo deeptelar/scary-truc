@@ -257,6 +257,18 @@ class CallModel(
 
     private fun say(words: String) = command { run.say(words) }
 
+    /** Tells the caller to use [item], as if the player had said it: a stone is thrown ahead. */
+    fun useItem(item: Item) {
+        if (thinking || ringing || call.over) return
+        say(
+            when (item) {
+                Item.BATTERY -> "swap in the battery"
+                Item.FLARE -> "light the flare"
+                Item.STONE -> "throw the stone ahead"
+            },
+        )
+    }
+
     /** The same call from its start. */
     fun again() = play(plan)
 

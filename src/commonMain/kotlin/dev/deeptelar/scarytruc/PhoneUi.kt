@@ -618,8 +618,43 @@ private fun CallerBar(model: CallModel, now: Long, lcd: Lcd) {
         Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
             PixelText(call.name + if (call.hidden && !call.over) " (hiding)" else "", color = lcd.ink, maxLines = 1)
         }
-        // What they carry, in reverse, as a phone of the time showed its icons.
-        for (item in call.carried) PixelText(item.word, Modifier.background(lcd.ink).padding(horizontal = 4.dp, vertical = 1.dp), size = SMALL, color = lcd.paper)
+        // What they carry, in reverse, as a phone of the time showed its icons: a tap uses it.
+        for (item in call.carried) {
+            Row(
+                Modifier.background(lcd.ink).clickable(enabled = !model.thinking && !call.over) { model.useItem(item) }.padding(horizontal = 4.dp, vertical = 1.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(3.dp),
+            ) {
+                ItemIcon(item, lcd.paper, lcd.ink)
+                PixelText(item.word, size = SMALL, color = lcd.paper)
+            }
+        }
+    }
+}
+
+/** A thing the caller can carry, in pixels, [ink] on [paper]. */
+@Composable
+private fun ItemIcon(item: Item, ink: Color, paper: Color) {
+    Box(Modifier.size(12.dp, 14.dp).drawBehind { draw(Sprite(NotebookArt.item(item), mapOf('#' to ink, '+' to lerp(paper, ink, 0.55f), '-' to paper)), center, 2.dp.toPx()) })
+}
+
+/** What the caller carries, under the notebook's map: a tap on a thing uses it. */
+@Composable
+private fun Pocket(model: CallModel, lcd: Lcd) {
+    val call = model.call
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        PixelText("Pocket:", size = SMALL, color = lcd.ink)
+        if (call.carried.isEmpty()) PixelText("nothing yet", size = SMALL, color = lcd.faint)
+        for (item in call.carried) {
+            Row(
+                Modifier.clickable(enabled = !model.thinking && !call.over) { model.useItem(item) }.padding(2.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(3.dp),
+            ) {
+                ItemIcon(item, lcd.ink, lcd.paper)
+                PixelText(item.word, size = SMALL, color = lcd.ink)
+            }
+        }
     }
 }
 
@@ -753,6 +788,7 @@ private fun Notebook(model: CallModel, lcd: Lcd, modifier: Modifier, compact: Bo
                 drawNotebook(call, haunt, measurer, font, lcd)
             },
         )
+        if (!compact && !model.ringing) Pocket(model, lcd)
         val notes = if (model.ringing || compact) emptyList() else haunt.notes.filterKeys { it in call.mapped }.values
         for (note in notes.toList().takeLast(3)) PixelText("\"$note\"", size = SMALL, color = lcd.ink, maxLines = 2)
         if (call.lostTrack && !call.over) PixelText("They ran. They don't know where they are: find a mark or a note you know.", Modifier.background(lcd.ink).padding(6.dp), size = SMALL, color = lcd.paper, maxLines = 3)
@@ -793,7 +829,27 @@ private fun DrawScope.drawNotebook(call: Call, haunt: Haunt, measurer: TextMeasu
                 Dir.EAST -> drawRect(lcd.ink, at + Offset(cell - line, 0f), Size(line, cell), alpha = ink)
             }
         }
+        // What the walls of this place look like, twice along each wall.
+        val art = Sprite(NotebookArt.wall(call.plan), mapOf('#' to lcd.ink, '+' to lcd.faint, '-' to lcd.paper))
+        val pixel = cell * 0.36f / art.width
+        for (dir in Dir.entries) {
+            if (dir in exits) continue
+            for (along in listOf(0.28f, 0.72f)) {
+                val spot =
+                    when (call.onPage(dir)) {
+                        Dir.NORTH -> Offset(cell * along, 0f)
+                        Dir.SOUTH -> Offset(cell * along, cell)
+                        Dir.WEST -> Offset(0f, cell * along)
+                        Dir.EAST -> Offset(cell, cell * along)
+                    }
+                draw(art, at + spot, pixel, alpha = ink)
+            }
+        }
         haunt.arrows[pos]?.let { arrow(center(pos), call.onPage(it), cell, lcd.ink.copy(alpha = ink)) }
+        // What lies here and wasn't taken, as the caller saw it.
+        haunt.items[pos]?.takeIf { pos !in call.taken }?.let { item ->
+            draw(Sprite(NotebookArt.item(item), mapOf('#' to lcd.ink, '+' to lcd.faint, '-' to lcd.paper)), center(pos) + Offset(-cell / 5, cell / 6), cell * 0.3f / 6, alpha = ink)
+        }
         if (pos in haunt.notes) drawRect(lcd.faint, center(pos) + Offset(-cell / 6, cell / 8), Size(cell / 3, cell / 5), alpha = ink)
     }
     write("x", center(call.origin) + Offset(-cell / 4, -cell / 4), lcd.ink, (cell / 4).toSp())
@@ -811,12 +867,12 @@ private fun DrawScope.drawNotebook(call: Call, haunt: Haunt, measurer: TextMeasu
         write("${mark.number}", at, lcd.paper, (cell / 6).toSp())
     }
     if (!call.lostTrack && call.at in page) {
+        // The caller: an arrow, on a disc of paper, that points where they face.
         val at = center(call.at)
-        drawCircle(lcd.paper, cell / 6, at)
-        drawCircle(lcd.ink, cell / 6, at, style = androidx.compose.ui.graphics.drawscope.Stroke(line / 2))
-        drawCircle(lcd.ink, cell / 14, at)
-        val dir = call.onPage(call.facing)
-        drawRect(lcd.ink, at + Offset(dir.dx * cell / 4f, dir.dy * cell / 4f) - Offset(line, line), Size(line * 2, line * 2))
+        drawCircle(lcd.paper, cell * 0.3f, at)
+        drawCircle(lcd.ink, cell * 0.3f, at, style = androidx.compose.ui.graphics.drawscope.Stroke(line / 2))
+        val arrow = NotebookArt.turned(NotebookArt.caller, call.onPage(call.facing).ordinal)
+        draw(Sprite(arrow, mapOf('#' to lcd.ink)), at, cell * 0.4f / 7)
     }
 }
 
