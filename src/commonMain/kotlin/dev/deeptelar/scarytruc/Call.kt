@@ -482,8 +482,8 @@ fun Call.walk(maze: Maze, haunt: Haunt): Call {
                     facts.add(
                         did,
                         lang.t(
-                            "I went ${order.word} and followed the corridor $walked step${if (walked == 1) "" else "s"}$bend.",
-                            "He ido ${order.way(lang)} y he seguido el pasillo $walked paso${if (walked == 1) "" else "s"}$bend.",
+                            "I went ${order.word}$bend.",
+                            "He ido ${order.way(lang)}$bend.",
                         ),
                     )
                 }
@@ -687,10 +687,9 @@ private fun Call.look(maze: Maze, haunt: Haunt, facts: List<String>): Call {
     for (quarter in listOf(0, 3, 1, 2)) {
         val dir = facing.turned(quarter)
         val name = names[quarter]
-        if (!maze.canGo(at, dir)) {
-            if (quarter != 2) seen += lang.t("$name: a wall.", "$name: una pared.")
-            continue
-        }
+        // Plain walls and corridors go unsaid: the question at the end names every way, and a list
+        // of them was what Gemma recited.
+        if (!maze.canGo(at, dir)) continue
         val next = at + dir
         val doom = maze.doomAt(next)
         when {
@@ -707,8 +706,6 @@ private fun Call.look(maze: Maze, haunt: Haunt, facts: List<String>): Call {
                 seen += lang.t("$name: a corridor, and something in it: ${haunt.oddities.getValue(next)}.", "$name: un pasillo, y algo en él: ${haunt.oddities.getValue(next)}.")
                 if (!lostTrack) glimpsed = glimpsed + (next to Glimpse.STRANGE)
             }
-            quarter == 2 && walked > 0 -> seen += lang.t("Behind me: the way I came.", "Detrás de mí: por donde he venido.")
-            else -> seen += lang.t("$name: a corridor.", "$name: un pasillo.")
         }
     }
     if (maze.exits(at).size == 1 && at != origin) seen += lang.t("It's a dead end.", "Es un callejón sin salida.")
@@ -765,7 +762,11 @@ private fun Call.look(maze: Maze, haunt: Haunt, facts: List<String>): Call {
     // They ask which way, naming the ways they see: the stranger answers, or they choose themselves.
     val words = if (lang == Lang.ES) listOf("delante", "derecha", "atrás", "izquierda") else listOf("ahead", "right", "back", "left")
     val ways = listOf(0, 3, 1, 2).filter { maze.canGo(at, facing.turned(it)) }.map { words[it] }
-    if (ways.size > 1) seen += lang.t("Which way do I go: ${ways.dropLast(1).joinToString(", ")} or ${ways.last()}?", "¿Por dónde voy: ${ways.dropLast(1).joinToString(", ")} o ${ways.last()}?")
+    if (ways.size > 1) {
+        seen += lang.t("Which way do I go: ${ways.dropLast(1).joinToString(", ")} or ${ways.last()}?", "¿Por dónde voy: ${ways.dropLast(1).joinToString(", ")} o ${ways.last()}?")
+    } else if (ways.size == 1 && at == origin) {
+        seen += lang.t("The only way is ${ways.single()}.", "El único camino es ${ways.single()}.")
+    }
 
     // Finding what they were told to look for makes the stranger worth listening to.
     if (heard?.order?.turn != null && walked > 0 && (at in haunt.notes || at in haunt.arrows || toGate <= COLD)) trust += 5

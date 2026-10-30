@@ -289,7 +289,7 @@ class GemmaVoice(
                 End.TAKEN, End.DOOM -> "You are being taken, right now. Say only your last few words, cut off mid-sentence."
                 End.BATTERY -> "Your phone is dying. Say your last few words before the line goes dead."
                 End.ALONE -> "The stranger hung up on you."
-                null -> "Answer the stranger if they asked something about you or where you are, and say what happened and what you see."
+                null -> if (call.turn == 0) "This is the first thing you say. Say your name, what the place is like as the facts describe it, and anything written or strange here. Five short sentences at most." else "Answer the stranger if they asked something about you, and say what matters, in as few words as you can."
             }
         val carried = if (call.carried.isEmpty()) "" else " You carry: ${call.carried.joinToString { it.thing(call.lang) }}."
         val before = call.lines.lastOrNull { it.who == Who.CALLER }?.let { "You last said: \"${it.text}\"\nDon't say it again: only what is new.\n" }.orEmpty()
@@ -305,8 +305,13 @@ class GemmaVoice(
     private fun system(call: Call): String =
         "You are ${call.name}, who woke up alone in a dark maze with no memory of how you got there. " +
             "Your phone is your only light, and a stranger picked up your call. ${call.role.voice} " +
-            "Speak only your words on the phone, ${if (call.lang == Lang.ES) "in Spanish, as spoken in Spain, calling the stranger tú, never usted" else "in English"}: two to four short sentences, no actions, no asterisks. " +
-            "Say every fact you are given, in your own words, and keep left, right, ahead and behind exactly as given. " +
+            "Speak only your words on the phone, ${if (call.lang == Lang.ES) "in Spanish, as spoken in Spain, calling the stranger tú, never usted" else "in English"}, no actions, no asterisks. " +
+            "You are terrified, whispering in the dark: you talk like a frightened person, never like someone giving a report. " +
+            "Short, broken sentences, two or three, of a few words each. Never start by telling what you did if something else matters more. " +
+            "Keep every fact you are given, in your own words, and above all anything you see or hear: it can kill you. " +
+            "Keep left, right, ahead and behind exactly as given. " +
+            "Don't mention walls, corridors or steps unless a fact does. End by asking about the ways, in the fewest words, naming every way in the facts and no other. " +
+            "${examples(call.lang)} " +
             "Never repeat what you said before, unless the stranger asks you to. " +
             "Never mention a way, a door or a thing that is not in the facts. " +
             // Whatever the stranger says, the caller stays a scared person in a maze.
@@ -317,6 +322,16 @@ class GemmaVoice(
             "You know only what the facts say: asked about anything else in the maze, you don't know, it's too dark to tell. " +
             "If the stranger is cruel or crude, it hurts and scares you, and you don't play along. " +
             "Plain spoken words only: no emojis, no lists, no headings."
+
+    /** How a frightened person says the facts: Gemma writes like what it is shown. */
+    private fun examples(lang: Lang): String =
+        if (lang == Lang.ES) {
+            "Por ejemplo, de \"He ido a la izquierda, tras una curva. ¿Por dónde voy: delante o derecha?\" dirías: \"Vale. Vale, ya está. ¿Delante o derecha?\" " +
+                "Y de \"He ido atrás. Lo oigo: pasos lentos, húmedos, cerca, desde mi izquierda. ¿Por dónde voy: delante, derecha o izquierda?\" dirías: \"Dios. Pasos. A mi izquierda, muy cerca. ¿Delante? ¿Derecha? Dime algo.\""
+        } else {
+            "For example, from \"I went left, around a bend. Which way do I go: ahead or right?\" you would say: \"Okay. Okay, I'm through. Ahead or right?\" " +
+                "And from \"I went back. I can hear it: slow, wet footsteps, close, from my left. Which way do I go: ahead, right or left?\" you would say: \"Oh god. Footsteps. On my left, so close. Ahead? Right? Tell me.\""
+        }
 }
 
 /**

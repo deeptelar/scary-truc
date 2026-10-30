@@ -74,6 +74,29 @@ class Live {
         }
     }
 
+    /** A long walk through each language, to read how the caller sounds: how many lines recite the ways, and how long they are. */
+    @Test
+    fun sounds() = runBlocking {
+        val key = File(System.getProperty("keyfile") ?: return@runBlocking).readText().trim()
+        val minds = Server.OPENROUTER.copy(key = key).minds(HttpClient(CIO))
+        val words = mapOf(Lang.EN to listOf("wall", "corridor"), Lang.ES to listOf("pared", "pasillo"))
+        for (lang in Lang.entries) {
+            val run = CallRun(Plan.WOODS, seed = 5, ears = minds.ears { if (it != null) println("TROUBLE $it") }, voice = minds.voice, whisperer = minds.whisperer, lang = lang)
+            run.begin()
+            val explorer = Balance()
+            repeat(8) {
+                val said = if (run.call.over) return@repeat else explorer.explore(run.call, run.mazeOf(run.call), run.haunt)
+                val way = listOf("ahead", "right", "back", "left").firstOrNull { said.endsWith(it) }
+                val spanish = mapOf("ahead" to "hacia delante", "right" to "a la derecha", "back" to "atrás", "left" to "a la izquierda")
+                run.say(if (way == null) (if (lang == Lang.ES) "Respira, estoy aquí" else said) else if (lang == Lang.ES) "Ve ${spanish[way]}" else "Go $way")
+            }
+            val lines = run.call.lines.filter { it.who == Who.CALLER }.map { it.text }
+            lines.forEach { println("TALK [$lang] (${it.length}) $it") }
+            val recited = lines.count { line -> words.getValue(lang).sumOf { word -> line.lowercase().windowed(word.length).count { w -> w == word } } >= 3 }
+            println("TALK [$lang] SUMMARY lines=${lines.size} recited=$recited meanLength=${lines.sumOf { it.length } / lines.size}")
+        }
+    }
+
     /** The caller going in circles, as Gemma says it: the way not tried has to come through. */
     @Test
     fun circles() = runBlocking {
