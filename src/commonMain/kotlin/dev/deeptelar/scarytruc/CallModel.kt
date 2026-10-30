@@ -365,8 +365,8 @@ class CallModel(
                 val far = (maze.distances(hollow.at)[after.at] ?: 99) > 3
                 Sound.play(if (far) Cue.HOWL else Cue.WAKE, gain = if (far) -4f else 0f)
             }
-            // A caller at the edge of panic sobs into the phone.
-            if (!after.over && before.panic < LOUD && after.panic >= LOUD) Sound.play(Sound.sob(after.woman))
+            // A caller at the edge of panic sobs into the phone, once and low: the quiet is scarier.
+            if (!after.over && before.panic < LOUD && after.panic >= LOUD) Sound.play(Sound.sob(after.woman), gain = -9f)
             // Near the way out, a cold draft: stronger the closer it is.
             val toGate = maze.distances(maze.gate)[after.at] ?: 99
             if (!after.over && after.walked > 0 && toGate <= 3) Sound.play(Cue.WIND, gain = -8f + 3f * (3 - toGate))
