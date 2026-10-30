@@ -61,6 +61,11 @@ fun main(args: Array<String>) {
     Sound.start(scope)
     val home = Path.of(System.getProperty("user.home"), ".scary-truc")
     val game = CallModel(scope, if (gemma) Minds.of(model, modelName) else Minds.none, plan, store = FileStore(home))
+    game.export = { name, text ->
+        Files.createDirectories(home)
+        Files.writeString(home.resolve(name), text)
+        println("The play log is in ${home.resolve(name)}")
+    }
     application {
         val state = rememberWindowState(size = DpSize(1240.dp, 800.dp))
         Window(

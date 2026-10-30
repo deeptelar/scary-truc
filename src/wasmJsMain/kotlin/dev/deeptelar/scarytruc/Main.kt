@@ -23,6 +23,7 @@ fun main() {
     val game = CallModel(scope, store = store, locked = true, lang = Lang.of(navigatorLanguage()))
     game.saved()?.let { game.use(it) }
     game.onAnswer = audio::unlock
+    game.export = ::handOver
     // A browser plays sound only after a tap: the phone opens locked, and the first tap anywhere
     // opens the sound too.
     onGesture(audio::unlock)
@@ -43,6 +44,25 @@ private class LocalStore : Store {
 
 private fun onGesture(open: () -> Unit): Unit =
     js("{ for (const type of ['pointerdown', 'pointerup', 'touchend', 'keydown']) window.addEventListener(type, () => open(), { capture: true }); }")
+
+/** Offers a text file to the phone's share sheet, or downloads it where there is none. */
+private fun handOver(name: String, text: String): Unit =
+    js(
+        """{
+        const file = new File([text], name, { type: 'text/plain' });
+        const download = () => {
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(file);
+            link.download = name;
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            setTimeout(() => URL.revokeObjectURL(link.href), 10000);
+        };
+        if (navigator.canShare && navigator.canShare({ files: [file] })) navigator.share({ files: [file] }).catch(e => { if (e.name !== 'AbortError') download(); });
+        else download();
+    }""",
+    )
 
 private fun localGet(key: String): String? = js("window.localStorage.getItem(key)")
 

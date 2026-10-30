@@ -194,6 +194,8 @@ data class Call(
     val up: Dir = facing,
     val said: String = "",
     val heard: Heard? = null,
+    /** What the caller understood the last time they spoke, for the play log. */
+    val understood: Heard? = null,
     val facts: List<String> = emptyList(),
     /**
      * What the caller already said about where they stand, since they last moved: they don't say it
@@ -273,6 +275,7 @@ data class Call(
             hunch = null,
             said = "",
             heard = null,
+            understood = heard,
         )
 
     companion object {

@@ -103,6 +103,13 @@ key.
 On the desktop, run `./gradlew run`, or `./gradlew run --args='--call ship'`. With Ollama running
 and `gemma4:12b` pulled, Gemma plays the caller; add `--no-gemma` to play without it.
 
+### Play tests
+
+The phone keeps a log of every call: what the player said, what the caller understood and answered,
+and how the call stood after each turn (battery, panic, trust, how far the Hollow was, walks that
+found nothing new). **Menu > Export play log**, or **Log** at the end of a call, hands it over as a
+text file. It stays on the device until then, holds what the player typed, and never holds a key.
+
 ## Behind the wall
 
 A call is a [Telar](https://github.com/deeptelar/telar) graph that pauses for your words:

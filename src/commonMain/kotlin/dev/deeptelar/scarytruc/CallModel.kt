@@ -105,6 +105,15 @@ class CallModel(
     var locked: Boolean by mutableStateOf(locked)
         private set
 
+    /** What was played on this device, to evaluate a play test. */
+    val log: PlayLog = PlayLog(store)
+
+    /** Hands a file over, by its name and its text: what the platform does with it. */
+    var export: (String, String) -> Unit = { _, _ -> }
+
+    /** Hands over the play log. */
+    fun exportLog() = export(log.fileName(), log.exported())
+
     /** Whether the player turned the game's sound off; kept in the [store]. */
     var muted: Boolean by mutableStateOf(runCatching { store?.get(MUTED) }.getOrNull() == "true")
         private set
@@ -113,6 +122,7 @@ class CallModel(
     fun toggleMute() {
         muted = !muted
         Sound.on = !muted
+        log.note(if (muted) "sound off" else "sound on")
         runCatching { store?.set(MUTED, muted.toString()) }
     }
 
@@ -273,6 +283,7 @@ class CallModel(
         Sound.play(Cue.PICKUP)
         ringing = false
         Sound.waiting = false
+        log.call(call, minds.name)
         command { run.begin() }
     }
 
@@ -324,6 +335,7 @@ class CallModel(
     fun speak(lang: Lang) {
         if (thinking) return
         this.lang = lang
+        log.note("language ${lang.code}")
         runCatching { store?.set(LANG, lang.code) }
         play(plan)
     }
@@ -339,6 +351,7 @@ class CallModel(
     /** Plays the caller with the model on [server], or with none, and remembers the choice. */
     fun connect(server: Server?) {
         this.server = server
+        log.note("model ${server?.model ?: "none"}")
         runCatching { store?.set(SERVER, server?.let { listOf(it.url, it.model, it.key).joinToString("\n") }.orEmpty()) }
         use(server?.minds(client) ?: Minds.none)
     }
@@ -370,6 +383,7 @@ class CallModel(
         listening = false
         microphone?.stop()
         call = call.hungUp(run.mazeOf(call))
+        log.note("hung up, ${call.away ?: "?"} steps from the way out, after ${call.turn} turns")
         spokeAt = 0L
         Sound.danger = 0f
         Sound.otherworld = false
@@ -383,11 +397,14 @@ class CallModel(
         thinking = true
         failure = null
         val before = call
+        val asked = now()
+        val waited = asked - spokeAt
         turn = scope.launch {
             try {
                 val after = work()
                 call = after
                 spokeAt = now()
+                log.turn(before, after, run.mazeOf(after), waited, spokeAt - asked, trouble)
                 // Their words arrive like a message on a phone of the time.
                 if (after.lines.lastOrNull { it.who == Who.CALLER } != before.lines.lastOrNull { it.who == Who.CALLER }) Sound.play(Cue.MESSAGE, gain = -4f)
                 sounds(before, after)
@@ -396,6 +413,7 @@ class CallModel(
                 throw e
             } catch (e: Exception) {
                 failure = e.message ?: e::class.simpleName
+                log.note("failed: $failure")
                 call = run.call
             } finally {
                 thinking = false

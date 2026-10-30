@@ -193,7 +193,10 @@ private fun Phone(model: CallModel, now: Long, narrow: Boolean, modifier: Modifi
                     if (call.over && !model.thinking && !speaking) {
                         Ending(model, lcd)
                     } else {
-                        Talk(model, now, narrow, lcd, notebook) { notebook = !notebook }
+                        Talk(model, now, narrow, lcd, notebook) {
+                            notebook = !notebook
+                            model.log.note(if (notebook) "notebook opened" else "notebook closed")
+                        }
                     }
                 }
             }
@@ -463,6 +466,7 @@ private fun ColumnScope.Menu(model: CallModel, lcd: Lcd, go: (Screen) -> Unit) {
                 lang.t("How to save them", "Cómo salvarles") to { go(Screen.HELP) },
                 lang.t("Model", "Modelo") to { go(Screen.MODEL) },
                 "${lang.t("Language", "Idioma")}: ${lang.title} > ${other.title}" to { model.speak(other) },
+                "${lang.t("Export play log", "Exportar registro")} (${model.log.calls})" to model::exportLog,
             )
         for ((i, entry) in entries.withIndex()) {
             PixelText(
@@ -972,7 +976,7 @@ private fun Ending(model: CallModel, lcd: Lcd) {
         val best = model.best[call.plan]
         if (best != null && call.end != End.OUT) PixelText(if (best == 0) lang.t("Once, you got them out.", "Una vez lo lograste.") else lang.t("Your closest: $best.", "Lo más cerca: $best."), size = SMALL, color = lcd.faint)
     }
-    Softkeys(lcd, null, "OK" to model::again, null)
+    Softkeys(lcd, model.lang.t("Log", "Registro") to model::exportLog, "OK" to model::again, null)
 }
 
 /**
