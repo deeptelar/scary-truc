@@ -1,45 +1,107 @@
 # Scary Truc
 
-A phone rings at midnight. One of the crew woke up in a maze, alone, with no idea how they got
-there, and you are the only one who picked up. You can't see the maze. You only hear them: what
-they see, what they find on the walls, and the slow, wet footsteps of the Hollow, which hunts by
-sound. Tell them where to go, and keep them calm: fear is loud.
+> *Don't trust the voice on the phone.*
+>
+> — scratched into a wall of The Tape
 
-Six calls, any of them, each a maze drawn by hand after a horror film (The Descent, The Blair
-Witch Project, Cube, Ring, The Shining, Alien), and each won its own way. When the line goes dead,
-you learn how many steps they were from the way out.
+It's past midnight and your phone is ringing. **Unknown number.**
 
-Off the safe way, in side corridors and dead ends, lie things worth the detour: tell them to take
-it, then to use it. A phone battery buys time, a flare sends the Hollow running, and a stone thrown
-down a corridor draws it to the noise.
+You answer, and someone is breathing on the line, fast and shallow. They woke up somewhere
+they shouldn't be. They don't know how they got there. The others who came with them are gone,
+and out of every number in that phone, you're the one who picked up.
 
-The phone opens locked, over a dark loop, with the language and the model to set below the lock.
-Unlocking it is the tap a browser waits for before it plays a sound (headphones on). Then comes
-**How to save them**: seven pages, each a moving picture, a line from whoever built the mazes and
-what you could type; **Skip** on the first page passes it. The phone rings once you reach the
-calls. The guide is under **Menu** too.
+You can't see where they are. You have their voice, a battery that is running out, and a notebook
+where you draw the maze from what they tell you. The pencil fades.
 
-A bare order is enough: "left", "hide", "take it", or the arrow keys on a keyboard. When a clue
-fits the moment, a bulb lights up at the top; it names something true of the night, never what to
-do, and stays closed unless you open it. **End**, in the corner, hangs up, and no one gets out alone.
+Something else is down there with them. It has no eyes. It finds you by how you sound. So you
+talk them through it, *left, right, hide, don't breathe*, and you keep them calm, because fear
+is loud.
 
-In English or in Spanish (**Menu > Language**, the browser's language the first time). The caller
-speaks and understands only that one: spoken to in another, they don't understand you.
+**[Answer the phone](https://deeptelar.github.io/scary-truc/)**. Headphones on, lights off. It plays
+on a phone.
 
-**Play it: <https://deeptelar.github.io/scary-truc/>**, on a phone too. Without a model the caller
-knows only a few words (left, right, ahead, back, stay, hide, mark, take, use). Add a model under **Menu >
-Model**: Gemma 4 on [OpenRouter](https://openrouter.ai) with your own key, or your
-[Ollama](https://ollama.com). The key stays in your browser and goes from it straight to the
-server. A friend's proxy works too: its address, and your token as the key.
+<p align="center">
+  <img src="docs/locked.png" width="260" alt="The phone, locked, a moment before it rings">
+  <img src="docs/call.png" width="260" alt="A call in The Cave: the notebook above, the caller's words below">
+  <img src="docs/midnight.png" width="260" alt="After midnight in The Hedge: the screen inverted, the caller's words breaking up as the Hollow comes close">
+</p>
 
-On the phone you can talk instead of typing: tap Mic, speak, and what you said goes to the caller
-when you pause. It uses the browser's own speech recognition; most browsers turn speech into text on their maker's servers (Chrome on
-Google's), and the page only gets the text.
+## Six calls
 
-On the desktop: `./gradlew run`, or `./gradlew run --args='--call ship'` (with Ollama running and `gemma4:12b` pulled, Gemma plays the
-caller; `--no-gemma` without it).
+Each is a maze drawn by hand after a horror film. Pick any of them. When the line goes dead, you
+learn how many steps they were from the way out.
 
-## How it works
+| Call | Where they wake up | What's written on the wall |
+|---|---|---|
+| **The Cave**, after *The Descent* | "Wet rock everywhere, so tight, and water dripping somewhere." | *We came down six. I'm the last. It can't see. It hears.* |
+| **The Woods**, after *The Blair Witch Project* | "Trees so close together they're like walls, and the branches creak." | *We walked south all day and came back to the same log. Three times.* |
+| **The Cube**, after *Cube* | "Square, metal, a hatch in every wall, and everything hums." | *Every room looks like the last. Some kill.* |
+| **The Tape**, after *Ring* | "Old stone, wet, round like the inside of a well. There's a TV on the floor, showing static." | *Seven days, it said. It always calls back.* |
+| **The Hedge**, after *The Shining* | "Frozen hedges taller than me, and a huge hotel far away with every window dark." | *The hedges move when the clock strikes. Follow the cold, not your map.* |
+| **The Ship**, after *Alien* | "Pipes, steam, and a red alarm light turning somewhere." | *It's awake. It's always awake.* |
+
+## What the builder of the mazes wants you to know
+
+**They see. You don't.** Every way is said from where *they* face, so their left is not always
+your left.
+
+**Fear is loud.** A frightened caller stumbles, sobs and refuses, and sometimes runs down a
+corridor you never chose. A kind voice steadies them; a cruel one doesn't.
+
+**It hunts by sound.** They call it the Hollow. You'll only ever hear it: slow, wet footsteps,
+breathing, and sometimes a whisper on the line that is meant for you. Some nights it sleeps,
+until something wakes it. A caller crouched in the dark and holding their breath may hear it walk
+right past.
+
+**Not every door is a door.** Three things kill down there. A floor that turns black and wet
+and swallows the light. A warm door that moves a little, like it's breathing. A tall mirror where
+their reflection isn't holding a phone. The ones who came before left notes about them.
+
+**Midnight comes.** A bell tolls, the walls move, the screen goes dark, and the place starts to
+sound like something else. What's in your notebook is only a memory now.
+
+**The light is running out.** Every step and every word costs battery. Things were left in the
+dead ends for whoever came next: a spare battery, a road flare, a stone that makes its noise where
+it lands, not where it was thrown from.
+
+**Leave a mark.** Corridors look alike. A number scratched into a wall stays when the pencil
+fades.
+
+**There's a bulb at the top of the screen.** Sometimes it lights up. Open it and you'll read
+something true about the night. It never tells you what to do.
+
+**Hanging up is giving up.** The **End** key is in the corner. Nobody gets out alone.
+
+## Talking to them
+
+Type anything, the way you'd talk to a stranger who is terrified. Gemma reads how you said it as
+well as where you said to go. A bare word works when there's no time: "left", "hide", "take it",
+or the arrow keys. On a phone you can tap **Mic** and just speak; what you said goes when you
+pause. (Speech recognition is the browser's own, and most browsers do it on their maker's
+servers; the page only receives the text.)
+
+They speak English or Spanish: the language of your browser at first, or whichever you pick on the
+lock screen. Talk to them in the wrong one and you'll get *"I don't understand what you're
+saying."*
+
+Whatever you say, they stay who they are: a scared person in a maze, with no idea what an AI is,
+who can't call anyone else and doesn't know more than they can see.
+
+## Playing it
+
+**<https://deeptelar.github.io/scary-truc/>**, in a browser or on a phone. Under the lock screen
+you can set the language and the model.
+
+Without a model, the caller knows only a few words (left, right, ahead, back, stay, hide, mark,
+take, use). With one, they understand you in your own words: Gemma 4 on [OpenRouter](https://openrouter.ai) with
+your own key, or your own [Ollama](https://ollama.com). The key stays in your browser and goes
+from it straight to the server. A friend's proxy works too: its address, and your token as the
+key.
+
+On the desktop, run `./gradlew run`, or `./gradlew run --args='--call ship'`. With Ollama running
+and `gemma4:12b` pulled, Gemma plays the caller; add `--no-gemma` to play without it.
+
+## Behind the wall
 
 A call is a [Telar](https://github.com/deeptelar/telar) graph that pauses for your words:
 
@@ -50,8 +112,8 @@ A call is a [Telar](https://github.com/deeptelar/telar) graph that pauses for yo
 | `walk` | The maze answers in code: the caller obeys, refuses or bolts, walks a corridor, the Hollow hunts |
 | `whisper` | When the Hollow is close, it speaks on the line, to you |
 
-Gemma never decides what is true: the maze does, so the caller can't invent a door that isn't
-there.
+Gemma never decides what is true. The maze does, so the caller can't invent a door that isn't
+there, and can't be talked out of a wall that is.
 
 ## Build
 
@@ -65,7 +127,7 @@ Pixelify Sans is under the SIL Open Font License ([licenses/](licenses/PixelifyS
 
 The sounds are cut from sound effects on [Pixabay](https://pixabay.com/sound-effects/):
 
-- Dark ambient loop after midnight: [freesound_community](https://pixabay.com/users/freesound_community-46691455/?utm_source=link-attribution&utm_medium=referral&utm_campaign=music&utm_content=31306)
+- Dark ambient loop, between calls and after midnight: [freesound_community](https://pixabay.com/users/freesound_community-46691455/?utm_source=link-attribution&utm_medium=referral&utm_campaign=music&utm_content=31306)
 - Old mine ambience in The Cave: [Joel Fazhari](https://pixabay.com/users/joelfazhari-16466931/?utm_source=link-attribution&utm_medium=referral&utm_campaign=music&utm_content=200677)
 - Night crickets in The Woods: [freesound_community](https://pixabay.com/users/freesound_community-46691455/?utm_source=link-attribution&utm_medium=referral&utm_campaign=music&utm_content=7015)
 - Industrial hum in The Cube: [DRAGON-STUDIO](https://pixabay.com/users/dragon-studio-38165424/?utm_source=link-attribution&utm_medium=referral&utm_campaign=music&utm_content=482882)
