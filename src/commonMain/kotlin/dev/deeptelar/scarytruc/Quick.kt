@@ -1,0 +1,48 @@
+package dev.deeptelar.scarytruc
+
+/**
+ * What the player can say with a tap this turn, in the words they would type: the ways the caller
+ * named, something to calm them, and what can be done here. The choice is the player's: a kind word
+ * costs a turn, and only typing can do both at once.
+ */
+object Quick {
+    /** The words for going [order], in [lang]. */
+    private fun way(order: Order, lang: Lang): String =
+        when (order) {
+            Order.AHEAD -> lang.t("Go ahead", "Sigue recto")
+            Order.RIGHT -> lang.t("Go right", "Ve a la derecha")
+            Order.BACK -> lang.t("Go back", "Vuelve atrás")
+            else -> lang.t("Go left", "Ve a la izquierda")
+        }
+
+    private val CALM =
+        listOf(
+            "Breathe. I'm here with you." to "Respira. Estoy aquí contigo.",
+            "You're doing great. Stay with me." to "Lo estás haciendo genial. Sigue conmigo.",
+            "Slowly. I won't leave you." to "Despacio. No voy a dejarte.",
+        )
+
+    /** What [call] can be told in [maze] with [haunt]: the ways first. */
+    fun of(call: Call, maze: Maze, haunt: Haunt): List<String> {
+        val lang = call.lang
+        val ways = listOf(Order.AHEAD, Order.LEFT, Order.RIGHT, Order.BACK).filter { maze.canGo(call.at, call.facing.turned(it.turn!!)) }
+        val calm = CALM[call.turn % CALM.size].let { lang.t(it.first, it.second) }
+        val here = haunt.items[call.at]?.takeIf { call.at !in call.taken }
+        return ways.map { way(it, lang) } +
+            calm +
+            listOfNotNull(
+                if (call.hidden) lang.t("Don't move", "No te muevas") else lang.t("Hide", "Escóndete"),
+                lang.t("Mark the wall", "Marca la pared").takeIf { call.marks.none { it.at == call.at } },
+                lang.t("Take it", "Cógelo").takeIf { here != null },
+            ) +
+            call.carried.map { it.use(lang) }
+    }
+}
+
+/** The words for using this, in [lang]. */
+fun Item.use(lang: Lang): String =
+    when (this) {
+        Item.BATTERY -> lang.t("Swap in the battery", "Cambia la batería")
+        Item.FLARE -> lang.t("Light the flare", "Enciende la bengala")
+        Item.STONE -> lang.t("Throw the stone ahead", "Tira la piedra hacia delante")
+    }

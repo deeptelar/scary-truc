@@ -7,6 +7,8 @@ import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.ScrollState
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.mutableStateOf
@@ -909,6 +911,18 @@ private fun Said(text: String, who: Who, lcd: Lcd, now: Long = 0) {
 private fun Talk(model: CallModel, now: Long, narrow: Boolean, lcd: Lcd, notebook: Boolean, toggleNotebook: () -> Unit) {
     val focus = remember { FocusRequester() }
     LaunchedEffect(model.ringing, model.call.turn) { runCatching { focus.requestFocus() } }
+    // What can be said with a tap this turn; the row slides, and the next option shows at its edge.
+    Row(Modifier.fillMaxWidth().horizontalScroll(remember(model.call.turn) { ScrollState(0) }), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        for (words in model.quick) {
+            PixelText(
+                words,
+                Modifier.pixelBox(lcd.paper, outline = if (model.thinking) lcd.faint else lcd.ink, raised = false).clickable(enabled = !model.thinking) { model.tap(words) }.padding(horizontal = 8.dp, vertical = 6.dp),
+                size = SMALL,
+                color = if (model.thinking) lcd.faint else lcd.ink,
+                maxLines = 1,
+            )
+        }
+    }
     PixelField(
         model.typed,
         model::type,

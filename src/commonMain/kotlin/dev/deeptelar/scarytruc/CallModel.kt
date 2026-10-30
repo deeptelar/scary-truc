@@ -302,15 +302,16 @@ class CallModel(
     private fun say(words: String) = command { run.say(words) }
 
     /** Tells the caller to use [item], as if the player had said it: a stone is thrown ahead. */
-    fun useItem(item: Item) {
+    fun useItem(item: Item) = tap(item.use(lang))
+
+    /** What the player can say with a tap this turn. */
+    val quick: List<String> get() = if (ringing || call.over) emptyList() else Quick.of(call, maze, haunt)
+
+    /** Says [words] with a tap. */
+    fun tap(words: String) {
         if (thinking || ringing || call.over) return
-        say(
-            when (item) {
-                Item.BATTERY -> lang.t("swap in the battery", "cambia la batería")
-                Item.FLARE -> lang.t("light the flare", "enciende la bengala")
-                Item.STONE -> lang.t("throw the stone ahead", "tira la piedra hacia delante")
-            },
-        )
+        log.note("tapped")
+        say(words)
     }
 
     /** The same call from its start. */

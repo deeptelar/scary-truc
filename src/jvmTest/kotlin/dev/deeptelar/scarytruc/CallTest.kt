@@ -193,6 +193,7 @@ class CallTest {
         suspend fun said(text: String) = Keywords.listen(Call.begin(plan, maze, empty).copy(said = text))
         assertEquals(Heard(Order.LEFT, 0), said("Go left, then right"))
         assertEquals(Order.AHEAD, said("keep going straight").order)
+        assertEquals(Order.AHEAD, said("Don't stop").order)
         assertEquals(Order.HIDE, said("Shh. Hide.").order)
         assertEquals(Order.NONE, said("Who are you?").order)
         assertEquals(2, said("Breathe. Slow. I'm here with you, okay?").calm)

@@ -76,7 +76,9 @@ to do.
 
 ## Talking to them
 
-Type anything, the way you'd talk to a stranger who is terrified. Gemma reads how you said it as
+Every turn the phone offers what you could say with a tap: the ways they named, a kind word, what
+can be done here. Choosing is the hard part: a kind word costs a turn, and something is still
+walking. Or type anything, the way you'd talk to a stranger who is terrified, and do both at once. Gemma reads how you said it as
 well as where you said to go. A bare word works when there's no time: "left", "hide", "take it",
 or the arrow keys. On a phone you can tap **Mic** and just speak; what you said goes when you
 pause. (Speech recognition is the browser's own, and most browsers do it on their maker's

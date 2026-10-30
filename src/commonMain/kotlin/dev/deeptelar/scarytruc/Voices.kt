@@ -47,11 +47,11 @@ private val ENGLISH =
             listOf(
                 Order.LEFT to listOf("left"),
                 Order.RIGHT to listOf("right"),
-                Order.AHEAD to listOf("ahead", "forward", "straight", "keep going", "go on", "continue"),
+                Order.AHEAD to listOf("ahead", "forward", "straight", "keep going", "go on", "continue", "don't stop"),
                 Order.BACK to listOf("back", "turn around", "return"),
                 Order.HIDE to listOf("hide", "crouch", "quiet", "shh", "hold your breath", "don't move", "keep still"),
                 Order.STAY to listOf("stay", "wait", "stop"),
-                Order.MARK to listOf("mark", "scratch", "write"),
+                Order.MARK to listOf("mark", "mark the wall", "scratch", "write"),
                 Order.TAKE to listOf("take", "grab", "pick", "pocket"),
                 // "Light the flare", not "go to the light".
                 Order.USE to listOf("use", "light the", "light it", "throw", "toss", "swap", "charge"),
@@ -75,11 +75,11 @@ private val SPANISH =
             listOf(
                 Order.LEFT to listOf("izquierda"),
                 Order.RIGHT to listOf("derecha"),
-                Order.AHEAD to listOf("delante", "adelante", "recto", "todo recto", "sigue", "avanza", "continúa"),
-                Order.BACK to listOf("atrás", "vuelve", "da la vuelta", "media vuelta", "retrocede"),
+                Order.AHEAD to listOf("delante", "adelante", "recto", "todo recto", "sigue", "sigue recto", "avanza", "continúa", "no pares"),
+                Order.BACK to listOf("atrás", "vuelve", "vuelve atrás", "da la vuelta", "media vuelta", "retrocede"),
                 Order.HIDE to listOf("escóndete", "escondete", "esconde", "agáchate", "agachate", "silencio", "shh", "no te muevas", "aguanta la respiración"),
                 Order.STAY to listOf("quédate", "quedate", "espera", "detente", "no sigas", "quieto", "quieta"),
-                Order.MARK to listOf("marca", "raya", "escribe"),
+                Order.MARK to listOf("marca", "marca la pared", "raya", "escribe"),
                 Order.TAKE to listOf("coge", "cógela", "cogela", "cógelo", "toma", "recoge", "agarra", "pilla"),
                 Order.USE to listOf("usa", "úsala", "enciende", "tira", "lanza", "cambia", "pon la"),
             ),
@@ -92,7 +92,7 @@ private val SPANISH =
         soothing = listOf("respira", "tranquila", "tranquilo", "calma", "estoy aquí", "estoy aqui", "contigo", "despacio", "puedes", "bien", "muy bien", "vale", "juntos", "no pasa nada"),
         harsh = listOf("rápido", "rapido", "idiota", "estúpid", "estupid", "inútil", "inutil", "muere", "muert", "cállate", "callate", "date prisa", "!!"),
         again = listOf("repite", "otra vez", "qué ves", "que ves", "describe", "mira alrededor", "dónde estás", "donde estas", "qué hay", "que hay"),
-        fillers = setOf("ve", "vete", "gira", "ahora", "por", "favor", "vale", "venga", "a", "la", "el", "hacia", "al", "camina", "anda", "solo"),
+        fillers = setOf("ve", "vete", "gira", "ahora", "por", "favor", "vale", "venga", "a", "la", "el", "hacia", "al", "camina", "anda", "solo", "pared"),
         common = listOf("el", "la", "los", "las", "que", "qué", "tú", "ve", "está", "estás", "y", "sí", "por", "hacia", "dónde", "ahora", "hay"),
     )
 
