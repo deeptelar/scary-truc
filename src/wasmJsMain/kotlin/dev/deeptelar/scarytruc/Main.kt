@@ -53,7 +53,8 @@ fun main() {
     // Some browsers let a page they know play at once: there the dark loop is heard on the lock screen.
     audio.unlock()
     if (WebMicrophone.available) game.microphone = WebMicrophone()
-    ComposeViewport(document.body!!) {
+    // In its own place, because Compose empties the element it gets: the loading screen is beside it.
+    ComposeViewport(document.getElementById("game")!!) {
         // Every word on the phone is in this font: until it is here, the page's loading screen stays.
         val font by preloadFont(Res.font.PixelifySans, FontWeight.Normal, FontStyle.Normal, FontVariation.Settings(FontVariation.weight(400)))
         var late by remember { mutableStateOf(false) }
