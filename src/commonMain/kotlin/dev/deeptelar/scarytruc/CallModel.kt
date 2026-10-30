@@ -370,8 +370,8 @@ class CallModel(
             while (true) {
                 // this.locked: in here, locked alone is the argument the phone was made with.
                 if (ringing && !this@CallModel.locked && !reading && !call.over && now() >= ringAt) {
-                    // 8 dB under the other sounds: it rings for seconds on end, they don't.
-                    Sound.play(Cue.RING, gain = -8f)
+                    // 14 dB under the other sounds: it rings for seconds on end, they don't.
+                    Sound.play(Cue.RING, gain = -14f)
                     // Two rings, then a breath of quiet.
                     ringAt = now() + 4500
                 }
