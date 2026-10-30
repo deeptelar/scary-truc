@@ -13,11 +13,19 @@ Off the safe way, in side corridors and dead ends, lie things worth the detour: 
 it, then to use it. A phone battery buys time, a flare sends the Hollow running, and a stone thrown
 down a corridor draws it to the noise.
 
-New here? The phone opens on **How to save them**: seven pages, each a moving picture, a line from
-whoever built the mazes and what you could type. It is under **Menu** later.
+New here? The phone opens locked: unlocking it is the tap a browser waits for before it plays a
+sound, and it rings at once (headphones on). Then **How to save them**: seven pages, each a moving
+picture, a line from whoever built the mazes and what you could type. It is under **Menu** later.
+
+A bare order is enough: "left", "hide", "take it", or the arrow keys on a keyboard. When a clue
+fits the moment, a bulb lights up at the top; it names something true of the night, never what to
+do, and stays closed unless you open it. **End**, in the corner, hangs up, and no one gets out alone.
+
+In English or in Spanish (**Menu > Language**, the browser's language the first time). The caller
+speaks and understands only that one: spoken to in another, they don't understand you.
 
 **Play it: <https://deeptelar.github.io/scary-truc/>**, on a phone too. Without a model the caller
-knows only a few words (left, right, ahead, back, stay, hide, mark). Add a model under **Menu >
+knows only a few words (left, right, ahead, back, stay, hide, mark, take, use). Add a model under **Menu >
 Model**: Gemma 4 on [OpenRouter](https://openrouter.ai) with your own key, or your
 [Ollama](https://ollama.com). The key stays in your browser and goes from it straight to the
 server. A friend's proxy works too: its address, and your token as the key.
