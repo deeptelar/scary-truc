@@ -18,7 +18,7 @@ import kotlin.test.Test
 
 /**
  * A call as a player sees it on a phone, a frame every tenth of a second, for the GIF of the README:
- * the lock, the guide, the ring, then the call, guided by [Balance]'s explorer. With a key file
+ * the lock, the guide, the cards, then the call, guided by [Balance]'s explorer. With a key file
  * Gemma plays the caller. It films nothing unless asked:
  * ./gradlew jvmTest --tests '*Film*' -Pshots=DIR [-Pnight=hedge] [-Pseed=1] [-Pturns=9] [-Pkeyfile=FILE]
  * and `frames.txt` in DIR is a list of the frames for ffmpeg's concat, each for as long as it lasted.
@@ -34,7 +34,7 @@ class Film {
         val seed = System.getProperty("seed")?.toLong() ?: 1
         val turns = System.getProperty("turns")?.toInt() ?: 9
         val minds = System.getProperty("keyfile")?.let { Server.OPENROUTER.copy(key = File(it).readText().trim()).minds(HttpClient(CIO)) } ?: Minds.none
-        val model = CallModel(CoroutineScope(Dispatchers.Default), minds, plan = plan, seed = seed, clock = false, locked = true)
+        val model = CallModel(CoroutineScope(Dispatchers.Default), minds, plan = Plan.entries.first(), seed = seed, clock = false, locked = true)
         val scene = ImageComposeScene(780, 1688, Density(2f)) { Game(model) }
         var tap: Offset? = null
         var done = false
@@ -45,7 +45,14 @@ class Film {
                 delay(3000)
                 // Skip, the left softkey.
                 tap = Offset(90f, 1620f)
-                delay(3000)
+                delay(1500)
+                // The arrow under the cards, to the card of this call.
+                repeat(Plan.entries.indexOf(plan)) {
+                    tap = Offset(524f, 1426f)
+                    delay(1400)
+                }
+                delay(1500)
+                while (model.plan != plan) delay(10)
                 model.answer()
                 while (model.thinking) delay(10)
                 delay(model.speaking() + 1500)

@@ -21,13 +21,13 @@ is loud.
 on a phone.
 
 <p align="center">
-  <img src="docs/call.gif" width="300" alt="A call in The Hedge with Gemma as the caller: the phone unlocks and rings, the caller's words appear under a notebook, midnight turns the screen dark, and the Hollow whispers on the line as the caller's words break up">
+  <img src="docs/call.gif" width="300" alt="A call in The Hedge with Gemma as the caller: the phone unlocks, the cards of the six calls slide past, the caller's words appear under a notebook, midnight turns the screen dark, the Hollow whispers on the line, and the caller is taken mid-word">
 </p>
 
 ## Six calls
 
-Each is a maze drawn by hand after a horror film. Pick any of them. When the line goes dead, you
-learn how many steps they were from the way out.
+Each is a maze drawn by hand after a horror film. Slide through the cards and answer any of them.
+When the line goes dead, you learn how many steps they were from the way out.
 
 | Call | Where they wake up | What's written on the wall |
 |---|---|---|
