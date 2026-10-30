@@ -16,7 +16,9 @@ import dev.deeptelar.telar.openai.OpenAiChatModel
 import io.ktor.client.HttpClient
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
+import kotlin.time.Clock
 import kotlin.time.Duration.Companion.minutes
+import kotlin.time.ExperimentalTime
 import kotlin.random.Random
 import kotlin.time.TimeSource
 
@@ -102,6 +104,9 @@ class Minds(
     }
 }
 
+@OptIn(ExperimentalTime::class)
+private fun today(): Long = Clock.System.now().toEpochMilliseconds()
+
 /**
  * What the window shows and what it does: one [CallRun] at a time, and one turn at a time on it,
  * while [thinking] is false. The caller doesn't wait: after [silence] milliseconds without a word
@@ -123,6 +128,7 @@ class CallModel(
     private val silence: Long = SILENCE,
     locked: Boolean = false,
     lang: Lang = Lang.EN,
+    private val date: () -> Long = ::today,
 ) {
     /** The language of the game, as the player last chose it, or [lang] the first time. */
     var lang: Lang by mutableStateOf(runCatching { store?.get(LANG) }.getOrNull()?.let { Lang.of(it) } ?: lang)
@@ -186,6 +192,98 @@ class CallModel(
         private set
 
     private val client by lazy { HttpClient() }
+
+    /** What the page does for try-out links; `null` where it has no address, and nothing is offered. */
+    var links: Links? = null
+
+    /** When the friend's model this phone plays with ends, in milliseconds since 1970, if it plays with one. */
+    var borrowedUntil: Long? by mutableStateOf(runCatching { store?.get(BORROWED) }.getOrNull()?.toLongOrNull())
+        private set
+
+    /** The code of the try-out link the page was opened with, until its word opens it. */
+    var tryCode: String? by mutableStateOf(null)
+
+    /** Why the word did not open the link, if it didn't. */
+    var tryFailure: String? by mutableStateOf(null)
+        private set
+
+    /** Whether the word is being tried: the lock is slow on purpose. */
+    var tryOpening: Boolean by mutableStateOf(false)
+        private set
+
+    /** The friend's model is gone from this phone. */
+    var tryEnded: Boolean by mutableStateOf(false)
+        private set
+
+    /** The link the player made to share, once it is made. */
+    var shared: String? by mutableStateOf(null)
+
+    /** Makes a link to this model that opens with [word], and forgets the key after [days]. */
+    fun shareTryOut(word: String, days: Int) {
+        val links = links ?: return
+        val server = server ?: return
+        val until = date() + days * DAY
+        scope.launch {
+            try {
+                shared = links.link(links.lock(TryOut(server.url, server.model, server.key, until).text(), TryOut.secret(word)))
+                log.note("made a try-out link for $days days")
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                log.error("try-out link", e)
+            }
+        }
+    }
+
+    /** Opens the try-out link with the [word] the player typed: the friend's model plays from then on. */
+    fun openTryOut(word: String) {
+        val links = links ?: return
+        val code = tryCode ?: return
+        tryOpening = true
+        tryFailure = null
+        scope.launch {
+            try {
+                val tryOut = links.unlock(code, TryOut.secret(word))?.let { TryOut.of(it) }
+                when {
+                    tryOut == null -> {
+                        log.note("try-out link: wrong word")
+                        tryFailure = this@CallModel.lang.t("That is not the word, or the link was cut short. Ask your friend again.", "Esa no es la palabra, o el enlace se ha cortado. Pregunta otra vez a quien te lo pasó.")
+                    }
+                    tryOut.until <= date() -> {
+                        log.note("try-out link: ended")
+                        tryFailure = this@CallModel.lang.t("This try-out has ended. Ask your friend for a new link.", "Esta prueba ha terminado. Pide un enlace nuevo.")
+                    }
+                    else -> {
+                        connect(Server(tryOut.url, tryOut.model, tryOut.key), tryOut.until)
+                        log.note("opened a try-out link")
+                        tryCode = null
+                    }
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                log.error("try-out link", e)
+                tryFailure = e.message
+            } finally {
+                tryOpening = false
+            }
+        }
+    }
+
+    /** Forgets a friend's key whose try-out has ended: what the player had before comes back. */
+    private fun endTryOut() {
+        if ((borrowedUntil ?: return) > date()) return
+        val own = runCatching { store?.get(OWN) }.getOrNull()?.let(::parsed)
+        server = own
+        runCatching { store?.set(SERVER, own?.let(::encoded).orEmpty()) }
+        runCatching { store?.set(OWN, "") }
+        runCatching { store?.set(BORROWED, "") }
+        borrowedUntil = null
+        log.secret = own?.key
+        log.note("try-out ended")
+        minds = own?.minds(client) ?: Minds.none
+        tryEnded = true
+    }
 
     val gemma: Boolean get() = minds.gemma
 
@@ -260,6 +358,7 @@ class CallModel(
         private set
 
     init {
+        endTryOut()
         log.secret = server?.key
         log.recover()
         Sound.fault = { log.error("sound", it) }
@@ -349,6 +448,7 @@ class CallModel(
 
     fun play(plan: Plan, seed: Long? = null) {
         if (thinking) return
+        endTryOut()
         run = newRun(plan, seed)
         call = run.call
         typed = ""
@@ -379,20 +479,29 @@ class CallModel(
         play(plan)
     }
 
-    /** Plays the caller with the model on [server], or with none, and remembers the choice. */
-    fun connect(server: Server?) {
+    /** Plays the caller with the model on [server], or with none, and remembers the choice; a friend's model, [until] then. */
+    fun connect(server: Server?, until: Long? = null) {
+        if (until != null && borrowedUntil == null) runCatching { store?.set(OWN, this.server?.let(::encoded).orEmpty()) }
+        if (until == null) runCatching { store?.set(OWN, "") }
+        borrowedUntil = until
+        tryEnded = false
+        runCatching { store?.set(BORROWED, until?.toString().orEmpty()) }
         this.server = server
         log.secret = server?.key
         log.note("model ${server?.model ?: "none"}")
-        runCatching { store?.set(SERVER, server?.let { listOf(it.url, it.model, it.key).joinToString("\n") }.orEmpty()) }
+        runCatching { store?.set(SERVER, server?.let(::encoded).orEmpty()) }
         use(server?.minds(client) ?: Minds.none)
     }
 
     /** The minds of the server the player chose before, if any. */
     fun saved(): Minds? = server?.minds(client)
 
-    private fun readServer(): Server? {
-        val lines = runCatching { store?.get(SERVER) }.getOrNull()?.split("\n") ?: return null
+    private fun readServer(): Server? = runCatching { store?.get(SERVER) }.getOrNull()?.let(::parsed)
+
+    private fun encoded(server: Server): String = listOf(server.url, server.model, server.key).joinToString("\n")
+
+    private fun parsed(text: String): Server? {
+        val lines = text.split("\n")
         return if (lines.size >= 2 && lines[0].isNotBlank()) Server(lines[0], lines[1], lines.getOrElse(2) { "" }) else null
     }
 
@@ -570,6 +679,9 @@ class CallModel(
 
         private const val PROGRESS = "best"
         private const val SERVER = "server"
+        private const val BORROWED = "borrowed"
+        private const val OWN = "own"
+        private const val DAY = 24 * 60 * 60 * 1000L
         private const val LANG = "lang"
         private const val MUTED = "muted"
     }

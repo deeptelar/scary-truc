@@ -63,6 +63,8 @@ import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.random.Random
+import kotlin.time.ExperimentalTime
+import kotlin.time.Instant
 
 /**
  * The whole window: the phone on the left and the notebook on the right, or, on a narrow screen
@@ -176,6 +178,7 @@ private fun Phone(model: CallModel, now: Long, narrow: Boolean, modifier: Modifi
         ) {
             StatusBar(call, danger, lcd, model.muted, model::toggleMute)
             when {
+                model.locked && model.tryCode != null -> OpenTryOut(model, lcd)
                 model.locked && screen == Screen.MODEL -> Options(model, lcd) { screen = Screen.HELP }
                 model.locked -> Locked(model, lcd) { screen = Screen.MODEL }
                 model.ringing && screen == Screen.MENU -> Menu(model, lcd) { screen = it }
@@ -426,6 +429,7 @@ private fun ColumnScope.Locked(model: CallModel, lcd: Lcd, options: () -> Unit) 
         Box(Modifier.size(36.dp, 30.dp).drawBehind { draw(Sprite(HEADPHONES, mapOf('#' to lcd.ink)), center, 3.dp.toPx()) })
         PixelText(lang.t("For the real experience, put your headphones on.", "Para vivirlo de verdad, ponte los auriculares."), Modifier.fillMaxWidth(), size = SMALL, color = lcd.ink, align = TextAlign.Center)
     }
+    if (model.tryEnded) PixelText(lang.t("Your friend's try-out has ended. To play with a model, add a key of your own.", "La prueba de tu amigo ha terminado. Para jugar con un modelo, añade una clave tuya."), Modifier.fillMaxWidth(), size = SMALL, color = lcd.ink)
     // The other language is named in itself, as in the menu.
     val other = Lang.entries.first { it != lang }
     Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
@@ -722,7 +726,10 @@ internal fun GuidePage(page: Int, now: Long, lang: Lang = Lang.EN) {
  */
 @Composable
 private fun ColumnScope.Options(model: CallModel, lcd: Lcd, done: () -> Unit) {
+    var sharing by remember { mutableStateOf(false) }
+    if (sharing) return ShareTryOut(model, lcd) { sharing = false }
     val saved = model.server
+    val borrowed = model.borrowedUntil
     var url by remember { mutableStateOf(saved?.url ?: Server.OPENROUTER.url) }
     var name by remember { mutableStateOf(saved?.model ?: Server.OPENROUTER.model) }
     var key by remember { mutableStateOf(saved?.key.orEmpty()) }
@@ -730,15 +737,21 @@ private fun ColumnScope.Options(model: CallModel, lcd: Lcd, done: () -> Unit) {
     Header(lang.t("Model", "Modelo"), lcd)
     Column(Modifier.fillMaxWidth().weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         PixelText(mind(model), size = SMALL, color = lcd.ink)
+        if (borrowed != null) PixelText(lang.t("You play with a friend's model until ${day(borrowed)}.", "Juegas con el modelo de un amigo hasta el ${day(borrowed)}."), size = SMALL, color = lcd.ink)
         Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-            PixelText("OpenRouter", Modifier.clickable { url = Server.OPENROUTER.url; name = Server.OPENROUTER.model }.padding(4.dp), size = SMALL, color = lcd.ink)
-            PixelText("Ollama", Modifier.clickable { url = Server.OLLAMA.url; name = Server.OLLAMA.model; key = "" }.padding(4.dp), size = SMALL, color = lcd.ink)
+            if (borrowed == null) {
+                PixelText("OpenRouter", Modifier.clickable { url = Server.OPENROUTER.url; name = Server.OPENROUTER.model }.padding(4.dp), size = SMALL, color = lcd.ink)
+                PixelText("Ollama", Modifier.clickable { url = Server.OLLAMA.url; name = Server.OLLAMA.model; key = "" }.padding(4.dp), size = SMALL, color = lcd.ink)
+            }
             PixelText(lang.t("None", "Ninguno"), Modifier.clickable { model.connect(null); done() }.padding(4.dp), size = SMALL, color = lcd.ink)
         }
-        for ((value, set, hint) in listOf(Triple(url, { it: String -> url = it }, lang.t("Server address", "Dirección del servidor")), Triple(name, { it: String -> name = it }, lang.t("Model", "Modelo")), Triple(key, { it: String -> key = it }, lang.t("Key or token", "Clave o token")))) {
+        if (borrowed == null) for ((value, set, hint) in listOf(Triple(url, { it: String -> url = it }, lang.t("Server address", "Dirección del servidor")), Triple(name, { it: String -> name = it }, lang.t("Model", "Modelo")), Triple(key, { it: String -> key = it }, lang.t("Key or token", "Clave o token")))) {
             PixelField(value, set, hint, Modifier.fillMaxWidth(), maxLines = 1, fill = lcd.paper, ink = lcd.ink, hint = lcd.faint, size = SMALL)
         }
-        PixelText(
+        if (borrowed == null && model.links != null && !saved?.key.isNullOrBlank()) {
+            PixelText(lang.t("Share a try-out", "Compartir una prueba"), Modifier.fillMaxWidth().pixelBox(lcd.paper, outline = lcd.ink, raised = false).clickable { sharing = true }.padding(horizontal = 6.dp, vertical = 3.dp), size = SMALL, color = lcd.ink)
+        }
+        if (borrowed == null) PixelText(
             lang.t(
                 "The key stays on this device and goes from it straight to the server. A friend's proxy works too: its address, and your token as the key.",
                 "La clave se queda en este dispositivo y va de él directa al servidor. También sirve el proxy de un amigo: su dirección, y tu token como clave.",
@@ -747,7 +760,82 @@ private fun ColumnScope.Options(model: CallModel, lcd: Lcd, done: () -> Unit) {
             color = lcd.faint,
         )
     }
-    Softkeys(lcd, lang.t("Back", "Atrás") to done, lang.t("Save", "Guardar") to { model.connect(Server(url.trim(), name.trim(), key.trim())); done() }, null)
+    Softkeys(lcd, lang.t("Back", "Atrás") to done, if (borrowed != null) null else lang.t("Save", "Guardar") to { model.connect(Server(url.trim(), name.trim(), key.trim())); done() }, null)
+}
+
+/** The day of [millis] since 1970, as the phone writes it. */
+@OptIn(ExperimentalTime::class)
+private fun day(millis: Long): String = Instant.fromEpochMilliseconds(millis).toString().take(10)
+
+/** Makes a link for friends to play with this model, locked with a secret word they are told apart from it. */
+@Composable
+private fun ColumnScope.ShareTryOut(model: CallModel, lcd: Lcd, back: () -> Unit) {
+    val lang = model.lang
+    var word by remember { mutableStateOf("") }
+    var days by remember { mutableStateOf(3) }
+    var copied by remember { mutableStateOf(false) }
+    val link = model.shared
+    val leave = { model.shared = null; back() }
+    Header(lang.t("Share a try-out", "Compartir una prueba"), lcd)
+    Column(Modifier.fillMaxWidth().weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        if (link == null) {
+            PixelText(
+                lang.t(
+                    "A link that plays with this model and key, locked with a secret word. Tell your friends the word apart from the link. Set a credit limit on the key, and delete it when the test ends: until then, anyone with the link and the word can use it.",
+                    "Un enlace que juega con este modelo y esta clave, cerrado con una palabra secreta. Di la palabra aparte del enlace. Pon un límite de crédito a la clave y bórrala al acabar la prueba: hasta entonces, quien tenga el enlace y la palabra puede usarla.",
+                ),
+                size = SMALL,
+                color = lcd.ink,
+            )
+            PixelField(word, { word = it }, lang.t("Secret word", "Palabra secreta"), Modifier.fillMaxWidth(), maxLines = 1, fill = lcd.paper, ink = lcd.ink, hint = lcd.faint, size = SMALL)
+            PixelText(lang.t("The page forgets the key after:", "La página olvida la clave tras:"), size = SMALL, color = lcd.ink)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                for (option in listOf(1, 3, 7, 14)) {
+                    val on = option == days
+                    PixelText(
+                        lang.t("$option d", "$option d"),
+                        Modifier.pixelBox(if (on) lcd.ink else lcd.paper, outline = lcd.ink, raised = false).clickable { days = option }.padding(horizontal = 8.dp, vertical = 4.dp),
+                        size = SMALL,
+                        color = if (on) lcd.paper else lcd.ink,
+                    )
+                }
+            }
+        } else {
+            PixelText(lang.t("Your link. Send the word another way.", "Tu enlace. La palabra, por otro camino."), size = SMALL, color = lcd.ink)
+            PixelText(link, size = SMALL, color = lcd.ink)
+            if (copied) PixelText(lang.t("Copied.", "Copiado."), size = SMALL, color = lcd.ink)
+        }
+    }
+    if (link == null) {
+        Softkeys(lcd, lang.t("Back", "Atrás") to leave, if (TryOut.secret(word).isEmpty()) null else lang.t("Make link", "Crear") to { model.shareTryOut(word, days) }, null)
+    } else {
+        Softkeys(
+            lcd,
+            lang.t("Back", "Atrás") to leave,
+            lang.t("Copy", "Copiar") to { model.links?.copy(link); copied = true },
+            lang.t("Share", "Enviar") to { model.links?.send(link, lang.t("A phone is ringing. Pick up: Scary Truc. I'll tell you the secret word.", "Suena un teléfono. Contesta: Scary Truc. La palabra secreta te la digo yo.")) },
+        )
+    }
+}
+
+/** A friend's link opened the page: the secret word opens their model, or the player goes on without. */
+@Composable
+private fun ColumnScope.OpenTryOut(model: CallModel, lcd: Lcd) {
+    val lang = model.lang
+    var word by remember { mutableStateOf("") }
+    Header(lang.t("A friend sent this", "Te lo ha enviado alguien"), lcd)
+    Column(Modifier.fillMaxWidth().weight(1f), verticalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterVertically)) {
+        PixelText(lang.t("Enter the secret word they told you, and the caller will have a mind of their own.", "Escribe la palabra secreta que te han dicho, y quien llama tendrá mente propia."), Modifier.fillMaxWidth(), size = SMALL, color = lcd.ink)
+        PixelField(word, { word = it }, lang.t("Secret word", "Palabra secreta"), Modifier.fillMaxWidth(), maxLines = 1, fill = lcd.paper, ink = lcd.ink, hint = lcd.faint, size = SMALL)
+        if (model.tryOpening) PixelText(lang.t("Opening...", "Abriendo..."), size = SMALL, color = lcd.ink)
+        model.tryFailure?.let { PixelText(it, Modifier.fillMaxWidth(), size = SMALL, color = lcd.ink) }
+    }
+    Softkeys(
+        lcd,
+        lang.t("Skip", "Saltar") to { model.tryCode = null },
+        if (model.tryOpening || TryOut.secret(word).isEmpty()) null else lang.t("Open", "Abrir") to { model.openTryOut(word) },
+        null,
+    )
 }
 
 /** Who is calling, how fast their heart beats, and whether they hide. */

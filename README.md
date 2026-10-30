@@ -107,6 +107,11 @@ and `gemma4:12b` pulled, Gemma plays the caller; add `--no-gemma` to play withou
 
 ### Play tests
 
+**Model > Share a try-out** makes a link for testers, with no setup on their side: your model and
+key, locked with a secret word you tell them apart from the link. It sits after the `#`, which no
+server ever sees, and the page forgets the key after the days you choose. The lock stops a forwarded
+link and no more, so give the key a credit limit and delete it when the test ends.
+
 The phone keeps a log of every call: what the player said, what the caller understood and answered,
 and how the call stood after each turn (battery, panic, trust, how far the Hollow was, walks that
 found nothing new). **Menu > Export play log**, or **Log** at the end of a call, hands it over as a

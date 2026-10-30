@@ -30,6 +30,8 @@ fun main() {
     game.log.trace("visit: ${visit()}")
     onHidden { hidden -> game.log.trace(if (hidden) "page hidden" else "page shown") }
     game.saved()?.let { game.use(it) }
+    game.links = WebLinks()
+    game.tryCode = tryCode()
     game.onAnswer = audio::unlock
     game.export = ::handOver
     // A browser plays sound only after a tap: the phone opens locked, and the first tap anywhere
@@ -71,6 +73,10 @@ private fun handOver(name: String, text: String): Unit =
         else download();
     }""",
     )
+
+/** Takes the code of a try-out link out of the address, so that the history and a screenshot do not keep it. */
+private fun tryCode(): String? =
+    js("{ const hash = location.hash; if (!hash.startsWith('#try=')) return null; history.replaceState(null, '', location.pathname + location.search); return hash.slice(5); }")
 
 private fun onFault(report: (String) -> Unit): Unit = js("{ window.scaryTrucFault = text => report(text); }")
 
