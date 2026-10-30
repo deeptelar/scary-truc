@@ -74,6 +74,8 @@ data class Heard(
     val again: Boolean = false,
     /** Whether the stranger spoke another language than the caller's, who didn't understand. */
     val foreign: Boolean = false,
+    /** Whether the stranger's words had nothing to do with getting out: a joke, trivia, nonsense. */
+    val offTopic: Boolean = false,
 )
 
 /** What lies in a maze to pick up, and is used once. [code] is its letter in a drawn maze. */
@@ -198,6 +200,8 @@ data class Call(
      * again unless the stranger asks.
      */
     val told: Set<String> = emptySet(),
+    /** How many times in a row the stranger said something that had nothing to do with getting out. */
+    val strays: Int = 0,
     /** The notes the caller read out: a note is read out once. */
     val read: Set<Pos> = emptySet(),
     val lines: List<Line> = emptyList(),
@@ -306,6 +310,12 @@ fun Call.walk(maze: Maze, haunt: Haunt): Call {
     } else {
         panic -= heard.calm * 6
         trust += heard.calm * 2
+    }
+    // Words that have nothing to do with getting out cost time, and more trust each time in a row.
+    val strays = if (heard.offTopic) strays + 1 else 0
+    if (heard.offTopic) {
+        trust -= minOf(3 * strays, 9)
+        panic += 3
     }
 
     var order = heard.order
@@ -586,6 +596,7 @@ fun Call.walk(maze: Maze, haunt: Haunt): Call {
             carried = carried,
             taken = taken,
             turn = turn + 1,
+            strays = strays,
             end = end,
             death = death,
             walked = walked,

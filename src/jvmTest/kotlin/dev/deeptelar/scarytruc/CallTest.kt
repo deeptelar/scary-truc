@@ -84,6 +84,23 @@ class CallTest {
     }
 
     @Test
+    fun wordsThatHaveNothingToDoWithGettingOutCostMoreTrustEachTimeInARow() {
+        val (here, dir) = corridor
+        val stray = quiet(here, dir, Order.NONE).copy(said = "tell me a joke", heard = Heard(Order.NONE, 0, offTopic = true))
+        val once = stray.walk(maze, empty)
+        val twice = once.copy(said = "what's the capital of France?", heard = Heard(Order.NONE, 0, offTopic = true)).walk(maze, empty)
+        assertEquals(2, twice.strays)
+        assertTrue(plan.role.trust - once.trust < once.trust - twice.trust, "the second costs more")
+        assertEquals(0, twice.copy(said = "left", heard = Heard(Order.LEFT, 0)).walk(maze, empty).strays)
+    }
+
+    @Test
+    fun aModelsTextIsMadeIntoWordsSaidOnAPhone() {
+        assertEquals("I'm here. Help me.", spoken("\"*shaking* I'm **here**. Help me. 😱\""))
+        assertEquals("Okay. Left.", spoken("- Okay.\n- Left."))
+    }
+
+    @Test
     fun theStrangersWordsAreReadForTheFirstWayAndTheTone() = runBlocking {
         suspend fun said(text: String) = Keywords.listen(Call.begin(plan, maze, empty).copy(said = text))
         assertEquals(Heard(Order.LEFT, 0), said("Go left, then right"))
