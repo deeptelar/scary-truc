@@ -98,6 +98,8 @@ class CallTest {
     fun aModelsTextIsMadeIntoWordsSaidOnAPhone() {
         assertEquals("I'm here. Help me.", spoken("\"*shaking* I'm **here**. Help me. 😱\""))
         assertEquals("Okay. Left.", spoken("- Okay.\n- Left."))
+        assertEquals("One. Two.", whole("One. Two. Three is too long", limit = 20))
+        assertEquals("Short enough", whole("Short enough", limit = 20))
     }
 
     @Test

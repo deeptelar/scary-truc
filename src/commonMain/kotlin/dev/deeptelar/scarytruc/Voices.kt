@@ -249,7 +249,7 @@ class GemmaVoice(
 ) : Voice {
     override suspend fun speak(call: Call): String =
         try {
-            spoken(model.chat(prompt(call), system = system(call))).take(400).takeIf { it.length > 3 } ?: script.speak(call)
+            whole(spoken(model.chat(prompt(call), system = system(call)))).takeIf { it.length > 3 } ?: script.speak(call)
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
@@ -331,6 +331,14 @@ fun spoken(text: String): String =
         .replace(Regex("[\\x{1F000}-\\x{1FAFF}\\x{2600}-\\x{27BF}\\x{FE0F}]"), "")
         .replace(Regex("\\s+"), " ")
         .trim()
+
+/** [text] in at most [limit] letters, up to the end of a sentence: a long line doesn't stop halfway through a word. */
+fun whole(text: String, limit: Int = 400): String {
+    if (text.length <= limit) return text
+    val cut = text.take(limit)
+    val end = cut.indexOfLast { it in ".!?" }
+    return if (end > 0) cut.take(end + 1) else cut
+}
 
 /** The Hollow without Gemma: a few lines, to the stranger. */
 object Echoes : Whisperer {
