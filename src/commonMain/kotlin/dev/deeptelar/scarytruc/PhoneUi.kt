@@ -610,11 +610,12 @@ private fun CallerBar(model: CallModel, now: Long, lcd: Lcd) {
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         val bpm = 62 + call.panic * 9 / 10
         val beat = !call.over && (now % (60_000 / bpm)) < 140
-        if (!call.over) {
-            // The heart beats with their fear: a pixel heart that flashes on each beat.
-            Box(Modifier.size(16.dp).drawBehind { draw(Sprite(HEART, mapOf('#' to if (beat) lcd.ink else lcd.faint)), center, 2.dp.toPx()) })
-            PixelText("$bpm", size = SMALL, color = lcd.faint)
-        }
+        // The heart beats with their fear: a pixel heart that flashes on each beat, and its trace,
+        // which goes flat when they are taken.
+        val flat = call.over && call.end != End.OUT
+        Box(Modifier.size(16.dp).drawBehind { draw(Sprite(HEART, mapOf('#' to if (beat) lcd.ink else lcd.faint)), center, 2.dp.toPx()) })
+        Box(Modifier.size(60.dp, 18.dp).drawBehind { trace(if (flat) null else bpm, now, lcd.ink) })
+        PixelText(if (flat) "--" else "$bpm", size = SMALL, color = lcd.faint)
         Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
             PixelText(call.name + if (call.hidden && !call.over) " (hiding)" else "", color = lcd.ink, maxLines = 1)
         }
@@ -631,6 +632,41 @@ private fun CallerBar(model: CallModel, now: Long, lcd: Lcd) {
         }
     }
 }
+
+/**
+ * The trace of a heart at [bpm], as a monitor draws it, in pixels: the newest beat on the right,
+ * moving left. A `null` [bpm] is a flat line.
+ */
+private fun DrawScope.trace(bpm: Int?, now: Long, ink: Color) {
+    val pixel = 2.dp.toPx()
+    val columns = (size.width / pixel).toInt()
+    val base = (size.height / pixel).toInt() - 3
+    var last: Int? = null
+    for (i in 0 until columns) {
+        val t = now - (columns - 1 - i) * TRACE_STEP
+        val height = if (bpm == null) 0 else wave(t.mod(60_000L / bpm))
+        val y = base - height
+        // A line, not dots: every row between this column and the last.
+        val from = minOf(y, last ?: y)
+        val to = maxOf(y, last ?: y)
+        drawRect(ink, Offset(i * pixel, from * pixel), Size(pixel, (to - from + 1) * pixel))
+        last = y
+    }
+}
+
+/** How many milliseconds a column of the heart's trace lasts. */
+private const val TRACE_STEP = 40L
+
+/** How high the trace of one heartbeat stands, in pixels, [ms] into the beat. */
+private fun wave(ms: Long): Int =
+    when (ms) {
+        in 0 until 60 -> 1
+        in 100 until 130 -> -1
+        in 130 until 180 -> 5
+        in 180 until 215 -> -2
+        in 300 until 400 -> 1
+        else -> 0
+    }
 
 /** A thing the caller can carry, in pixels, [ink] on [paper]. */
 @Composable
