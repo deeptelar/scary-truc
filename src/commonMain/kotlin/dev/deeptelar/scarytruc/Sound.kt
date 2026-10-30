@@ -30,7 +30,7 @@ private class Recording(val file: String, val cues: List<Cue>) {
 }
 
 /**
- * The drones that loop under the night: one for each place, and after midnight one of [MIDNIGHT].
+ * The drones that loop under the night: the dark one while no call is on, one for each place, and after midnight one of [MIDNIGHT].
  * Each is read from [file] only once it is wanted, and played [gain] decibels under [Sound.DRONE]:
  * a chirp sounds louder than a hum as strong, so the crickets in the trees are turned down, and the voices
  * of the tape a little, to leave the caller room.
@@ -91,6 +91,13 @@ object Sound {
 
     /** The silence before the scare: no drone, no static. */
     var hushed: Boolean = false
+        set(value) {
+            field = value
+            drones()
+        }
+
+    /** No call is on: the phone is locked, or shows the guide or the calls, over the dark ambient loop. */
+    var waiting: Boolean = true
         set(value) {
             field = value
             drones()
@@ -220,7 +227,7 @@ object Sound {
         started = true
         drones()
         // One after the other, so that each adds to what the last one read: the ring and the pickup,
-        // the drone of this place, the other cues, the drone after midnight, and each drone wanted later.
+        // the drone heard first, the other cues, the drones of this place and of its midnight, and each drone wanted later.
         scope.launch {
             val loaded = mutableSetOf<Drone>()
 
@@ -238,8 +245,9 @@ object Sound {
             // drone read first kept it silent for as long as a phone took to download it.
             val first = recordings.filter { it.cues.any { cue -> cue in FIRST } }
             for (recording in first) read(recording)
-            load(place)
+            load(if (waiting) Drone.DARK else place)
             for (recording in recordings - first.toSet()) read(recording)
+            load(place)
             load(midnight)
             for (drone in wanted) load(drone)
         }
@@ -275,7 +283,7 @@ object Sound {
 
     private fun drones() {
         if (!started) return
-        runCatching { output?.drone(if (!on || hushed) null else if (otherworld) midnight else place) }
+        runCatching { output?.drone(if (!on || hushed) null else if (waiting) Drone.DARK else if (otherworld) midnight else place) }
     }
 
     fun play(cue: Cue, gain: Float = 0f) {

@@ -150,8 +150,9 @@ private fun Phone(model: CallModel, now: Long, narrow: Boolean, modifier: Modifi
     val danger = if (model.ringing || call.over) 0f else danger(call, model.maze)
     val lcd = Lcd.of(call, model.ringing, danger, now)
     var notebook by remember { mutableStateOf(false) }
-    // Until a first call ends, the phone opens on how to save them.
-    var screen by remember { mutableStateOf(if (model.best.isEmpty()) Screen.HELP else Screen.CALLS) }
+    // The phone opens on how to save them, every time; the first page can skip it.
+    var screen by remember { mutableStateOf(Screen.HELP) }
+    LaunchedEffect(screen) { model.reading = screen != Screen.CALLS }
     Column(
         modifier.pixelBox(Lcd.BODY, outline = Lcd.BODY_EDGE).padding(horizontal = if (narrow) 6.dp else 22.dp, vertical = if (narrow) 6.dp else 18.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -164,7 +165,8 @@ private fun Phone(model: CallModel, now: Long, narrow: Boolean, modifier: Modifi
         ) {
             StatusBar(call, danger, lcd, if (model.locked || model.ringing || call.over) null else model.clue, model.clue in model.cluesRead, now, model::toggleClue, model.muted, model::toggleMute)
             when {
-                model.locked -> Locked(lcd, model.lang, model::unlock)
+                model.locked && screen == Screen.MODEL -> Options(model, lcd) { screen = Screen.HELP }
+                model.locked -> Locked(model, lcd) { screen = Screen.MODEL }
                 model.ringing && screen == Screen.MENU -> Menu(model, lcd) { screen = it }
                 model.ringing && screen == Screen.HELP -> Help(lcd, now, model.lang) { screen = Screen.CALLS }
                 model.ringing && screen == Screen.MODEL -> Options(model, lcd) { screen = Screen.MENU }
@@ -379,11 +381,14 @@ private val PADLOCK =
     )
 
 /**
- * The phone as the page opens: its keys locked. Unlocking it is the tap a browser waits for before
- * it plays a sound, so the phone rings the moment it is unlocked.
+ * The phone as the page opens: its keys locked, and under them the language and the model, to set
+ * before the first call. Unlocking it is the tap a browser waits for before it plays a sound; then
+ * comes how to save them, and the phone rings once the player is at the calls.
  */
 @Composable
-private fun ColumnScope.Locked(lcd: Lcd, lang: Lang, unlock: () -> Unit) {
+private fun ColumnScope.Locked(model: CallModel, lcd: Lcd, options: () -> Unit) {
+    val lang = model.lang
+    val unlock = model::unlock
     Header("SCARY TRUC", lcd)
     Column(
         Modifier.weight(1f).fillMaxWidth().clickable(onClick = unlock),
@@ -397,7 +402,17 @@ private fun ColumnScope.Locked(lcd: Lcd, lang: Lang, unlock: () -> Unit) {
         Box(Modifier.size(36.dp, 30.dp).drawBehind { draw(Sprite(HEADPHONES, mapOf('#' to lcd.ink)), center, 3.dp.toPx()) })
         PixelText(lang.t("For the real experience, put your headphones on.", "Para vivirlo de verdad, ponte los auriculares."), Modifier.fillMaxWidth(), size = SMALL, color = lcd.ink, align = TextAlign.Center)
     }
-    Softkeys(lcd, null, lang.t("Unlock", "Desbloquear") to unlock, null)
+    // The other language is named in itself, as in the menu.
+    val other = Lang.entries.first { it != lang }
+    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        for ((line, go) in listOf(
+            "${lang.t("Language", "Idioma")}: ${lang.title} > ${other.title}" to { model.speak(other) },
+            "${lang.t("Model", "Modelo")}: ${model.minds.name ?: lang.t("none", "ninguno")}" to options,
+        )) {
+            PixelText(line, Modifier.fillMaxWidth().pixelBox(lcd.paper, outline = lcd.ink, raised = false).clickable(onClick = go).padding(horizontal = 6.dp, vertical = 3.dp), color = lcd.ink, maxLines = 1)
+        }
+    }
+    Softkeys(lcd, null, lang.t("Unlock", "Desbloq.") to unlock, null)
 }
 
 /** A heart in pixels: the fonts of the web draw ♥ in colour. */
@@ -664,7 +679,7 @@ private fun ColumnScope.Help(lcd: Lcd, now: Long, lang: Lang, start: Int = 0, ba
             PixelText(lang.t("- the one who built the maze", "- quien construyó el laberinto"), size = SMALL, color = lcd.faint)
         }
     }
-    Softkeys(lcd, lang.t("Back", "Atrás") to { if (page == 0) back() else page -= 1 }, "${page + 1}/${LESSONS.size}" to {}, (if (last) lang.t("Calls", "Llamadas") else lang.t("Next", "Siguiente")) to next)
+    Softkeys(lcd, (if (page == 0) lang.t("Skip", "Saltar") else lang.t("Back", "Atrás")) to { if (page == 0) back() else page -= 1 }, "${page + 1}/${LESSONS.size}" to {}, (if (last) lang.t("Calls", "Llamadas") else lang.t("Next", "Siguiente")) to next)
 }
 
 /** A page of how to save them on a lit screen, for the screenshots. */

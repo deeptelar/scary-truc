@@ -26,6 +26,8 @@ fun main() {
     // A browser plays sound only after a tap: the phone opens locked, and the first tap anywhere
     // opens the sound too.
     onGesture(audio::unlock)
+    // Some browsers let a page they know play at once: there the dark loop is heard on the lock screen.
+    audio.unlock()
     if (WebMicrophone.available) game.microphone = WebMicrophone()
     ComposeViewport(document.body!!) {
         Game(game)

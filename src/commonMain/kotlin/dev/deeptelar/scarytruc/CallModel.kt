@@ -119,6 +119,14 @@ class CallModel(
     /** When the phone rings next. */
     private var ringAt = 0L
 
+    /** The player reads how to save them or the options: the phone holds its ring until they are back at the calls. */
+    var reading: Boolean = false
+        set(value) {
+            if (value == field) return
+            field = value
+            if (value) Sound.stop(Cue.RING) else ringAt = 0L
+        }
+
     /** Why the last turn was understood without Gemma. */
     var trouble: String? by mutableStateOf(null)
         private set
@@ -223,12 +231,13 @@ class CallModel(
 
     init {
         if (muted) Sound.on = false
+        Sound.waiting = true
         Sound.place = plan.drone
         Sound.midnight = Drone.MIDNIGHT.random()
         scope.launch {
             while (true) {
                 // this.locked: in here, locked alone is the argument the phone was made with.
-                if (ringing && !this@CallModel.locked && !call.over && now() >= ringAt) {
+                if (ringing && !this@CallModel.locked && !reading && !call.over && now() >= ringAt) {
                     // 8 dB under the other sounds: it rings for seconds on end, they don't.
                     Sound.play(Cue.RING, gain = -8f)
                     // Two rings, then a breath of quiet.
@@ -281,6 +290,7 @@ class CallModel(
         Sound.stop(Cue.RING)
         Sound.play(Cue.PICKUP)
         ringing = false
+        Sound.waiting = false
         command { run.begin() }
     }
 
@@ -324,6 +334,7 @@ class CallModel(
         Sound.danger = 0f
         Sound.hushed = false
         Sound.otherworld = false
+        Sound.waiting = true
         Sound.place = plan.drone
         // Each call has its own midnight.
         Sound.midnight = Drone.MIDNIGHT.random()

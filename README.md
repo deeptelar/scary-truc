@@ -13,9 +13,11 @@ Off the safe way, in side corridors and dead ends, lie things worth the detour: 
 it, then to use it. A phone battery buys time, a flare sends the Hollow running, and a stone thrown
 down a corridor draws it to the noise.
 
-New here? The phone opens locked: unlocking it is the tap a browser waits for before it plays a
-sound, and it rings at once (headphones on). Then **How to save them**: seven pages, each a moving
-picture, a line from whoever built the mazes and what you could type. It is under **Menu** later.
+The phone opens locked, over a dark loop, with the language and the model to set below the lock.
+Unlocking it is the tap a browser waits for before it plays a sound (headphones on). Then comes
+**How to save them**: seven pages, each a moving picture, a line from whoever built the mazes and
+what you could type; **Skip** on the first page passes it. The phone rings once you reach the
+calls. The guide is under **Menu** too.
 
 A bare order is enough: "left", "hide", "take it", or the arrow keys on a keyboard. When a clue
 fits the moment, a bulb lights up at the top; it names something true of the night, never what to
