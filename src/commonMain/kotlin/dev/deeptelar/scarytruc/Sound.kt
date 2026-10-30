@@ -32,7 +32,7 @@ private class Recording(val file: String, val cues: List<Cue>) {
 /**
  * The drones that loop under the night: one for each place, and after midnight one of [MIDNIGHT].
  * Each is read from [file] only once it is wanted, and played [gain] decibels under [Sound.DRONE]:
- * a hiss sounds louder than a hum as strong, so the tape's and the wind in the trees are turned down.
+ * a hiss or a chirp sounds louder than a hum as strong, so the tape and the crickets in the trees are turned down.
  */
 enum class Drone(val file: String, val gain: Float = 0f) {
     MINE("files/mine.pcm"),
