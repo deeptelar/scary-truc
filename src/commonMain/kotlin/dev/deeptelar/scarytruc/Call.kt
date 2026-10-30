@@ -209,10 +209,14 @@ data class Call(
     /** How many walks in a row took the caller nowhere new. */
     val stale: Int = 0,
     /**
-     * What the caller thinks of trying, going in circles. It comes after what the voice says, in
-     * these words: Gemma, given many facts, was leaving out the one that gets a player unstuck.
+     * What the caller thinks aloud: the way they haven't tried, or a [Thought]. It comes after what
+     * the voice says, in these words: Gemma, given many facts, was leaving out the one that helps.
      */
     val hunch: String? = null,
+    /** What the caller thought aloud in this call: once each. */
+    val thoughts: Set<Thought> = emptySet(),
+    /** The turn of the last thought: they don't think aloud on every turn. */
+    val thoughtAt: Int = -99,
     val lines: List<Line> = emptyList(),
     /** The turn the Hollow last spoke on the line. */
     val whispered: Int = -99,
@@ -765,11 +769,14 @@ private fun Call.look(maze: Maze, haunt: Haunt, facts: List<String>): Call {
     // Standing where they stood, they say only what changed, unless the stranger asked again.
     val around = seen.drop(happened)
     val stayed = turn > 0 && walked == 0 && heard?.again != true
+    val thought = if (hunch == null && turn > 0 && turn - thoughtAt >= THINKS_EVERY) Thought.of(copy(panic = panic, lostTrack = lostTrack), maze, haunt) else null
     return copy(
         facts = seen.take(happened) + if (stayed) around.filter { it !in told } else around,
         told = if (stayed) told + around else around.toSet(),
         read = if (at in haunt.notes) read + at else read,
-        hunch = hunch,
+        hunch = hunch ?: thought?.text(lang),
+        thoughts = thoughts + listOfNotNull(thought),
+        thoughtAt = if (thought != null) turn else thoughtAt,
         panic = panic.coerceIn(0, 100),
         trust = trust.coerceIn(0, 100),
         lostTrack = lostTrack,
@@ -852,6 +859,9 @@ private const val MAX_WALK = 6
 
 /** After this many walks in a row that found nothing new, the caller says they are going in circles. */
 private const val CIRCLES = 3
+
+/** The fewest turns between two thoughts said aloud. */
+private const val THINKS_EVERY = 2
 private const val RECHARGE = 35
 private const val FLARE_REACH = 4
 private const val FLARE_FEAR = 4

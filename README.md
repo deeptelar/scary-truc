@@ -68,8 +68,9 @@ tell you what they haven't tried.
 **Leave a mark.** Corridors look alike. A number scratched into a wall stays when the pencil
 fades.
 
-**There's a bulb at the top of the screen.** Sometimes it lights up. Open it and you'll read
-something true about the night. It never tells you what to do.
+**Listen to what they think out loud.** Their fear isn't all they say. A stone on the floor, a
+strange draft, walls that have started to move: they'll wonder about it. They never tell you what
+to do.
 
 **Hanging up is giving up.** The **End** key is in the corner. Nobody gets out alone.
 

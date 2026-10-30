@@ -186,24 +186,6 @@ class CallModel(
     var call: Call by mutableStateOf(run.call)
         private set
 
-    /** The clue for this moment of the call, behind the bulb; `null` when there is none. */
-    val clue: Clue? get() = if (ringing || thinking) null else Clue.of(call, maze, haunt)
-
-    /** The clues the player already opened: the bulb only blinks for a new one. */
-    var cluesRead: Set<Clue> by mutableStateOf(emptySet())
-        private set
-
-    /** Whether the clue is open on the screen. */
-    var clueOpen: Boolean by mutableStateOf(false)
-        private set
-
-    /** Opens the clue of this moment, or closes it. */
-    fun toggleClue() {
-        val clue = clue
-        clueOpen = !clueOpen && clue != null
-        if (clue != null) cluesRead = cluesRead + clue
-    }
-
     /** The phone rings until the player answers. */
     var ringing: Boolean by mutableStateOf(true)
         private set
@@ -329,8 +311,6 @@ class CallModel(
         call = run.call
         typed = ""
         ringing = true
-        clueOpen = false
-        cluesRead = emptySet()
         Sound.danger = 0f
         Sound.hushed = false
         Sound.otherworld = false
@@ -403,7 +383,6 @@ class CallModel(
         thinking = true
         failure = null
         val before = call
-        clueOpen = false
         turn = scope.launch {
             try {
                 val after = work()

@@ -63,11 +63,6 @@ class Screenshots {
             delay(model.speaking() + 100)
             shoot("turn${model.call.turn}")
         }
-        // The clue of the last turn, opened.
-        if (model.clue != null) {
-            model.toggleClue()
-            shoot("clue")
-        }
     }
 
     /** What the explorer says, in Spanish: the caller understands only that. */

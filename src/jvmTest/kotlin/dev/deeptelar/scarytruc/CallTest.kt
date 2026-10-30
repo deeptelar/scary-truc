@@ -70,17 +70,31 @@ class CallTest {
     }
 
     @Test
-    fun aClueNamesWhatCouldHelpWithoutSayingWhatToDo() {
+    fun aThoughtNamesWhatCouldHelpWithoutSayingWhatToDo() {
         val (here, dir) = corridor
         val call = quiet(here, dir, Order.STAY).copy(turn = 2)
         val hunted = call.copy(hollow = Hollow(here + maze.exits(here).first(), awake = true))
-        assertEquals(Clue.LISTENS, Clue.of(hunted, maze, empty))
-        assertEquals(Clue.NOISE, Clue.of(hunted.copy(carried = listOf(Item.STONE)), maze, empty))
-        assertEquals(Clue.FIRE, Clue.of(hunted.copy(carried = listOf(Item.STONE, Item.FLARE)), maze, empty))
-        assertNull(Clue.of(call.copy(turn = 0), maze, empty), "not before they have said anything")
-        // Never an order: no clue starts with one of the caller's words.
+        assertEquals(Thought.LISTENS, Thought.of(hunted, maze, empty))
+        assertEquals(Thought.NOISE, Thought.of(hunted.copy(carried = listOf(Item.STONE)), maze, empty))
+        assertEquals(Thought.FIRE, Thought.of(hunted.copy(carried = listOf(Item.STONE, Item.FLARE)), maze, empty))
+        // Never an order: no thought starts with one of the caller's words.
         val orders = Order.entries.map { it.word } + listOf("go", "hide", "throw", "light", "use")
-        for (clue in Clue.entries) assertTrue(orders.none { clue.en.lowercase().startsWith(it) }, clue.en)
+        for (thought in Thought.entries) assertTrue(orders.none { thought.en.lowercase().startsWith(it) }, thought.en)
+    }
+
+    @Test
+    fun aThoughtIsSaidAloudOnceAndNotOnEveryTurn() {
+        val (here, _) = corridor
+        val rock = Haunt(emptyMap(), emptyMap(), emptyMap(), items = mapOf(here to Item.STONE))
+        val waiting = quiet(here, maze.exits(here).first(), Order.STAY).copy(turn = 3)
+
+        val first = waiting.walk(maze, rock)
+        assertEquals(Thought.STONE_HERE.en, first.hunch)
+        assertEquals("Fine. ${Thought.STONE_HERE.en}", first.spoke("Fine.").lines.last().text)
+        assertEquals(null, waiting.copy(thoughts = setOf(Thought.STONE_HERE)).walk(maze, rock).hunch, "once in a call")
+        assertEquals(null, waiting.copy(thoughtAt = 3).walk(maze, rock).hunch, "not two turns running")
+        assertEquals(null, Call.begin(plan, maze, rock).hunch, "not before they have said anything")
+        assertEquals("Esa piedra podría venirnos bien.", waiting.copy(lang = Lang.ES).walk(maze, rock).hunch)
     }
 
     @Test
