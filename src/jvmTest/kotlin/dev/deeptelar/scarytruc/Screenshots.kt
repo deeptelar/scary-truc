@@ -13,7 +13,7 @@ import kotlin.test.Test
 /**
  * Pictures of the window drawn off screen, for the README and the post: the phone ringing, then the
  * call after each of the given turns, guided by [Balance]'s explorer. It draws nothing unless
- * asked: ./gradlew jvmTest --tests '*Screenshots*' -Pshots=DIR [-Pnight=cave] [-Pseed=7] [-Pturns=0,4,9] [-Pguide]
+ * asked: ./gradlew jvmTest --tests '*Screenshots*' -Pshots=DIR [-Pnight=cave] [-Pseed=7] [-Pturns=0,4,9] [-Pguide] [-Plang=es]
  */
 class Screenshots {
     @Test
@@ -23,7 +23,8 @@ class Screenshots {
         val plan = Plan.valueOf((System.getProperty("night") ?: "cave").uppercase())
         val seed = System.getProperty("seed")?.toLong() ?: 1
         val turns = (System.getProperty("turns") ?: "0,4,9").split(",").map { it.toInt() }
-        val model = CallModel(CoroutineScope(Dispatchers.Default), Minds.none, plan = plan, seed = seed, clock = false)
+        val lang = Lang.of(System.getProperty("lang"))
+        val model = CallModel(CoroutineScope(Dispatchers.Default), Minds.none, plan = plan, seed = seed, clock = false, lang = lang)
         // The window on a desktop, and the page on a phone 390 wide, at its density.
         fun shoot(name: String) {
             for ((size, suffix) in listOf(Triple(1240, 800, 1f) to "", Triple(1170, 2532, 3f) to "-phone")) {
@@ -34,7 +35,7 @@ class Screenshots {
             }
         }
         // The page as it opens, locked until a tap.
-        val locked = ImageComposeScene(1170, 2532, Density(3f)) { Game(CallModel(CoroutineScope(Dispatchers.Default), Minds.none, plan = plan, seed = seed, clock = false, locked = true)) }
+        val locked = ImageComposeScene(1170, 2532, Density(3f)) { Game(CallModel(CoroutineScope(Dispatchers.Default), Minds.none, plan = plan, seed = seed, clock = false, locked = true, lang = lang)) }
         File(out, "locked-phone.png").writeBytes(locked.render(0L).encodeToData(EncodedImageFormat.PNG)!!.bytes)
         locked.close()
         shoot("ringing")
@@ -42,7 +43,7 @@ class Screenshots {
         if (System.getProperty("guide") != null) {
             for (page in 0 until 7) {
                 for (frame in 0..1) {
-                    val scene = ImageComposeScene(1170, 2532, Density(3f)) { GuidePage(page, frame * 700L) }
+                    val scene = ImageComposeScene(1170, 2532, Density(3f)) { GuidePage(page, frame * 700L, lang) }
                     File(out, "guide-${page + 1}-$frame.png").writeBytes(scene.render(0L).encodeToData(EncodedImageFormat.PNG)!!.bytes)
                     scene.close()
                 }
@@ -53,7 +54,7 @@ class Screenshots {
         val explorer = Balance()
         for (t in turns) {
             while (model.call.turn < t && !model.call.over) {
-                model.type(explorer.explore(model.call, model.maze, model.haunt))
+                model.type(explorer.explore(model.call, model.maze, model.haunt).let { if (lang == Lang.ES) spanish(it) else it })
                 model.send()
                 delay(20)
                 while (model.thinking) delay(10)
@@ -61,6 +62,17 @@ class Screenshots {
             // Let the last line finish appearing.
             delay(model.speaking() + 100)
             shoot("turn${model.call.turn}")
+        }
+    }
+
+    /** What the explorer says, in Spanish: the caller understands only that. */
+    private fun spanish(said: String): String {
+        val ways = mapOf("ahead" to "hacia delante", "right" to "a la derecha", "back" to "atrás", "left" to "a la izquierda")
+        return when {
+            said.startsWith("Shh") -> "Shh. Escóndete. Respira despacio, estoy aquí contigo."
+            said.startsWith("Breathe") -> "Respira. Despacio. Estoy aquí contigo, ¿vale?"
+            said == "Stay" -> "Quédate"
+            else -> "Vale, respira. Ve " + ways.getValue(said.substringAfterLast(" "))
         }
     }
 }

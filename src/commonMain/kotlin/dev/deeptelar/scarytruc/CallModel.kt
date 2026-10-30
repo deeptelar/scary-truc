@@ -46,10 +46,10 @@ data class Server(val url: String, val model: String, val key: String = "") {
 /** The phone's microphone: the browser turns the player's voice into text, where it can. */
 interface Microphone {
     /**
-     * Listens until the player pauses. [heard] gets the words so far as they come; [done] gets
-     * why it could not listen, or `null` when it heard what there was to hear.
+     * Listens until the player pauses, for words in [lang]. [heard] gets the words so far as they
+     * come; [done] gets why it could not listen, or `null` when it heard what there was to hear.
      */
-    fun listen(heard: (String) -> Unit, done: (String?) -> Unit)
+    fun listen(lang: Lang, heard: (String) -> Unit, done: (String?) -> Unit)
 
     fun stop()
 }
@@ -93,7 +93,12 @@ class CallModel(
     private val clock: Boolean = true,
     private val silence: Long = SILENCE,
     locked: Boolean = false,
+    lang: Lang = Lang.EN,
 ) {
+    /** The language of the game, as the player last chose it, or [lang] the first time. */
+    var lang: Lang by mutableStateOf(runCatching { store?.get(LANG) }.getOrNull()?.let { Lang.of(it) } ?: lang)
+        private set
+
     /** The phone's keys are locked: nothing rings until the player unlocks it. */
     var locked: Boolean by mutableStateOf(locked)
         private set
@@ -139,6 +144,7 @@ class CallModel(
         listening = true
         failure = null
         microphone.listen(
+            lang,
             heard = { type(it) },
             done = { problem ->
                 listening = false
@@ -263,9 +269,9 @@ class CallModel(
         if (thinking || ringing || call.over) return
         say(
             when (item) {
-                Item.BATTERY -> "swap in the battery"
-                Item.FLARE -> "light the flare"
-                Item.STONE -> "throw the stone ahead"
+                Item.BATTERY -> lang.t("swap in the battery", "cambia la batería")
+                Item.FLARE -> lang.t("light the flare", "enciende la bengala")
+                Item.STONE -> lang.t("throw the stone ahead", "tira la piedra hacia delante")
             },
         )
     }
@@ -285,6 +291,14 @@ class CallModel(
         Sound.place = plan.drone
         // Each call has its own midnight.
         Sound.midnight = Drone.MIDNIGHT.random()
+    }
+
+    /** Plays in [lang] from now on, and remembers it: this call starts again. */
+    fun speak(lang: Lang) {
+        if (thinking) return
+        this.lang = lang
+        runCatching { store?.set(LANG, lang.code) }
+        play(plan)
     }
 
     /** Other minds for the caller and the Hollow, from the next call on: this one starts again. */
@@ -313,7 +327,7 @@ class CallModel(
     private fun newRun(plan: Plan, seed: Long?): CallRun {
         val minds = minds
         // The maze is the same every time; the chances of the call are not.
-        return CallRun(plan, seed ?: Random.nextLong(), minds.ears { trouble = it }, minds.voice, minds.whisperer)
+        return CallRun(plan, seed ?: Random.nextLong(), minds.ears { trouble = it }, minds.voice, minds.whisperer, lang)
     }
 
     /** The turn being played, to stop when the player hangs up. */
@@ -479,6 +493,7 @@ class CallModel(
 
         private const val PROGRESS = "best"
         private const val SERVER = "server"
+        private const val LANG = "lang"
     }
 }
 

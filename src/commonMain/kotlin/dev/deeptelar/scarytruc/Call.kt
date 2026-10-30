@@ -72,6 +72,8 @@ data class Heard(
     val toward: Order? = null,
     /** Whether the stranger asked them to say again what is around them. */
     val again: Boolean = false,
+    /** Whether the stranger spoke another language than the caller's, who didn't understand. */
+    val foreign: Boolean = false,
 )
 
 /** What lies in a maze to pick up, and is used once. [code] is its letter in a drawn maze. */
@@ -164,6 +166,8 @@ data class Call(
     val name: String,
     /** Whether the caller screams and sobs in a woman's voice or a man's. */
     val woman: Boolean,
+    /** The language the caller speaks and understands. */
+    val lang: Lang = Lang.EN,
     val at: Pos,
     val facing: Dir,
     val battery: Int,
@@ -232,7 +236,7 @@ data class Call(
             whispered = turn,
             panic = (panic + WHISPER_HURTS).coerceAtMost(100),
             lines = lines + Line(Who.HOLLOW, text),
-            facts = facts + "A voice that isn't the stranger's just whispered on the phone: \"$text\"",
+            facts = facts + lang.t("A voice that isn't the stranger's just whispered on the phone: \"$text\"", "Una voz que no es la del desconocido acaba de susurrar por el teléfono: \"$text\""),
         )
 
     /** The call after the stranger hung up, with the caller somewhere in [maze]: without them, it is over. */
@@ -241,20 +245,20 @@ data class Call(
             end = End.ALONE,
             death = "the dark",
             away = maze.distances(at)[maze.gate],
-            lines = lines + Line(Who.LINE, "You hung up"),
+            lines = lines + Line(Who.LINE, lang.t("You hung up", "Has colgado")),
         )
 
     /** The call after the caller said [text]. */
     fun spoke(text: String): Call =
         copy(
-            lines = lines + Line(Who.CALLER, text) + listOfNotNull(if (over) Line(Who.LINE, "Call ended") else null),
+            lines = lines + Line(Who.CALLER, text) + listOfNotNull(if (over) Line(Who.LINE, lang.t("Call ended", "Llamada finalizada")) else null),
             facts = emptyList(),
             said = "",
             heard = null,
         )
 
     companion object {
-        fun begin(plan: Plan, maze: Maze, haunt: Haunt, seed: Long = maze.seed): Call {
+        fun begin(plan: Plan, maze: Maze, haunt: Haunt, seed: Long = maze.seed, lang: Lang = Lang.EN): Call {
             val start = maze.start
             val role = plan.role
             val call =
@@ -264,6 +268,7 @@ data class Call(
                     role = role,
                     name = CALLERS[Random(seed).nextInt(CALLERS.size)].first,
                     woman = CALLERS[Random(seed).nextInt(CALLERS.size)].second,
+                    lang = lang,
                     at = start,
                     facing = maze.exits(start).first(),
                     battery = plan.battery,
@@ -271,10 +276,10 @@ data class Call(
                 )
             val opening =
                 listOf(
-                    "I just woke up here. I don't know how I got here.",
-                    "My name is ${call.name}.",
-                    plan.setting,
-                    "It's dark. My phone is my only light, and you're the only one who picked up.",
+                    lang.t("I just woke up here. I don't know how I got here.", "Me acabo de despertar aquí. No sé cómo he llegado."),
+                    lang.t("My name is ${call.name}.", "Me llamo ${call.name}."),
+                    plan.text(lang).setting,
+                    lang.t("It's dark. My phone is my only light, and you're the only one who picked up.", "Está oscuro. Mi móvil es mi única luz, y eres la única persona que ha contestado."),
                 )
             return call.look(maze, haunt, opening)
         }
@@ -288,12 +293,14 @@ data class Call(
  */
 fun Call.walk(maze: Maze, haunt: Haunt): Call {
     val heard = heard ?: Heard(Order.NONE, 0)
+    // Words in another language: nothing happens, and they say so.
+    if (heard.foreign) return copy(facts = listOf(lang.t("I don't understand what you're saying.", "No entiendo lo que dices.")), walked = 0, ran = false, bumped = false, sniffed = false)
     val facts = mutableListOf<String>()
     var panic = panic
     var trust = trust
     fun chance(salt: Int) = Random(seed * 31 + turn * 131L + salt).nextDouble()
     if (said.isBlank()) {
-        facts += "You said nothing for a long time."
+        facts += lang.t("You said nothing for a long time.", "No has dicho nada en mucho rato.")
         panic += 8
         trust -= 3
     } else {
@@ -306,7 +313,7 @@ fun Call.walk(maze: Maze, haunt: Haunt): Call {
     // Left without an answer, they choose for themselves.
     if (said.isBlank()) {
         order = instinct(maze)
-        if (order != Order.NONE) facts += "So I chose myself."
+        if (order != Order.NONE) facts += lang.t("So I chose myself.", "Así que he elegido yo.")
     }
     when {
         // Kind words hold them for a turn; anything else, and they may run.
@@ -315,7 +322,7 @@ fun Call.walk(maze: Maze, haunt: Haunt): Call {
             order = Order.NONE
         }
         said.isNotBlank() && order.turn != null && trust < DOUBT && chance(2) < 0.5 -> {
-            facts += "I didn't go ${order.word}: I don't trust you enough."
+            facts += lang.t("I didn't go ${order.word}: I don't trust you enough.", "No he ido ${order.way(lang)}: no me fío lo bastante de ti.")
             order = Order.NONE
         }
     }
@@ -355,7 +362,12 @@ fun Call.walk(maze: Maze, haunt: Haunt): Call {
             if (afterMidnight || (distance <= 1 && panic >= QUIET) || (panic >= LOUD && distance <= 6)) {
                 hollow = it.copy(awake = true)
                 woke = true
-                facts += if (distance <= 3) "Something right next to me just woke up." else "Far away, something howled. Something woke up."
+                facts +=
+                    if (distance <= 3) {
+                        lang.t("Something right next to me just woke up.", "Algo justo a mi lado se acaba de despertar.")
+                    } else {
+                        lang.t("Far away, something howled. Something woke up.", "A lo lejos, algo ha aullado. Algo se ha despertado.")
+                    }
             }
             return
         }
@@ -373,7 +385,7 @@ fun Call.walk(maze: Maze, haunt: Haunt): Call {
     fun meet(): Boolean {
         val it = hollow?.takeIf { h -> h.awake && h.at == at } ?: return false
         if (hidden && panic < CALM_ENOUGH) {
-            facts += "It was here. Right here, next to me. It sniffed the air, and it went on."
+            facts += lang.t("It was here. Right here, next to me. It sniffed the air, and it went on.", "Estaba aquí. Justo aquí, a mi lado. Ha olfateado el aire y ha seguido.")
             sniffed = true
             panic += 15
             hollow = it.copy(deaf = DEAF)
@@ -381,7 +393,7 @@ fun Call.walk(maze: Maze, haunt: Haunt): Call {
         }
         end = End.TAKEN
         death = "the Hollow"
-        facts += "It found me. It's here. It's taking me."
+        facts += lang.t("It found me. It's here. It's taking me.", "Me ha encontrado. Está aquí. Me está llevando.")
         return true
     }
 
@@ -397,12 +409,12 @@ fun Call.walk(maze: Maze, haunt: Haunt): Call {
         maze.doomAt(at)?.let {
             end = End.DOOM
             death = it.kind.word
-            facts += "I went in. It was ${it.kind.word}."
+            facts += lang.t("I went in. It was ${it.kind.word}.", "He entrado. Era ${it.kind.word(lang)}.")
             return false
         }
         if (at == maze.gate) {
             end = End.OUT
-            facts += "I'm through the door. I'm outside. I can see the sky."
+            facts += lang.t("I'm through the door. I'm outside. I can see the sky.", "He cruzado la puerta. Estoy fuera. Veo el cielo.")
             return false
         }
         if (meet()) return false
@@ -417,7 +429,7 @@ fun Call.walk(maze: Maze, haunt: Haunt): Call {
         Order.AHEAD, Order.RIGHT, Order.BACK, Order.LEFT -> {
             val dir = facing.turned(order.turn!!)
             if (!maze.canGo(at, dir)) {
-                facts += "I can't go ${order.word}: there's only a wall."
+                facts += lang.t("I can't go ${order.word}: there's only a wall.", "No puedo ir ${order.way(lang)}: solo hay una pared.")
                 bumped = true
                 trust -= 4
                 hunt()
@@ -435,19 +447,25 @@ fun Call.walk(maze: Maze, haunt: Haunt): Call {
                     going = ahead!!
                 }
                 if (end == null || end == End.TAKEN) {
-                    val bend = if (facing != dir) ", around a bend" else ""
-                    facts.add(did, "I went ${if (order == Order.AHEAD) "ahead" else order.word} and followed the corridor $walked step${if (walked == 1) "" else "s"}$bend.")
+                    val bend = if (facing != dir) lang.t(", around a bend", ", tras una curva") else ""
+                    facts.add(
+                        did,
+                        lang.t(
+                            "I went ${order.word} and followed the corridor $walked step${if (walked == 1) "" else "s"}$bend.",
+                            "He ido ${order.way(lang)} y he seguido el pasillo $walked paso${if (walked == 1) "" else "s"}$bend.",
+                        ),
+                    )
                 }
             }
         }
         Order.STAY -> {
-            facts += "I stayed where I was."
+            facts += lang.t("I stayed where I was.", "Me he quedado donde estaba.")
             hunt()
             meet()
         }
         Order.HIDE -> {
             hidden = true
-            facts += "I crouched against the wall and covered the light of my phone. I'm keeping still."
+            facts += lang.t("I crouched against the wall and covered the light of my phone. I'm keeping still.", "Me he agachado contra la pared y he tapado la luz del móvil. No me muevo.")
             hunt()
             meet()
         }
@@ -455,9 +473,9 @@ fun Call.walk(maze: Maze, haunt: Haunt): Call {
             val number = marks.size + 1
             if (marks.none { it.at == at }) {
                 marks = marks + Mark(at, number)
-                facts += "I scratched a $number on the wall here, with a key."
+                facts += lang.t("I scratched a $number on the wall here, with a key.", "He rayado un $number en la pared, con una llave.")
             } else {
-                facts += "There's already a mark here."
+                facts += lang.t("There's already a mark here: my number ${marks.first { it.at == at }.number}.", "Aquí ya hay una marca: mi número ${marks.first { it.at == at }.number}.")
             }
             hunt()
             meet()
@@ -465,11 +483,11 @@ fun Call.walk(maze: Maze, haunt: Haunt): Call {
         Order.TAKE -> {
             val item = haunt.items[at]?.takeIf { at !in taken }
             if (item == null) {
-                facts += "There's nothing here to take."
+                facts += lang.t("There's nothing here to take.", "Aquí no hay nada que coger.")
             } else {
                 carried = carried + item
                 taken = taken + at
-                facts += "I picked up ${item.thing}. I have it now."
+                facts += lang.t("I picked up ${item.thing}. I have it now.", "He cogido ${item.thing(lang)}. Ahora la llevo yo.")
             }
             hunt()
             meet()
@@ -477,19 +495,19 @@ fun Call.walk(maze: Maze, haunt: Haunt): Call {
         Order.USE -> {
             val item = heard.item?.takeIf { it in carried } ?: carried.singleOrNull()?.takeIf { heard.item == null }
             if (item == null) {
-                facts += heard.item?.let { "I don't have a ${it.word}." } ?: "I don't have anything to use."
+                facts += heard.item?.let { lang.t("I don't have a ${it.word}.", "No tengo ninguna ${it.word(lang)}.") } ?: lang.t("I don't have anything to use.", "No tengo nada que usar.")
             } else {
                 carried = carried - item
                 when (item) {
                     Item.BATTERY -> {
                         battery = (battery + RECHARGE).coerceAtMost(100)
-                        facts += "I swapped in the other battery. The phone says $battery%."
+                        facts += lang.t("I swapped in the other battery. The phone says $battery%.", "He cambiado la batería. El móvil marca un $battery %.")
                     }
                     Item.FLARE -> {
                         panic -= 10
                         val it = hollow?.takeIf { h -> h.awake && (maze.distances(at)[h.at] ?: 99) <= FLARE_REACH }
                         if (it == null) {
-                            facts += "I lit the flare. Red light everywhere, and nothing in it. It's burning out."
+                            facts += lang.t("I lit the flare. Red light everywhere, and nothing in it. It's burning out.", "He encendido la bengala. Luz roja por todas partes, y nada en ella. Se está apagando.")
                         } else {
                             // It flees the light: away from the caller, and deaf to them for a while.
                             val from = maze.distances(at)
@@ -498,7 +516,7 @@ fun Call.walk(maze: Maze, haunt: Haunt): Call {
                                 maze.exits(fled.at).maxByOrNull { d -> from[fled.at + d] ?: 0 }?.let { d -> fled = fled.copy(at = fled.at + d, from = fled.at) }
                             }
                             hollow = fled
-                            facts += "I lit the flare. Red light everywhere. Something screamed and ran from it."
+                            facts += lang.t("I lit the flare. Red light everywhere. Something screamed and ran from it.", "He encendido la bengala. Luz roja por todas partes. Algo ha chillado y ha huido de ella.")
                         }
                     }
                     Item.STONE -> {
@@ -509,12 +527,17 @@ fun Call.walk(maze: Maze, haunt: Haunt): Call {
                             fell += going
                             going = maze.exits(fell).singleOrNull { d -> d != going.opposite } ?: break
                         }
-                        facts += if (fell == at) "I threw it, and it hit the wall right in front of me. So loud." else "I threw the stone ${pointing(facing.side(dir))}. It clattered somewhere down the corridor."
+                        facts +=
+                            if (fell == at) {
+                                lang.t("I threw it, and it hit the wall right in front of me. So loud.", "La he tirado y ha dado en la pared que tengo delante. Qué ruido.")
+                            } else {
+                                lang.t("I threw the stone ${pointing(facing.side(dir), lang)}. It clattered somewhere down the corridor.", "He tirado la piedra ${pointing(facing.side(dir), lang)}. Ha rebotado en algún sitio del pasillo.")
+                            }
                         hollow?.let { h ->
                             if ((maze.distances(fell)[h.at] ?: 99) <= HEARS_STONE) {
                                 if (!h.awake) {
                                     woke = true
-                                    facts += "Something woke up."
+                                    facts += lang.t("Something woke up.", "Algo se ha despertado.")
                                 }
                                 hollow = h.copy(awake = true, lure = fell)
                             }
@@ -535,7 +558,7 @@ fun Call.walk(maze: Maze, haunt: Haunt): Call {
                 while (step(going) && walked < 3) {
                     going = maze.exits(at).filter { it != going.opposite }.randomOrNull(random) ?: break
                 }
-                if (end == null || end == End.TAKEN) facts.add(did, "I panicked. I ran, I don't know which way. I don't know where I am anymore.")
+                if (end == null || end == End.TAKEN) facts.add(did, lang.t("I panicked. I ran, I don't know which way. I don't know where I am anymore.", "Me ha entrado el pánico. He corrido, no sé hacia dónde. Ya no sé dónde estoy."))
             } else {
                 hunt()
                 meet()
@@ -547,7 +570,7 @@ fun Call.walk(maze: Maze, haunt: Haunt): Call {
         meet()
     }
     hollow = hollow?.let { it.copy(deaf = (it.deaf - 1).coerceAtLeast(0)) }
-    if (end == null && hidden && order != Order.HIDE) facts += "I'm still crouched in the dark, keeping still."
+    if (end == null && hidden && order != Order.HIDE) facts += lang.t("I'm still crouched in the dark, keeping still.", "Sigo ${if (woman) "agachada" else "agachado"} en la oscuridad, sin moverme.")
 
     var next =
         copy(
@@ -574,10 +597,12 @@ fun Call.walk(maze: Maze, haunt: Haunt): Call {
         )
     if (end == null && next.battery <= 0) {
         next = next.copy(end = End.BATTERY, battery = 0)
-        facts += "My battery is dying. The screen is going dark."
+        facts += lang.t("My battery is dying. The screen is going dark.", "Me quedo sin batería. La pantalla se apaga.")
     }
     if (next.over) return next.copy(facts = facts, away = if (end == End.OUT) 0 else maze.distances(at)[maze.gate])
-    if (next.turn == plan.midnight) facts += "A bell is ringing somewhere, twelve times. Midnight. The walls are grinding, like they're moving."
+    if (next.turn == plan.midnight) {
+        facts += lang.t("A bell is ringing somewhere, twelve times. Midnight. The walls are grinding, like they're moving.", "Una campana suena en algún sitio, doce veces. Medianoche. Las paredes rechinan, como si se movieran.")
+    }
     if (heard.order == Order.NONE && heard.calm >= 1 && hollow?.awake != true && !bolted) next = next.copy(panic = (next.panic - 4).coerceAtLeast(0))
     return next.look(maze, haunt, facts)
 }
@@ -598,7 +623,7 @@ private fun Call.look(maze: Maze, haunt: Haunt, facts: List<String>): Call {
     val mark = marks.firstOrNull { it.at == at }
     if (lostTrack && at in mapped && (mark != null || at in haunt.notes || at in haunt.arrows || at == origin)) {
         lostTrack = false
-        seen += "Wait. I know this place. I've been here before."
+        seen += lang.t("Wait. I know this place. I've been here before.", "Espera. Conozco este sitio. Ya he estado aquí.")
         panic -= 10
     }
     // What happened is said; what is around them, from here on, only once.
@@ -609,47 +634,55 @@ private fun Call.look(maze: Maze, haunt: Haunt, facts: List<String>): Call {
         drawn = drawn + (at to pencil(turn, panic))
     }
 
-    val names = listOf("Ahead", "To my right", "Behind me", "To my left")
+    val names = if (lang == Lang.ES) listOf("Delante", "A mi derecha", "Detrás de mí", "A mi izquierda") else listOf("Ahead", "To my right", "Behind me", "To my left")
     for (quarter in listOf(0, 3, 1, 2)) {
         val dir = facing.turned(quarter)
         val name = names[quarter]
         if (!maze.canGo(at, dir)) {
-            if (quarter != 2) seen += "$name: a wall."
+            if (quarter != 2) seen += lang.t("$name: a wall.", "$name: una pared.")
             continue
         }
         val next = at + dir
         val doom = maze.doomAt(next)
         when {
             doom != null -> {
-                seen += "$name: ${doom.kind.sign}."
+                seen += "$name: ${doom.kind.sign(lang)}."
                 if (!lostTrack && next !in glimpsed) panic += 4
                 if (!lostTrack) glimpsed = glimpsed + (next to Glimpse.STRANGE)
             }
             next == maze.gate -> {
-                seen += "$name: light under a door. Real light. And cold air."
+                seen += lang.t("$name: light under a door. Real light. And cold air.", "$name: luz bajo una puerta. Luz de verdad. Y aire frío.")
                 if (!lostTrack) glimpsed = glimpsed + (next to Glimpse.LIGHT)
             }
             next in haunt.oddities -> {
-                seen += "$name: a corridor, and something in it: ${haunt.oddities.getValue(next)}."
+                seen += lang.t("$name: a corridor, and something in it: ${haunt.oddities.getValue(next)}.", "$name: un pasillo, y algo en él: ${haunt.oddities.getValue(next)}.")
                 if (!lostTrack) glimpsed = glimpsed + (next to Glimpse.STRANGE)
             }
-            quarter == 2 && walked > 0 -> seen += "Behind me: the way I came."
-            else -> seen += "$name: a corridor."
+            quarter == 2 && walked > 0 -> seen += lang.t("Behind me: the way I came.", "Detrás de mí: por donde he venido.")
+            else -> seen += lang.t("$name: a corridor.", "$name: un pasillo.")
         }
     }
-    if (maze.exits(at).size == 1 && at != origin) seen += "It's a dead end."
+    if (maze.exits(at).size == 1 && at != origin) seen += lang.t("It's a dead end.", "Es un callejón sin salida.")
 
-    haunt.arrows[at]?.let { seen += "A chalk arrow on the wall here points ${pointing(facing.side(it))}." }
+    haunt.arrows[at]?.let { seen += lang.t("A chalk arrow on the wall here points ${pointing(facing.side(it), lang)}.", "Una flecha de tiza en la pared señala ${pointing(facing.side(it), lang)}.") }
     haunt.notes[at]?.let {
-        seen += if (at in read) "The note I already read is here." else "A note on the floor here, in pencil: \"$it\""
+        seen += if (at in read) lang.t("The note I already read is here.", "Aquí está la nota que ya he leído.") else lang.t("A note on the floor here, in pencil: \"$it\"", "Una nota en el suelo, a lápiz: \"$it\"")
         if (walked > 0 || turn == 0) panic -= 6
     }
-    haunt.oddities[at]?.let { seen += "Here, on the floor: $it." }
-    haunt.items[at]?.takeIf { at !in taken }?.let { seen += "Here, on the floor: ${it.thing}. I could take it." }
-    mark?.takeIf { heard?.order != Order.MARK || facts.none { fact -> fact.startsWith("I scratched") } }?.let { seen += "My own mark is scratched on the wall here: the number ${it.number}." }
+    haunt.oddities[at]?.let { seen += lang.t("Here, on the floor: $it.", "Aquí, en el suelo: $it.") }
+    haunt.items[at]?.takeIf { at !in taken }?.let { seen += lang.t("Here, on the floor: ${it.thing}. I could take it.", "Aquí, en el suelo: ${it.thing(lang)}. Podría cogerla.") }
+    // A mark they just scratched, or found again when asked to, they already spoke of.
+    mark?.takeIf { heard?.order != Order.MARK }?.let { seen += lang.t("My own mark is scratched on the wall here: the number ${it.number}.", "Mi propia marca está rayada en la pared: el número ${it.number}.") }
 
     val toGate = maze.distances(at)[maze.gate] ?: 99
-    if (toGate <= COLD) seen += if (toGate <= 1) "The air is freezing here. There's a draft." else "The air is cold here, colder than anywhere else."
+    if (toGate <= COLD) {
+        seen +=
+            if (toGate <= 1) {
+                lang.t("The air is freezing here. There's a draft.", "Aquí el aire está helado. Hay corriente.")
+            } else {
+                lang.t("The air is cold here, colder than anywhere else.", "Aquí el aire está frío, más que en ningún otro sitio.")
+            }
+    }
 
     hollow?.let { hollow ->
         val steps = maze.distances(at)
@@ -657,25 +690,32 @@ private fun Call.look(maze: Maze, haunt: Haunt, facts: List<String>): Call {
         if (distance > HEARING) return@let
         if (distance == 0) {
             if (hollow.awake) {
-                seen += "It's still here. Right next to me. I can hear it breathing."
+                seen += lang.t("It's still here. Right next to me. I can hear it breathing.", "Sigue aquí. Justo a mi lado. Lo oigo respirar.")
                 panic += 8
             }
             return@let
         }
-        val from = maze.way(at, hollow.at)?.first?.let { facing.side(it) }?.let { listOf("ahead", "my right", "behind me", "my left")[it] } ?: "everywhere"
+        val sides = if (lang == Lang.ES) listOf("delante", "mi derecha", "detrás de mí", "mi izquierda") else listOf("ahead", "my right", "behind me", "my left")
+        val from = maze.way(at, hollow.at)?.first?.let { facing.side(it) }?.let { sides[it] } ?: lang.t("everywhere", "todas partes")
         if (hollow.awake) {
-            val how = when (distance) { 1 -> "right around the corner"; 2 -> "close"; else -> "not far" }
-            seen += "I can hear it: slow, wet footsteps, $how, from $from."
+            val how =
+                when (distance) {
+                    1 -> lang.t("right around the corner", "justo a la vuelta de la esquina")
+                    2 -> lang.t("close", "cerca")
+                    else -> lang.t("not far", "no muy lejos")
+                }
+            seen += lang.t("I can hear it: slow, wet footsteps, $how, from $from.", "Lo oigo: pasos lentos, húmedos, $how, desde $from.")
             panic += when (distance) { 1 -> 20; 2 -> 12; else -> 6 }
         } else if (distance <= 3) {
-            seen += "Something is breathing, slow, like it's asleep, from $from."
+            seen += lang.t("Something is breathing, slow, like it's asleep, from $from.", "Algo respira, despacio, como si durmiera, desde $from.")
             panic += 5
         }
     }
 
     // They ask which way, naming the ways they see: the stranger answers, or they choose themselves.
-    val ways = listOf(0, 3, 1, 2).filter { maze.canGo(at, facing.turned(it)) }.map { listOf("ahead", "right", "back", "left")[it] }
-    if (ways.size > 1) seen += "Which way do I go: ${ways.dropLast(1).joinToString(", ")} or ${ways.last()}?"
+    val words = if (lang == Lang.ES) listOf("delante", "derecha", "atrás", "izquierda") else listOf("ahead", "right", "back", "left")
+    val ways = listOf(0, 3, 1, 2).filter { maze.canGo(at, facing.turned(it)) }.map { words[it] }
+    if (ways.size > 1) seen += lang.t("Which way do I go: ${ways.dropLast(1).joinToString(", ")} or ${ways.last()}?", "¿Por dónde voy: ${ways.dropLast(1).joinToString(", ")} o ${ways.last()}?")
 
     // Finding what they were told to look for makes the stranger worth listening to.
     if (heard?.order?.turn != null && walked > 0 && (at in haunt.notes || at in haunt.arrows || toGate <= COLD)) trust += 5
@@ -724,7 +764,8 @@ fun Call.ink(pos: Pos): Float {
 /** After this many turns, a cell without a mark is gone from the notebook. */
 const val FADE: Int = 6
 
-private fun pointing(side: Int): String = listOf("ahead", "to my right", "back the way I came", "to my left")[side]
+private fun pointing(side: Int, lang: Lang): String =
+    (if (lang == Lang.ES) listOf("hacia delante", "a mi derecha", "hacia atrás, por donde he venido", "a mi izquierda") else listOf("ahead", "to my right", "back the way I came", "to my left"))[side]
 
 /** First names for callers, no one in particular, and whether they have a woman's voice. */
 private val CALLERS =

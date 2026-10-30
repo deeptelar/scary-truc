@@ -8,17 +8,19 @@ import kotlin.js.JsAny
 /**
  * The microphone in a browser, through its speech recognition, as Foodie Route does it. Most
  * browsers turn the voice into text on their maker's servers (Chrome on Google's), so the
- * recording goes there and the page only gets the text. It listens in the language of the browser,
- * which Gemma reads too. Where there is none, as in Firefox, [available] is false.
+ * recording goes there and the page only gets the text. It listens in the language of the game.
+ * Where there is none, as in Firefox, [available] is false.
  */
 class WebMicrophone : Microphone {
     private var recognition: JsAny? = null
 
-    override fun listen(heard: (String) -> Unit, done: (String?) -> Unit) {
+    override fun listen(lang: Lang, heard: (String) -> Unit, done: (String?) -> Unit) {
         stop()
         recognition =
             runCatching {
-                start(heard) { error ->
+                // The language of the game, in the browser's own variant of it where it has one.
+                val language = navigatorLanguage().takeIf { Lang.of(it) == lang } ?: if (lang == Lang.ES) "es-ES" else "en-US"
+                start(language, heard) { error ->
                     recognition = null
                     done(
                         when (error) {
@@ -48,11 +50,11 @@ class WebMicrophone : Microphone {
 private fun supported(): Boolean = js("('SpeechRecognition' in window) || ('webkitSpeechRecognition' in window)")
 
 // It stops at the first pause: a phone call is said a sentence at a time.
-private fun start(heard: (String) -> Unit, ended: (String) -> Unit): JsAny =
+private fun start(language: String, heard: (String) -> Unit, ended: (String) -> Unit): JsAny =
     js(
         """{
         const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
-        recognition.lang = navigator.language || 'en-US';
+        recognition.lang = language;
         recognition.interimResults = true;
         recognition.continuous = false;
         let error = '';
@@ -67,5 +69,8 @@ private fun start(heard: (String) -> Unit, ended: (String) -> Unit): JsAny =
         return recognition;
     }""",
     )
+
+/** The language the browser is set to, such as `es-ES`. */
+internal fun navigatorLanguage(): String = js("navigator.language || 'en-US'")
 
 private fun stop(recognition: JsAny): Unit = js("{ try { recognition.stop(); } catch (e) {} }")

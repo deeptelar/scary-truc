@@ -19,7 +19,8 @@ fun main() {
     Sound.output = audio
     Sound.start(scope)
     val store = LocalStore()
-    val game = CallModel(scope, store = store, locked = true)
+    // In the browser's language the first time, Spanish or English; the player can change it.
+    val game = CallModel(scope, store = store, locked = true, lang = Lang.of(navigatorLanguage()))
     game.saved()?.let { game.use(it) }
     game.onAnswer = audio::unlock
     // A browser plays sound only after a tap: the phone opens locked, and the first tap anywhere

@@ -78,9 +78,11 @@ fun Game(model: CallModel) {
             Phone(model, now, narrow = false, Modifier.width(420.dp).fillMaxHeight())
             Column(Modifier.weight(1f).fillMaxHeight(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 val other = model.call.afterMidnight && !model.ringing && !model.call.over
-                PixelText(if (other) "OTHERWORLD" else "SCARY TRUC", size = BIG, color = if (other) Ink.red else Ink.orange)
-                PixelText("${model.plan.title}, after ${model.plan.film}", color = Ink.orange)
-                PixelText(model.plan.hint, size = SMALL, color = Ink.faint, maxLines = 3)
+                val lang = model.lang
+                val text = model.plan.text(lang)
+                PixelText(if (other) lang.t("OTHERWORLD", "EL OTRO LADO") else "SCARY TRUC", size = BIG, color = if (other) Ink.red else Ink.orange)
+                PixelText(lang.t("${text.title}, after ${text.film}", "${text.title}, según ${text.film}"), color = Ink.orange)
+                PixelText(text.hint, size = SMALL, color = Ink.faint, maxLines = 3)
                 // The notebook is a second screen of the same kind, beside the phone.
                 val call = model.call
                 val lcd = Lcd.of(call, model.ringing, if (model.ringing || call.over) 0f else danger(call, model.maze), now)
@@ -97,9 +99,13 @@ fun Game(model: CallModel) {
 /** Whose mind the caller has, and what went wrong with it. */
 private fun mind(model: CallModel): String =
     when {
-        !model.gemma -> "No model: the caller knows only a few words (left, right, ahead, back, stay, hide, mark, take, use). Menu > Model to add one."
-        model.trouble != null -> "${model.minds.name} did not answer, so they heard only your keywords: ${model.trouble}"
-        else -> "The caller and the Hollow are played by ${model.minds.name}."
+        !model.gemma ->
+            model.lang.t(
+                "No model: the caller knows only a few words (left, right, ahead, back, stay, hide, mark, take, use). Menu > Model to add one.",
+                "Sin modelo: solo entienden unas pocas palabras (izquierda, derecha, delante, atrás, quédate, escóndete, marca, coge, usa). Menú > Modelo para añadir uno.",
+            )
+        model.trouble != null -> model.lang.t("${model.minds.name} did not answer, so they heard only your keywords: ${model.trouble}", "${model.minds.name} no ha respondido, así que solo han oído tus palabras clave: ${model.trouble}")
+        else -> model.lang.t("The caller and the Hollow are played by ${model.minds.name}.", "Quien llama y el Hueco los interpreta ${model.minds.name}.")
     }
 
 /**
@@ -158,9 +164,9 @@ private fun Phone(model: CallModel, now: Long, narrow: Boolean, modifier: Modifi
         ) {
             StatusBar(call, danger, lcd)
             when {
-                model.locked -> Locked(lcd, model::unlock)
-                model.ringing && screen == Screen.MENU -> Menu(lcd, { screen = it })
-                model.ringing && screen == Screen.HELP -> Help(lcd, now) { screen = Screen.CALLS }
+                model.locked -> Locked(lcd, model.lang, model::unlock)
+                model.ringing && screen == Screen.MENU -> Menu(model, lcd) { screen = it }
+                model.ringing && screen == Screen.HELP -> Help(lcd, now, model.lang) { screen = Screen.CALLS }
                 model.ringing && screen == Screen.MODEL -> Options(model, lcd) { screen = Screen.MENU }
                 model.ringing -> Calls(model, now, lcd, Modifier.weight(1f)) { screen = Screen.MENU }
                 else -> {
@@ -272,7 +278,8 @@ private fun Softkeys(lcd: Lcd, left: Pair<String, () -> Unit>?, middle: Pair<Str
  */
 @Composable
 private fun Calls(model: CallModel, now: Long, lcd: Lcd, modifier: Modifier, options: () -> Unit) {
-    Header("Calls", lcd)
+    val lang = model.lang
+    Header(lang.t("Calls", "Llamadas"), lcd)
     Column(modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(2.dp)) {
         for (plan in Plan.entries) {
             val chosen = plan == model.plan
@@ -282,11 +289,11 @@ private fun Calls(model: CallModel, now: Long, lcd: Lcd, modifier: Modifier, opt
                     .padding(horizontal = 6.dp, vertical = 3.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                PixelText(plan.title, Modifier.weight(1f), color = if (chosen) lcd.paper else lcd.ink, maxLines = 1)
+                PixelText(plan.text(lang).title, Modifier.weight(1f), color = if (chosen) lcd.paper else lcd.ink, maxLines = 1)
                 PixelText(
                     when (best) {
                         null -> ""
-                        0 -> "out"
+                        0 -> lang.t("out", "fuera")
                         else -> "$best"
                     },
                     size = SMALL,
@@ -295,21 +302,21 @@ private fun Calls(model: CallModel, now: Long, lcd: Lcd, modifier: Modifier, opt
             }
         }
         Spacer(Modifier.height(6.dp))
-        PixelText("after ${model.plan.film}", size = SMALL, color = lcd.ink)
-        PixelText(model.plan.hint, size = SMALL, color = lcd.faint)
-        if (model.best.isEmpty()) PixelText("First call? Menu > How to save them.", size = SMALL, color = lcd.ink)
+        PixelText(lang.t("after ${model.plan.text(lang).film}", "según ${model.plan.text(lang).film}"), size = SMALL, color = lcd.ink)
+        PixelText(model.plan.text(lang).hint, size = SMALL, color = lcd.faint)
+        if (model.best.isEmpty()) PixelText(lang.t("First call? Menu > How to save them.", "¿Primera llamada? Menú > Cómo salvarles."), size = SMALL, color = lcd.ink)
         Spacer(Modifier.height(8.dp))
         // The phone rings: its picture shakes.
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
             val shake = if ((now / 120) % 2 == 0L && (now / 1000) % 3 != 2L) 2.dp else 0.dp
             Box(Modifier.size(40.dp).offset(x = shake).drawBehind { draw(Sprite(HANDSET, mapOf('#' to lcd.ink)), center, 3.dp.toPx()) })
             Column(Modifier.padding(start = 10.dp)) {
-                PixelText("Unknown number", color = lcd.ink)
-                PixelText(if ((now / 600) % 2 == 0L) "calling" else "calling.", size = SMALL, color = lcd.ink)
+                PixelText(lang.t("Unknown number", "Número oculto"), color = lcd.ink)
+                PixelText(lang.t("calling", "llamando") + if ((now / 600) % 2 == 0L) "" else ".", size = SMALL, color = lcd.ink)
             }
         }
     }
-    Softkeys(lcd, "Menu" to options, "Answer" to model::answer, null)
+    Softkeys(lcd, lang.t("Menu", "Menú") to options, lang.t("Answer", "Contestar") to model::answer, null)
 }
 
 /** Headphones: the night is heard better through them. */
@@ -347,7 +354,7 @@ private val PADLOCK =
  * it plays a sound, so the phone rings the moment it is unlocked.
  */
 @Composable
-private fun ColumnScope.Locked(lcd: Lcd, unlock: () -> Unit) {
+private fun ColumnScope.Locked(lcd: Lcd, lang: Lang, unlock: () -> Unit) {
     Header("SCARY TRUC", lcd)
     Column(
         Modifier.weight(1f).fillMaxWidth().clickable(onClick = unlock),
@@ -355,13 +362,13 @@ private fun ColumnScope.Locked(lcd: Lcd, unlock: () -> Unit) {
         verticalArrangement = Arrangement.spacedBy(14.dp, Alignment.CenterVertically),
     ) {
         Box(Modifier.size(60.dp).drawBehind { draw(Sprite(PADLOCK, mapOf('#' to lcd.ink)), center, 5.dp.toPx()) })
-        PixelText("Keys locked", color = lcd.ink)
-        PixelText("Turn the sound up, and unlock. Someone is about to call.", Modifier.fillMaxWidth(), size = SMALL, color = lcd.faint, align = TextAlign.Center)
+        PixelText(lang.t("Keys locked", "Teclado bloqueado"), color = lcd.ink)
+        PixelText(lang.t("Turn the sound up, and unlock. Someone is about to call.", "Sube el volumen y desbloquea. Alguien está a punto de llamar."), Modifier.fillMaxWidth(), size = SMALL, color = lcd.faint, align = TextAlign.Center)
         Spacer(Modifier.height(10.dp))
         Box(Modifier.size(36.dp, 30.dp).drawBehind { draw(Sprite(HEADPHONES, mapOf('#' to lcd.ink)), center, 3.dp.toPx()) })
-        PixelText("For the real experience, put your headphones on.", Modifier.fillMaxWidth(), size = SMALL, color = lcd.ink, align = TextAlign.Center)
+        PixelText(lang.t("For the real experience, put your headphones on.", "Para vivirlo de verdad, ponte los auriculares."), Modifier.fillMaxWidth(), size = SMALL, color = lcd.ink, align = TextAlign.Center)
     }
-    Softkeys(lcd, null, "Unlock" to unlock, null)
+    Softkeys(lcd, null, lang.t("Unlock", "Desbloquear") to unlock, null)
 }
 
 /** A heart in pixels: the fonts of the web draw ♥ in colour. */
@@ -385,19 +392,28 @@ private val HANDSET =
 
 /** The options of the phone, as a menu of the time: one line each, the first in reverse. */
 @Composable
-private fun ColumnScope.Menu(lcd: Lcd, go: (Screen) -> Unit) {
-    Header("Menu", lcd)
+private fun ColumnScope.Menu(model: CallModel, lcd: Lcd, go: (Screen) -> Unit) {
+    val lang = model.lang
+    Header(lang.t("Menu", "Menú"), lcd)
     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-        for ((i, entry) in listOf("How to save them" to Screen.HELP, "Model" to Screen.MODEL).withIndex()) {
+        // The language changes at once: the other one is named in itself.
+        val other = Lang.entries.first { it != lang }
+        val entries =
+            listOf(
+                lang.t("How to save them", "Cómo salvarles") to { go(Screen.HELP) },
+                lang.t("Model", "Modelo") to { go(Screen.MODEL) },
+                "${lang.t("Language", "Idioma")}: ${lang.title} > ${other.title}" to { model.speak(other) },
+            )
+        for ((i, entry) in entries.withIndex()) {
             PixelText(
                 entry.first,
-                Modifier.fillMaxWidth().background(if (i == 0) lcd.ink else lcd.paper).clickable { go(entry.second) }.padding(horizontal = 6.dp, vertical = 3.dp),
+                Modifier.fillMaxWidth().background(if (i == 0) lcd.ink else lcd.paper).clickable(onClick = entry.second).padding(horizontal = 6.dp, vertical = 3.dp),
                 color = if (i == 0) lcd.paper else lcd.ink,
                 maxLines = 1,
             )
         }
     }
-    Softkeys(lcd, "Back" to { go(Screen.CALLS) }, null, null)
+    Softkeys(lcd, lang.t("Back", "Atrás") to { go(Screen.CALLS) }, null, null)
 }
 
 /**
@@ -551,6 +567,42 @@ private val LESSONS =
         ),
     )
 
+/** How to save them in Spanish: the same pages, the first with its letters in Spanish (I is izquierda). */
+private val LESSONS_ES: List<Lesson> =
+    listOf(
+        "Ellos ven. Tú no. Di adónde ir desde donde ELLOS miran. Aquí te miran a ti: su izquierda está a tu derecha." to "ve a la izquierda",
+        "Tu libreta olvida. Una marca rayada en mis paredes, no." to "raya una marca",
+        "Los que vinieron antes dejaron notas. Aprendieron qué mata. Demasiado tarde." to "¿qué pone?",
+        "Mi mascota es ciega. Oye el miedo. Mantenlos en calma y, cuando esté cerca, que se escondan." to "escóndete. no te muevas. estoy aquí.",
+        "Dejo cosas en los rincones. Una batería da tiempo. Una bengala lo asusta. Una piedra, lanzada, lo atrae." to "cógela",
+        "No los dejes en silencio. Si esperas demasiado, eligen ellos. Y eligen mal." to null,
+        "A medianoche muevo las paredes, y tu libreta miente. La salida está fría. Mi frío nunca miente." to "¿dónde hace más frío?",
+    ).mapIndexed { i, (line, example) ->
+        Lesson(
+            line,
+            example,
+            if (i > 0) {
+                LESSONS[i].picture
+            } else {
+                listOf(
+                    ".........###.........",
+                    ".++......###......###",
+                    ".+.+.....###....b..#.",
+                    ".+.+....#####.bbbb.#.",
+                    ".+.+.....###....b..#.",
+                    ".++.......#.......###",
+                    ".....................",
+                    ".....................",
+                    ".......+++.+.+.......",
+                    "........+..+.+.......",
+                    "........+..+.+.......",
+                    "........+..+.+.......",
+                    "........+..+++.......",
+                )
+            },
+        )
+    }
+
 /** A lesson's picture in its [frame], 0 or 1. */
 private fun Lesson.sprite(frame: Int, lcd: Lcd): Sprite {
     val colors = mutableMapOf('#' to lcd.ink, '+' to lcd.faint, '-' to lcd.paper, 'm' to if (frame == 0) lcd.ink else lcd.faint)
@@ -560,12 +612,12 @@ private fun Lesson.sprite(frame: Int, lcd: Lcd): Sprite {
 
 /** How to save them, a page at a time: tap the picture or Next. The last page goes to the calls, to pick one. */
 @Composable
-private fun ColumnScope.Help(lcd: Lcd, now: Long, start: Int = 0, back: () -> Unit) {
+private fun ColumnScope.Help(lcd: Lcd, now: Long, lang: Lang, start: Int = 0, back: () -> Unit) {
     var page by remember { mutableStateOf(start) }
-    val lesson = LESSONS[page]
+    val lesson = if (lang == Lang.ES) LESSONS_ES[page] else LESSONS[page]
     val last = page == LESSONS.lastIndex
     val next: () -> Unit = { if (last) back() else page += 1 }
-    Header("How to save them", lcd)
+    Header(lang.t("How to save them", "Cómo salvarles"), lcd)
     Column(Modifier.weight(1f).fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Box(
             Modifier.weight(1f).fillMaxWidth().clickable(onClick = next).drawBehind {
@@ -580,18 +632,18 @@ private fun ColumnScope.Help(lcd: Lcd, now: Long, start: Int = 0, back: () -> Un
     }
     if (last) {
         Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.CenterEnd) {
-            PixelText("- the one who built the maze", size = SMALL, color = lcd.faint)
+            PixelText(lang.t("- the one who built the maze", "- quien construyó el laberinto"), size = SMALL, color = lcd.faint)
         }
     }
-    Softkeys(lcd, "Back" to { if (page == 0) back() else page -= 1 }, "${page + 1}/${LESSONS.size}" to {}, (if (last) "Calls" else "Next") to next)
+    Softkeys(lcd, lang.t("Back", "Atrás") to { if (page == 0) back() else page -= 1 }, "${page + 1}/${LESSONS.size}" to {}, (if (last) lang.t("Calls", "Llamadas") else lang.t("Next", "Siguiente")) to next)
 }
 
 /** A page of how to save them on a lit screen, for the screenshots. */
 @Composable
-internal fun GuidePage(page: Int, now: Long) {
+internal fun GuidePage(page: Int, now: Long, lang: Lang = Lang.EN) {
     val lcd = Lcd(Lcd.LIGHT, Lcd.DARK)
     Column(Modifier.fillMaxSize().background(Lcd.BODY).padding(6.dp).pixelBox(lcd.paper, outline = Ink.outline, raised = false).padding(horizontal = 12.dp, vertical = 10.dp)) {
-        Help(lcd, now, start = page) {}
+        Help(lcd, now, lang, start = page) {}
     }
 }
 
@@ -605,20 +657,28 @@ private fun ColumnScope.Options(model: CallModel, lcd: Lcd, done: () -> Unit) {
     var url by remember { mutableStateOf(saved?.url ?: Server.OPENROUTER.url) }
     var name by remember { mutableStateOf(saved?.model ?: Server.OPENROUTER.model) }
     var key by remember { mutableStateOf(saved?.key.orEmpty()) }
-    Header("Model", lcd)
+    val lang = model.lang
+    Header(lang.t("Model", "Modelo"), lcd)
     Column(Modifier.fillMaxWidth().weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         PixelText(mind(model), size = SMALL, color = lcd.ink)
         Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
             PixelText("OpenRouter", Modifier.clickable { url = Server.OPENROUTER.url; name = Server.OPENROUTER.model }.padding(4.dp), size = SMALL, color = lcd.ink)
             PixelText("Ollama", Modifier.clickable { url = Server.OLLAMA.url; name = Server.OLLAMA.model; key = "" }.padding(4.dp), size = SMALL, color = lcd.ink)
-            PixelText("None", Modifier.clickable { model.connect(null); done() }.padding(4.dp), size = SMALL, color = lcd.ink)
+            PixelText(lang.t("None", "Ninguno"), Modifier.clickable { model.connect(null); done() }.padding(4.dp), size = SMALL, color = lcd.ink)
         }
-        for ((value, set, hint) in listOf(Triple(url, { it: String -> url = it }, "Server address"), Triple(name, { it: String -> name = it }, "Model"), Triple(key, { it: String -> key = it }, "Key or token"))) {
+        for ((value, set, hint) in listOf(Triple(url, { it: String -> url = it }, lang.t("Server address", "Dirección del servidor")), Triple(name, { it: String -> name = it }, lang.t("Model", "Modelo")), Triple(key, { it: String -> key = it }, lang.t("Key or token", "Clave o token")))) {
             PixelField(value, set, hint, Modifier.fillMaxWidth(), maxLines = 1, fill = lcd.paper, ink = lcd.ink, hint = lcd.faint, size = SMALL)
         }
-        PixelText("The key stays on this device and goes from it straight to the server. A friend's proxy works too: its address, and your token as the key.", size = SMALL, color = lcd.faint)
+        PixelText(
+            lang.t(
+                "The key stays on this device and goes from it straight to the server. A friend's proxy works too: its address, and your token as the key.",
+                "La clave se queda en este dispositivo y va de él directa al servidor. También sirve el proxy de un amigo: su dirección, y tu token como clave.",
+            ),
+            size = SMALL,
+            color = lcd.faint,
+        )
     }
-    Softkeys(lcd, "Back" to done, "Save" to { model.connect(Server(url.trim(), name.trim(), key.trim())); done() }, null)
+    Softkeys(lcd, lang.t("Back", "Atrás") to done, lang.t("Save", "Guardar") to { model.connect(Server(url.trim(), name.trim(), key.trim())); done() }, null)
 }
 
 /** Who is calling, how fast their heart beats, and whether they hide. */
@@ -635,7 +695,7 @@ private fun CallerBar(model: CallModel, now: Long, lcd: Lcd) {
         Box(Modifier.size(60.dp, 18.dp).drawBehind { trace(if (flat) null else bpm, now, lcd.ink) })
         PixelText(if (flat) "--" else "$bpm", size = SMALL, color = lcd.faint)
         Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
-            PixelText(call.name + if (call.hidden && !call.over) " (hiding)" else "", color = lcd.ink, maxLines = 1)
+            PixelText(call.name + if (call.hidden && !call.over) model.lang.t(" (hiding)", if (call.woman) " (escondida)" else " (escondido)") else "", color = lcd.ink, maxLines = 1)
         }
         // What they carry, in reverse, as a phone of the time showed its icons: a tap uses it.
         for (item in call.carried) {
@@ -645,11 +705,11 @@ private fun CallerBar(model: CallModel, now: Long, lcd: Lcd) {
                 horizontalArrangement = Arrangement.spacedBy(3.dp),
             ) {
                 ItemIcon(item, lcd.paper, lcd.ink)
-                PixelText(item.word, size = SMALL, color = lcd.paper)
+                PixelText(item.word(model.lang), size = SMALL, color = lcd.paper)
             }
         }
         // The red key, in the corner: twice, to be sure, and it is over for them.
-        if (!call.over) HangUp(now, model::hangUp, lcd)
+        if (!call.over) HangUp(now, model.lang, model::hangUp, lcd)
     }
 }
 
@@ -690,11 +750,11 @@ private fun wave(ms: Long): Int =
 
 /** The key that hangs up: the first tap asks, a second within three seconds hangs up. */
 @Composable
-private fun HangUp(now: Long, hangUp: () -> Unit, lcd: Lcd) {
+private fun HangUp(now: Long, lang: Lang, hangUp: () -> Unit, lcd: Lcd) {
     var asked by remember { mutableLongStateOf(-HANG_UP_WAIT) }
     val sure = now - asked < HANG_UP_WAIT
     PixelText(
-        if (sure) "Hang up?" else "End",
+        if (sure) lang.t("Hang up?", "¿Colgar?") else lang.t("End", "Colgar"),
         Modifier.background(lcd.ink).clickable { if (sure) hangUp() else asked = now() }.padding(horizontal = 6.dp, vertical = 2.dp),
         size = SMALL,
         color = lcd.paper,
@@ -716,8 +776,8 @@ private fun ItemIcon(item: Item, ink: Color, paper: Color) {
 private fun Pocket(model: CallModel, lcd: Lcd) {
     val call = model.call
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        PixelText("Pocket:", size = SMALL, color = lcd.ink)
-        if (call.carried.isEmpty()) PixelText("nothing yet", size = SMALL, color = lcd.faint)
+        PixelText(model.lang.t("Pocket:", "Bolsillo:"), size = SMALL, color = lcd.ink)
+        if (call.carried.isEmpty()) PixelText(model.lang.t("nothing yet", "nada aún"), size = SMALL, color = lcd.faint)
         for (item in call.carried) {
             Row(
                 Modifier.clickable(enabled = !model.thinking && !call.over) { model.useItem(item) }.padding(2.dp),
@@ -725,7 +785,7 @@ private fun Pocket(model: CallModel, lcd: Lcd) {
                 horizontalArrangement = Arrangement.spacedBy(3.dp),
             ) {
                 ItemIcon(item, lcd.ink, lcd.paper)
-                PixelText(item.word, size = SMALL, color = lcd.ink)
+                PixelText(item.word(model.lang), size = SMALL, color = lcd.ink)
             }
         }
     }
@@ -789,13 +849,13 @@ private fun Talk(model: CallModel, now: Long, narrow: Boolean, lcd: Lcd, noteboo
         model.typed,
         model::type,
         when {
-            model.listening -> "Listening..."
-            model.thinking -> "They're talking..."
-            else -> "Talk to them, or just: left"
+            model.listening -> model.lang.t("Listening...", "Escuchando...")
+            model.thinking -> model.lang.t("They're talking...", "Está hablando...")
+            else -> model.lang.t("Talk to them, or just: left", "Háblale, o solo: izquierda")
         },
         Modifier.fillMaxWidth().focusRequester(focus).onPreviewKeyEvent { event ->
             // The arrows are shortcuts while nothing is typed: the way, from where they face.
-            val way = mapOf(Key.DirectionLeft to "left", Key.DirectionRight to "right", Key.DirectionUp to "ahead", Key.DirectionDown to "back")[event.key]
+            val way = mapOf(Key.DirectionLeft to Order.LEFT, Key.DirectionRight to Order.RIGHT, Key.DirectionUp to Order.AHEAD, Key.DirectionDown to Order.BACK)[event.key]
             when {
                 event.type != KeyEventType.KeyDown -> false
                 event.key == Key.Enter && !event.isShiftPressed -> {
@@ -804,7 +864,7 @@ private fun Talk(model: CallModel, now: Long, narrow: Boolean, lcd: Lcd, noteboo
                 }
                 way != null && model.typed.isEmpty() -> {
                     if (!model.thinking) {
-                        model.type(way)
+                        model.type(model.lang.t(way.word, listOf("delante", "derecha", "atrás", "izquierda")[way.turn!!]))
                         model.send()
                     }
                     true
@@ -823,9 +883,9 @@ private fun Talk(model: CallModel, now: Long, narrow: Boolean, lcd: Lcd, noteboo
     Box(Modifier.fillMaxWidth().height(3.dp).drawBehind { drawRect(lcd.ink, size = size.copy(width = size.width * left)) })
     Softkeys(
         lcd,
-        model.microphone?.let { (if (model.listening) "Stop" else "Mic") to model::listen },
-        "Say" to model::send,
-        if (narrow) (if (notebook) "Call" else "Notes") to toggleNotebook else null,
+        model.microphone?.let { (if (model.listening) model.lang.t("Stop", "Parar") else model.lang.t("Mic", "Micro")) to model::listen },
+        model.lang.t("Say", "Decir") to model::send,
+        if (narrow) (if (notebook) model.lang.t("Call", "Llamada") else model.lang.t("Notes", "Notas")) to toggleNotebook else null,
     )
 }
 
@@ -834,22 +894,23 @@ private fun Talk(model: CallModel, now: Long, narrow: Boolean, lcd: Lcd, noteboo
 private fun Ending(model: CallModel, lcd: Lcd) {
     val call = model.call
     Column(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalArrangement = Arrangement.spacedBy(6.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-        PixelText("Call ended", color = lcd.ink)
+        val lang = model.lang
+        PixelText(lang.t("Call ended", "Llamada finalizada"), color = lcd.ink)
         PixelText(
             when (call.end) {
-                End.OUT -> "${call.name} got out."
-                End.BATTERY -> "The battery died."
-                End.ALONE -> "You hung up. Alone, ${call.name} never found the way out."
-                else -> "Taken by ${call.death}."
+                End.OUT -> lang.t("${call.name} got out.", "${call.name} ha salido.")
+                End.BATTERY -> lang.t("The battery died.", "Se acabó la batería.")
+                End.ALONE -> lang.t("You hung up. Alone, ${call.name} never found the way out.", "Has colgado. Sin ti, ${call.name} nunca encontró la salida.")
+                else -> lang.t("Taken by ${call.death}.", "${if (call.woman) "Se la llevó" else "Se lo llevó"} ${death(call.death, lang)}.")
             },
             size = SMALL,
             color = lcd.ink,
         )
         call.away?.takeIf { it > 0 }?.let { steps ->
-            PixelText("${call.name} was $steps step${if (steps == 1) "" else "s"} from the way out.", size = SMALL, color = lcd.ink)
+            PixelText(lang.t("${call.name} was $steps step${if (steps == 1) "" else "s"} from the way out.", "${call.name} estaba a $steps paso${if (steps == 1) "" else "s"} de la salida."), size = SMALL, color = lcd.ink)
         }
         val best = model.best[call.plan]
-        if (best != null && call.end != End.OUT) PixelText(if (best == 0) "Once, you got them out." else "Your closest: $best.", size = SMALL, color = lcd.faint)
+        if (best != null && call.end != End.OUT) PixelText(if (best == 0) lang.t("Once, you got them out.", "Una vez lo lograste.") else lang.t("Your closest: $best.", "Lo más cerca: $best."), size = SMALL, color = lcd.faint)
     }
     Softkeys(lcd, null, "OK" to model::again, null)
 }
@@ -866,21 +927,21 @@ private fun Notebook(model: CallModel, lcd: Lcd, modifier: Modifier, compact: Bo
     val measurer = rememberTextMeasurer()
     val font = PixelFont
     Column(modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        if (!compact) Header("Notebook", lcd)
+        if (!compact) Header(model.lang.t("Notebook", "Libreta"), lcd)
         Box(
             Modifier.weight(1f).fillMaxWidth().drawBehind {
                 if (model.ringing) return@drawBehind
-                drawNotebook(call, haunt, measurer, font, lcd)
+                drawNotebook(call, haunt, measurer, font, lcd, model.lang)
             },
         )
         if (!compact && !model.ringing) Pocket(model, lcd)
         val notes = if (model.ringing || compact) emptyList() else haunt.notes.filterKeys { it in call.mapped }.values
         for (note in notes.toList().takeLast(3)) PixelText("\"$note\"", size = SMALL, color = lcd.ink, maxLines = 2)
-        if (call.lostTrack && !call.over) PixelText("They ran. They don't know where they are: find a mark or a note you know.", Modifier.background(lcd.ink).padding(6.dp), size = SMALL, color = lcd.paper, maxLines = 3)
+        if (call.lostTrack && !call.over) PixelText(model.lang.t("They ran. They don't know where they are: find a mark or a note you know.", "Ha huido. No sabe dónde está: busca una marca o una nota que conozcas."), Modifier.background(lcd.ink).padding(6.dp), size = SMALL, color = lcd.paper, maxLines = 3)
     }
 }
 
-private fun DrawScope.drawNotebook(call: Call, haunt: Haunt, measurer: TextMeasurer, font: FontFamily, lcd: Lcd) {
+private fun DrawScope.drawNotebook(call: Call, haunt: Haunt, measurer: TextMeasurer, font: FontFamily, lcd: Lcd, lang: Lang) {
     val shade = lerp(lcd.paper, lcd.ink, 0.14f)
     val cells = call.mapped.keys + call.glimpsed.keys + call.origin
     val page = cells.associateWith { call.onPage(it) }
@@ -942,7 +1003,7 @@ private fun DrawScope.drawNotebook(call: Call, haunt: Haunt, measurer: TextMeasu
     for ((pos, glimpse) in call.glimpsed) {
         if (glimpse != Glimpse.LIGHT) continue
         drawRect(lcd.ink, center(pos) - Offset(cell / 5, cell / 4), Size(cell * 2 / 5, cell / 2))
-        write("light", center(pos) + Offset(0f, cell / 2.6f), lcd.ink, (cell / 6).toSp())
+        write(lang.t("light", "luz"), center(pos) + Offset(0f, cell / 2.6f), lcd.ink, (cell / 6).toSp())
     }
     for (mark in call.marks) {
         if (mark.at !in call.mapped) continue

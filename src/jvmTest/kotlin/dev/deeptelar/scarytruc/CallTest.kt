@@ -51,6 +51,25 @@ class CallTest {
     }
 
     @Test
+    fun inSpanishTheCallerUnderstandsSpanishAndNotEnglish() = runBlocking {
+        val spanish = Call.begin(plan, maze, plan.haunt(Lang.ES), lang = Lang.ES)
+        assertTrue(spanish.facts.first().startsWith("Me acabo de despertar"), spanish.facts.first())
+        suspend fun said(text: String) = Keywords.listen(spanish.copy(said = text))
+        assertEquals(Order.LEFT, said("ve a la izquierda, tranquila").order)
+        assertEquals(Order.HIDE, said("¡Escóndete!").order)
+        assertEquals(Heard(Order.USE, 0, Item.STONE, Order.BACK), said("tira la piedra atrás"))
+        assertEquals(Order.LEFT, Keywords.bare("Ve a la izquierda", Lang.ES))
+        assertTrue(said("go left").foreign, "English, to a caller who speaks Spanish")
+        assertFalse(said("ok").foreign, "ok is every language's")
+        assertTrue(Keywords.listen(Call.begin(plan, maze, empty).copy(said = "ve a la izquierda")).foreign)
+        // Not understood, nothing happens, and they say it in their language.
+        val lost = spanish.copy(said = "go left", heard = Heard(Order.NONE, 0, foreign = true)).walk(maze, plan.haunt(Lang.ES))
+        assertEquals(listOf("No entiendo lo que dices."), lost.facts)
+        assertEquals(spanish.at, lost.at)
+        assertEquals(spanish.turn, lost.turn)
+    }
+
+    @Test
     fun theStrangersWordsAreReadForTheFirstWayAndTheTone() = runBlocking {
         suspend fun said(text: String) = Keywords.listen(Call.begin(plan, maze, empty).copy(said = text))
         assertEquals(Heard(Order.LEFT, 0), said("Go left, then right"))

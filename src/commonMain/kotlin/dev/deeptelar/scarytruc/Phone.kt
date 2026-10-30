@@ -27,23 +27,25 @@ fun callGraph(mazeOf: (Call) -> Maze, haunt: Haunt, ears: Ears, voice: Voice, wh
             node(WHISPER, work = { call -> if (call.whispers(mazeOf(call))) whisperer.whisper(call) else null }) { call, said ->
                 if (said == null) call else call.whisper(said)
             }
-        val speak = node(SPEAK, work = { call -> voice.speak(call) }) { call, said -> call.spoke(said) }
+        // Words in another language get the same answer every time, in the caller's own.
+        val speak = node(SPEAK, work = { call -> if (call.heard?.foreign == true) call.facts.joinToString(" ") else voice.speak(call) }) { call, said -> call.spoke(said) }
         START then speak
         conditionalEdge(speak, targets = setOf(listen, NodeRef.END)) { call -> if (call.over) NodeRef.END else listen }
         listen then walk then whisper then speak
     }.compile()
 
-/** One call of [plan], a turn at a time: the caller speaks, the stranger answers. [seed] sets its chances. */
+/** One call of [plan], a turn at a time: the caller speaks, the stranger answers in [lang]. [seed] sets its chances. */
 class CallRun(
     val plan: Plan,
     seed: Long = plan.seed,
     ears: Ears,
     voice: Voice,
     whisperer: Whisperer = Echoes,
+    lang: Lang = Lang.EN,
 ) {
     private val before: Maze = plan.maze()
     private val after: Maze = before.shifted()
-    val haunt: Haunt = plan.haunt()
+    val haunt: Haunt = plan.haunt(lang)
 
     /** The maze of [call]: after midnight, its walls may have moved. */
     fun mazeOf(call: Call): Maze = if (call.afterMidnight) after else before
@@ -52,7 +54,7 @@ class CallRun(
     private val graph = callGraph(::mazeOf, haunt, ears, voice, whisperer)
     private val config = GraphConfig(threadId = "call", checkpointer = MemoryCheckpointer<Call>(), interruptBefore = setOf(LISTEN))
 
-    var call: Call = Call.begin(plan, before, haunt, seed)
+    var call: Call = Call.begin(plan, before, haunt, seed, lang)
         private set
 
     /** The phone is answered: the caller speaks first. */

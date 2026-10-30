@@ -23,64 +23,126 @@ fun interface Whisperer {
     suspend fun whisper(call: Call): String
 }
 
+/** The words the caller knows in a language, for [Keywords]. */
+private class Lexicon(
+    val orders: List<Pair<Order, List<String>>>,
+    /** The things by name, and by what is done with them. */
+    val items: List<Pair<Item, List<String>>>,
+    val soothing: List<String>,
+    val harsh: List<String>,
+    /** Words that ask the caller to say again what is around them. */
+    val again: List<String>,
+    /** Words that go around an order and change nothing: "go left now" is "left". */
+    val fillers: Set<String>,
+    /** Small words of the language, to tell it from another. */
+    val common: List<String>,
+) {
+    /** How many of this language's words are in [said]; "ok" and "stop" belong to every language. */
+    fun count(said: String): Int = (orders.flatMap { it.second } + items.flatMap { it.second } + soothing + again + common).toSet().minus(SHARED).count { find(said, it) != null }
+}
+
+private val ENGLISH =
+    Lexicon(
+        orders =
+            listOf(
+                Order.LEFT to listOf("left"),
+                Order.RIGHT to listOf("right"),
+                Order.AHEAD to listOf("ahead", "forward", "straight", "keep going", "go on", "continue"),
+                Order.BACK to listOf("back", "turn around", "return"),
+                Order.HIDE to listOf("hide", "crouch", "quiet", "shh", "hold your breath", "don't move", "keep still"),
+                Order.STAY to listOf("stay", "wait", "stop"),
+                Order.MARK to listOf("mark", "scratch", "write"),
+                Order.TAKE to listOf("take", "grab", "pick", "pocket"),
+                // "Light the flare", not "go to the light".
+                Order.USE to listOf("use", "light the", "light it", "throw", "toss", "swap", "charge"),
+            ),
+        items =
+            listOf(
+                Item.BATTERY to listOf("battery", "swap", "charge"),
+                Item.FLARE to listOf("flare", "light the", "light it"),
+                Item.STONE to listOf("stone", "rock", "throw", "toss"),
+            ),
+        soothing = listOf("breathe", "okay", "ok", "safe", "i'm here", "with you", "slow", "calm", "you can", "good", "well done", "fine", "it's alright", "together"),
+        harsh = listOf("hurry", "stupid", "idiot", "die", "dead", "useless", "shut up", "!!", "fast"),
+        again = listOf("repeat", "again", "what do you see", "what can you see", "describe", "look around", "where are you", "what's around", "say that"),
+        fillers = setOf("go", "turn", "now", "please", "ok", "okay", "then", "it", "walk", "move", "just"),
+        common = listOf("the", "you", "go", "what", "where", "is", "are", "and", "to", "i", "it's", "yes", "please", "there", "now"),
+    )
+
+private val SPANISH =
+    Lexicon(
+        orders =
+            listOf(
+                Order.LEFT to listOf("izquierda"),
+                Order.RIGHT to listOf("derecha"),
+                Order.AHEAD to listOf("delante", "adelante", "recto", "todo recto", "sigue", "avanza", "continúa"),
+                Order.BACK to listOf("atrás", "vuelve", "da la vuelta", "media vuelta", "retrocede"),
+                Order.HIDE to listOf("escóndete", "escondete", "esconde", "agáchate", "agachate", "silencio", "shh", "no te muevas", "aguanta la respiración"),
+                Order.STAY to listOf("quédate", "quedate", "espera", "detente", "no sigas", "quieto", "quieta"),
+                Order.MARK to listOf("marca", "raya", "escribe"),
+                Order.TAKE to listOf("coge", "cógela", "cogela", "cógelo", "toma", "recoge", "agarra", "pilla"),
+                Order.USE to listOf("usa", "úsala", "enciende", "tira", "lanza", "cambia", "pon la"),
+            ),
+        items =
+            listOf(
+                Item.BATTERY to listOf("batería", "bateria", "pila", "cambia"),
+                Item.FLARE to listOf("bengala", "enciende"),
+                Item.STONE to listOf("piedra", "roca", "tira", "lanza"),
+            ),
+        soothing = listOf("respira", "tranquila", "tranquilo", "calma", "estoy aquí", "estoy aqui", "contigo", "despacio", "puedes", "bien", "muy bien", "vale", "juntos", "no pasa nada"),
+        harsh = listOf("rápido", "rapido", "idiota", "estúpid", "estupid", "inútil", "inutil", "muere", "muert", "cállate", "callate", "date prisa", "!!"),
+        again = listOf("repite", "otra vez", "qué ves", "que ves", "describe", "mira alrededor", "dónde estás", "donde estas", "qué hay", "que hay"),
+        fillers = setOf("ve", "vete", "gira", "ahora", "por", "favor", "vale", "venga", "a", "la", "el", "hacia", "al", "camina", "anda", "solo"),
+        common = listOf("el", "la", "los", "las", "que", "qué", "tú", "ve", "está", "estás", "y", "sí", "por", "hacia", "dónde", "ahora", "hay"),
+    )
+
+/** Words said the same in every language. */
+private val SHARED = setOf("ok", "okay", "shh", "!!", "stop", "describe")
+
+private fun lexicon(lang: Lang): Lexicon = if (lang == Lang.ES) SPANISH else ENGLISH
+
+/** Where [word] starts in [text] as a whole word, or `null`. */
+private fun find(text: String, word: String): Int? = Regex("(?<![$LETTERS])${Regex.escape(word)}(?![$LETTERS])").find(text)?.range?.first
+
+/** The letters of a word, in both languages. */
+private const val LETTERS = "a-záéíóúüñ"
+
 /**
- * Ears without Gemma: the first way or deed named in the stranger's words, and a few words that
- * calm or scare.
+ * Ears without Gemma: the first way or deed named in the stranger's words, in the caller's
+ * language, and a few words that calm or scare.
  */
 object Keywords : Ears {
-    private val orders =
-        listOf(
-            Order.LEFT to listOf("left"),
-            Order.RIGHT to listOf("right"),
-            Order.AHEAD to listOf("ahead", "forward", "straight", "keep going", "go on", "continue"),
-            Order.BACK to listOf("back", "turn around", "return"),
-            Order.HIDE to listOf("hide", "crouch", "quiet", "shh", "hold your breath", "don't move", "keep still"),
-            Order.STAY to listOf("stay", "wait", "stop"),
-            Order.MARK to listOf("mark", "scratch", "write"),
-            Order.TAKE to listOf("take", "grab", "pick", "pocket"),
-            // "Light the flare", not "go to the light".
-            Order.USE to listOf("use", "light the", "light it", "throw", "toss", "swap", "charge"),
-        )
-
-    /** The things by name, and by what is done with them. */
-    private val items =
-        listOf(
-            Item.BATTERY to listOf("battery", "swap", "charge"),
-            Item.FLARE to listOf("flare", "light the", "light it"),
-            Item.STONE to listOf("stone", "rock", "throw", "toss"),
-        )
-    private val ways = listOf(Order.LEFT, Order.RIGHT, Order.AHEAD, Order.BACK)
-    private val soothing = listOf("breathe", "okay", "ok", "safe", "i'm here", "with you", "slow", "calm", "you can", "good", "well done", "fine", "it's alright", "together")
-    /** Words that ask the caller to say again what is around them. */
-    private val again = listOf("repeat", "again", "what do you see", "what can you see", "describe", "look around", "where are you", "what's around", "say that")
-    private val harsh = listOf("hurry", "stupid", "idiot", "die", "dead", "useless", "shut up", "!!", "fast")
-
     override suspend fun listen(call: Call): Heard {
+        if (foreign(call.said, call.lang)) return Heard(Order.NONE, 0, foreign = true)
+        val words = lexicon(call.lang)
         val said = call.said.lowercase()
-        val order = orders.mapNotNull { (order, words) -> words.mapNotNull { word -> find(said, word) }.minOrNull()?.let { order to it } }.minByOrNull { it.second }?.first
+        val order = words.orders.mapNotNull { (order, phrases) -> phrases.mapNotNull { find(said, it) }.minOrNull()?.let { order to it } }.minByOrNull { it.second }?.first
         val letters = call.said.filter { it.isLetter() }
         val shouting = letters.length >= 6 && letters.count { it.isUpperCase() } > letters.length * 0.6
-        val calm = soothing.count { find(said, it) != null } - harsh.count { said.contains(it) } - if (shouting) 1 else 0
-        val item = items.firstOrNull { (_, words) -> words.any { find(said, it) != null } }?.first
-        val toward = ways.mapNotNull { way -> orders.first { it.first == way }.second.mapNotNull { find(said, it) }.minOrNull()?.let { way to it } }.minByOrNull { it.second }?.first
-        return Heard(order ?: Order.NONE, calm.coerceIn(-2, 2), item.takeIf { order == Order.USE }, toward.takeIf { order == Order.USE }, again.any { find(said, it) != null })
+        val calm = words.soothing.count { find(said, it) != null } - words.harsh.count { said.contains(it) } - if (shouting) 1 else 0
+        val item = words.items.firstOrNull { (_, phrases) -> phrases.any { find(said, it) != null } }?.first
+        val toward = WAYS.mapNotNull { way -> words.orders.first { it.first == way }.second.mapNotNull { find(said, it) }.minOrNull()?.let { way to it } }.minByOrNull { it.second }?.first
+        return Heard(order ?: Order.NONE, calm.coerceIn(-2, 2), item.takeIf { order == Order.USE }, toward.takeIf { order == Order.USE }, words.again.any { find(said, it) != null })
     }
 
-    /** Words that go around an order and change nothing: "go left now" is "left". */
-    private val fillers = setOf("go", "turn", "now", "please", "ok", "okay", "then", "it", "walk", "move", "just")
+    private val WAYS = listOf(Order.LEFT, Order.RIGHT, Order.AHEAD, Order.BACK)
 
     /**
-     * The order in [said] when it is only an order, a shortcut such as "left", "go left" or "hide":
-     * it needs no model to be understood. `null` when there is more to it, or no order.
+     * The order in [said] when it is only an order, a shortcut such as "left", "go left" or "hide",
+     * in [lang]: it needs no model to be understood. `null` when there is more to it, or no order.
      */
-    fun bare(said: String): Order? {
-        val words = said.lowercase().replace(Regex("[^a-z' ]"), " ").split(" ").filter { it.isNotBlank() && it !in fillers }
-        val phrase = words.joinToString(" ").ifEmpty { return null }
-        return orders.firstOrNull { (order, words) -> order != Order.USE && phrase in words }?.first
+    fun bare(said: String, lang: Lang = Lang.EN): Order? {
+        val words = lexicon(lang)
+        val phrase = said.lowercase().replace(Regex("[^$LETTERS' ]"), " ").split(" ").filter { it.isNotBlank() && it !in words.fillers }.joinToString(" ")
+        if (phrase.isEmpty()) return null
+        return words.orders.firstOrNull { (order, phrases) -> order != Order.USE && phrase in phrases }?.first
     }
 
-    /** Where [word] starts in [text] as a whole word, or `null`. */
-    private fun find(text: String, word: String): Int? = Regex("(?<![a-z])${Regex.escape(word)}(?![a-z])").find(text)?.range?.first
+    /** Whether [said] is in another language than [lang]: words of another, and none of its own. */
+    fun foreign(said: String, lang: Lang): Boolean {
+        val text = said.lowercase()
+        return lexicon(lang).count(text) == 0 && Lang.entries.any { it != lang && lexicon(it).count(text) > 0 }
+    }
 }
 
 @Serializable
@@ -95,6 +157,8 @@ data class Understood(
     val toward: String = "none",
     @Description("Whether the stranger asks you to repeat, or to say what you see around you")
     val again: Boolean = false,
+    @Description("The language of the stranger's words: en, es, or other")
+    val language: String = "",
 )
 
 /**
@@ -108,11 +172,16 @@ class GemmaEars(
 ) : Ears {
     override suspend fun listen(call: Call): Heard {
         if (call.said.isBlank()) return Heard(Order.NONE, 0)
-        // A shortcut, "left" or "hide", needs no model: it is understood at once, and the same every time.
-        Keywords.bare(call.said)?.let { return Heard(it, 0) }
+        // Words of another language the caller knows, or a shortcut, "left" or "hide", need no
+        // model: they are understood at once, and the same every time.
+        if (Keywords.foreign(call.said, call.lang)) return Heard(Order.NONE, 0, foreign = true)
+        Keywords.bare(call.said, call.lang)?.let { return Heard(it, 0) }
         return try {
             val understood = model.ask<Understood>(prompt(call), system = system(call))
             trouble(null)
+            // Another language, in more than a word or two: a name or an "ok" is not one.
+            val language = understood.language.trim().lowercase()
+            if (language.isNotEmpty() && language != call.lang.code && call.said.trim().split(Regex("\\s+")).size >= 3) return Heard(Order.NONE, 0, foreign = true)
             val order = Order.of(understood.order) ?: return keywords.listen(call)
             Heard(order, understood.calm.coerceIn(-2, 2), Item.of(understood.item), Order.of(understood.toward)?.takeIf { it.turn != null }, understood.again)
         } catch (e: CancellationException) {
@@ -131,11 +200,13 @@ class GemmaEars(
             "Or stay, hide (crouch, cover the light, keep still and quiet), mark (scratch a number on the wall), " +
             "take (pick up what lies here), use (swap in a battery, light a flare, throw a stone), " +
             "or none when the stranger gives no instruction. If they give several, the first one." +
-            (if (call.carried.isEmpty()) "" else " You carry: ${call.carried.joinToString { it.word }}.")
+            (if (call.carried.isEmpty()) "" else " You carry: ${call.carried.joinToString { it.word }}.") +
+            " And say which language the stranger's words are in."
     }
 
     private fun system(call: Call): String =
         "You are ${call.name}, lost in a dark maze, on the phone with a stranger who guides you. " +
+            "You speak and understand only ${if (call.lang == Lang.ES) "Spanish" else "English"}. " +
             "You decide what you understood from the stranger's words, and how they made you feel."
 }
 
@@ -143,18 +214,20 @@ class GemmaEars(
 object Script : Voice {
     override suspend fun speak(call: Call): String {
         val random = Random(call.seed + call.turn)
+        val es = call.lang == Lang.ES
         val start =
             when {
-                call.end == End.OUT -> listOf("Oh my god.")
-                call.over -> listOf("No— no no NO—")
-                call.turn == 0 -> listOf("Hello? Hello?! Oh thank god, someone picked up.")
-                call.panic >= BOLT -> listOf("Oh god oh god oh god.", "I can't, I can't breathe.", "Please, please, please.")
-                call.panic >= 50 -> listOf("Okay. Okay.", "I'm scared.", "Are you still there?")
-                else -> listOf("Okay.", "Alright.", "Listen.")
+                call.end == End.OUT -> listOf(if (es) "Dios mío." else "Oh my god.")
+                call.over -> listOf(if (es) "No... no, no, ¡NO!" else "No— no no NO—")
+                call.turn == 0 -> listOf(if (es) "¿Hola? ¿¡Hola!? Gracias a Dios, alguien ha contestado." else "Hello? Hello?! Oh thank god, someone picked up.")
+                call.panic >= BOLT -> if (es) listOf("Dios mío, Dios mío.", "No puedo, no puedo respirar.", "Por favor, por favor, por favor.") else listOf("Oh god oh god oh god.", "I can't, I can't breathe.", "Please, please, please.")
+                call.panic >= 50 -> if (es) listOf("Vale. Vale.", "Tengo miedo.", "¿Sigues ahí?") else listOf("Okay. Okay.", "I'm scared.", "Are you still there?")
+                else -> if (es) listOf("Vale.", "De acuerdo.", "Escucha.") else listOf("Okay.", "Alright.", "Listen.")
             }
         if (call.over && call.end != End.OUT) return (call.facts + start.first()).joinToString(" ")
         // Nothing new to say: they wait for the stranger.
-        return (listOf(start[random.nextInt(start.size)]) + call.facts.ifEmpty { listOf("Nothing's changed. Tell me what to do.") }).joinToString(" ")
+        val nothing = call.lang.t("Nothing's changed. Tell me what to do.", "No ha cambiado nada. Dime qué hago.")
+        return (listOf(start[random.nextInt(start.size)]) + call.facts.ifEmpty { listOf(nothing) }).joinToString(" ")
     }
 }
 
@@ -204,7 +277,7 @@ class GemmaVoice(
                 End.ALONE -> "The stranger hung up on you."
                 null -> "Answer the stranger if they asked something, and say what happened and what you see."
             }
-        val carried = if (call.carried.isEmpty()) "" else " You carry: ${call.carried.joinToString { it.thing }}."
+        val carried = if (call.carried.isEmpty()) "" else " You carry: ${call.carried.joinToString { it.thing(call.lang) }}."
         val before = call.lines.lastOrNull { it.who == Who.CALLER }?.let { "You last said: \"${it.text}\"\nDon't say it again: only what is new.\n" }.orEmpty()
         val facts =
             if (call.facts.isEmpty()) {
@@ -218,7 +291,7 @@ class GemmaVoice(
     private fun system(call: Call): String =
         "You are ${call.name}, who woke up alone in a dark maze with no memory of how you got there. " +
             "Your phone is your only light, and a stranger picked up your call. ${call.role.voice} " +
-            "Speak only your words on the phone: two to four short sentences, no actions, no asterisks. " +
+            "Speak only your words on the phone, ${if (call.lang == Lang.ES) "in Spanish, as spoken in Spain" else "in English"}: two to four short sentences, no actions, no asterisks. " +
             "Say every fact you are given, in your own words, and keep left, right, ahead and behind exactly as given. " +
             "Never repeat what you said before, unless the stranger asks you to. " +
             "Never mention a way, a door or a thing that is not in the facts."
@@ -235,7 +308,16 @@ object Echoes : Whisperer {
             "I can hear you breathing too.",
         )
 
-    override suspend fun whisper(call: Call): String = lines[Random(call.seed + call.turn).nextInt(lines.size)]
+    private val spanish =
+        listOf(
+            "¿Por qué crees que te han llamado a ti?",
+            "Sigue hablando. Me gusta tu voz.",
+            "Morirán por lo que digas.",
+            "Cuelga. Sálvate.",
+            "Yo también te oigo respirar.",
+        )
+
+    override suspend fun whisper(call: Call): String = (if (call.lang == Lang.ES) spanish else lines).let { it[Random(call.seed + call.turn).nextInt(it.size)] }
 }
 
 /**
@@ -259,7 +341,7 @@ class GemmaWhispers(
     private fun prompt(call: Call): String =
         "Speak on the line to the stranger who guides ${call.name}. ${call.name}'s secret fear: ${call.role.fear}. " +
             (call.lines.lastOrNull { it.who == Who.HOLLOW }?.let { "Last time you said: \"${it.text}\". Say something new. " } ?: "") +
-            "One sentence, at most 12 words, intimate and cruel. No quotation marks."
+            "One sentence, at most 12 words, intimate and cruel, ${if (call.lang == Lang.ES) "in Spanish, as spoken in Spain" else "in English"}. No quotation marks."
 
     private companion object {
         const val SYSTEM =
