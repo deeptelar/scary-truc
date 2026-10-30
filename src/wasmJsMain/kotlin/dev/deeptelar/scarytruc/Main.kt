@@ -66,9 +66,7 @@ fun main() {
             LaunchedEffect(Unit) {
                 // After the font, or the sounds, many and big, keep it waiting on a slow line.
                 Sound.start(scope)
-                // The canvas comes up white before its first frames.
-                withFrameNanos {}
-                delay(DRAWN_WAIT)
+                repeat(DRAWN_FRAMES) { withFrameNanos {} }
                 gone()
             }
         }
@@ -76,10 +74,11 @@ fun main() {
 }
 
 private const val FONT_WAIT = 60_000L
-private const val DRAWN_WAIT = 700L
+private const val DRAWN_FRAMES = 40
 
-/** Takes the page's loading screen away, once the game has drawn. */
-private fun gone(): Unit = js("document.getElementById('loading')?.remove()")
+/** Fades the page's loading screen away, once the game has drawn: the canvas may still come up white for a moment. */
+private fun gone(): Unit =
+    js("{ const loading = document.getElementById('loading'); loading.style.opacity = 0; setTimeout(() => loading.remove(), 800); }")
 
 /** Keeps values in the browser's `localStorage`, so they survive a reload. */
 private class LocalStore : Store {
