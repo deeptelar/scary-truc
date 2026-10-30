@@ -74,6 +74,24 @@ class Live {
         }
     }
 
+    /** The caller going in circles, as Gemma says it: the way not tried has to come through. */
+    @Test
+    fun circles() = runBlocking {
+        val key = File(System.getProperty("keyfile") ?: return@runBlocking).readText().trim()
+        val minds = Server.OPENROUTER.copy(key = key).minds(HttpClient(CIO))
+        val plan = Plan.WOODS
+        val maze = plan.maze()
+        for (lang in Lang.entries) {
+            val haunt = plan.haunt(lang)
+            val begun = Call.begin(plan, maze, haunt, lang = lang)
+            val here = maze.cells.first { maze.exits(it).size == 2 && it != begun.at && maze.exits(it).all { d -> maze.doomAt(it + d) == null } }
+            val (way, other) = maze.exits(here)
+            val call = begun.copy(at = here, facing = other, been = maze.cells.toSet() - (here + way), stale = 2, said = "go on", heard = Heard(Order.AHEAD, 0)).walk(maze, haunt)
+            println("LOOP [$lang] FACTS: ${call.facts}")
+            println("LOOP [$lang] SAID: ${call.spoke(minds.voice.speak(call)).lines.last().text}")
+        }
+    }
+
     @Test
     fun calls() = runBlocking {
         val key = File(System.getProperty("keyfile") ?: return@runBlocking).readText().trim()

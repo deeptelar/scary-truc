@@ -204,6 +204,15 @@ data class Call(
     val strays: Int = 0,
     /** The notes the caller read out: a note is read out once. */
     val read: Set<Pos> = emptySet(),
+    /** Every cell the caller walked through, known to them or not. */
+    val been: Set<Pos> = emptySet(),
+    /** How many walks in a row took the caller nowhere new. */
+    val stale: Int = 0,
+    /**
+     * What the caller thinks of trying, going in circles. It comes after what the voice says, in
+     * these words: Gemma, given many facts, was leaving out the one that gets a player unstuck.
+     */
+    val hunch: String? = null,
     val lines: List<Line> = emptyList(),
     /** The turn the Hollow last spoke on the line. */
     val whispered: Int = -99,
@@ -255,8 +264,9 @@ data class Call(
     /** The call after the caller said [text]. */
     fun spoke(text: String): Call =
         copy(
-            lines = lines + Line(Who.CALLER, text) + listOfNotNull(if (over) Line(Who.LINE, lang.t("Call ended", "Llamada finalizada")) else null),
+            lines = lines + Line(Who.CALLER, listOfNotNull(text, hunch).joinToString(" ")) + listOfNotNull(if (over) Line(Who.LINE, lang.t("Call ended", "Llamada finalizada")) else null),
             facts = emptyList(),
+            hunch = null,
             said = "",
             heard = null,
         )
@@ -345,6 +355,8 @@ fun Call.walk(maze: Maze, haunt: Haunt): Call {
     var lostTrack = lostTrack || bolted
     var mapped = mapped
     var drawn = drawn
+    var been = been + at
+    var somewhereNew = false
     var marks = marks
     var carried = carried
     var taken = taken
@@ -412,6 +424,8 @@ fun Call.walk(maze: Maze, haunt: Haunt): Call {
         facing = dir
         battery--
         walked++
+        if (at !in been) somewhereNew = true
+        been = been + at
         if (!lostTrack) {
             mapped = mapped + (at to maze.exits(at).toSet())
             drawn = drawn + (at to pencil(turn, panic))
@@ -592,6 +606,8 @@ fun Call.walk(maze: Maze, haunt: Haunt): Call {
             lostTrack = lostTrack,
             mapped = mapped,
             drawn = drawn,
+            been = been,
+            stale = if (walked == 0) stale else if (somewhereNew) 0 else stale + 1,
             marks = marks,
             carried = carried,
             taken = taken,
@@ -636,6 +652,21 @@ private fun Call.look(maze: Maze, haunt: Haunt, facts: List<String>): Call {
         lostTrack = false
         seen += lang.t("Wait. I know this place. I've been here before.", "Espera. Conozco este sitio. Ya he estado aquí.")
         panic -= 10
+    }
+    // Walking where they already walked, again and again, they say so, and what they haven't tried.
+    var hunch: String? = null
+    if (walked > 0 && !lostTrack && stale >= CIRCLES) {
+        val first = stale == CIRCLES
+        if (first) seen += lang.t("Wait. I've been here already. We're going in circles.", "Espera. Ya he estado aquí. Estamos dando vueltas.")
+        // The way can be many walks off: they keep pointing it out until they get there.
+        hunch =
+            untried(maze)?.let {
+                if (first) {
+                    lang.t("Maybe we should go ${it.word}: there's a way down there I haven't tried.", "Quizá deberíamos ir ${it.way(lang)}: por ahí queda un camino que no he probado.")
+                } else {
+                    lang.t("The way I haven't tried is ${it.word} from here, I think.", "Creo que el camino que no he probado queda ${it.way(lang)} desde aquí.")
+                }
+            }
     }
     // What happened is said; what is around them, from here on, only once.
     val happened = seen.size
@@ -738,6 +769,7 @@ private fun Call.look(maze: Maze, haunt: Haunt, facts: List<String>): Call {
         facts = seen.take(happened) + if (stayed) around.filter { it !in told } else around,
         told = if (stayed) told + around else around.toSet(),
         read = if (at in haunt.notes) read + at else read,
+        hunch = hunch,
         panic = panic.coerceIn(0, 100),
         trust = trust.coerceIn(0, 100),
         lostTrack = lostTrack,
@@ -745,6 +777,19 @@ private fun Call.look(maze: Maze, haunt: Haunt, facts: List<String>): Call {
         drawn = drawn,
         glimpsed = glimpsed,
     )
+}
+
+/**
+ * The way to the nearest place the caller hasn't walked, the one closer to the way out if two are
+ * as near, and never through a doom; `null` when they have walked everywhere.
+ */
+private fun Call.untried(maze: Maze): Order? {
+    val deadly = maze.dooms.map { it.at }.toSet()
+    val steps = maze.distances(at, deadly)
+    val toGate = maze.distances(maze.gate, deadly)
+    val next = steps.keys.filter { it !in been }.minWithOrNull(compareBy({ steps[it] }, { toGate[it] })) ?: return null
+    val dir = maze.way(at, next, deadly)?.first ?: return null
+    return Order.entries.first { it.turn == facing.side(dir) }
 }
 
 /**
@@ -804,6 +849,9 @@ const val QUIET: Int = 40
 const val LOUD: Int = 70
 
 private const val MAX_WALK = 6
+
+/** After this many walks in a row that found nothing new, the caller says they are going in circles. */
+private const val CIRCLES = 3
 private const val RECHARGE = 35
 private const val FLARE_REACH = 4
 private const val FLARE_FEAR = 4

@@ -62,6 +62,9 @@ sound like something else. What's in your notebook is only a memory now.
 dead ends for whoever came next: a spare battery, a road flare, a stone that makes its noise where
 it lands, not where it was thrown from.
 
+**Listen when they say they've been here before.** Go in circles and they'll notice, and they'll
+tell you what they haven't tried.
+
 **Leave a mark.** Corridors look alike. A number scratched into a wall stays when the pencil
 fades.
 

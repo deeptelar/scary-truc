@@ -95,6 +95,50 @@ class CallTest {
     }
 
     @Test
+    fun aCallerGoingInCirclesSaysSoAndNamesAWayNotTried() {
+        val (here, way) = corridor
+        val other = maze.exits(here).first { it != way }
+        val untried = here + way
+        // They walk off down the corridor, away from the one place they haven't been.
+        val walking = quiet(here, other, Order.AHEAD).copy(been = maze.cells.toSet() - untried)
+
+        val circling = walking.copy(stale = 2).walk(maze, empty)
+        assertEquals(3, circling.stale)
+        assertTrue(circling.facts.any { "going in circles" in it }, "${circling.facts}")
+        val back = maze.way(circling.at, untried, maze.dooms.map { it.at }.toSet())!!.first
+        val word = Order.entries.first { it.turn == circling.facing.side(back) }.word
+        assertTrue(circling.hunch!!.startsWith("Maybe we should go $word:"), "${circling.hunch}")
+        val said = circling.spoke("I think we're lost.")
+        assertEquals("I think we're lost. ${circling.hunch}", said.lines.last().text)
+        assertEquals(null, said.hunch, "said once")
+        val still = walking.copy(stale = 3).walk(maze, empty)
+        assertTrue(still.facts.none { "circles" in it }, "they said so once")
+        assertTrue(still.hunch!!.startsWith("The way I haven't tried is"), "they keep pointing it out: ${still.hunch}")
+
+        assertTrue(walking.walk(maze, empty).facts.none { "circles" in it }, "not on the first walk back")
+        val stays = walking.copy(stale = 2, heard = Heard(Order.STAY, 0)).walk(maze, empty)
+        assertEquals(2, stays.stale, "standing still is not walking in circles")
+
+        val found = walking.copy(stale = 5, been = setOf(here)).walk(maze, empty)
+        assertEquals(0, found.stale, "somewhere new starts it over")
+        assertTrue(found.facts.none { "circles" in it })
+
+        val spanish = walking.copy(stale = 2, lang = Lang.ES).walk(maze, empty)
+        assertTrue(spanish.facts.any { "Estamos dando vueltas" in it }, "${spanish.facts}")
+    }
+
+    @Test
+    fun aCallerGoingInCirclesNeverSuggestsADoom() {
+        val (here, way) = corridor
+        val other = maze.exits(here).first { it != way }
+        // All that is left to try is what kills.
+        val been = maze.cells.toSet() - maze.dooms.map { it.at }.toSet()
+        val circling = quiet(here, other, Order.AHEAD).copy(been = been, stale = 2).walk(maze, empty)
+        assertTrue(circling.facts.any { "going in circles" in it }, "${circling.facts}")
+        assertEquals(null, circling.hunch, "${circling.facts}")
+    }
+
+    @Test
     fun aModelsTextIsMadeIntoWordsSaidOnAPhone() {
         assertEquals("I'm here. Help me.", spoken("\"*shaking* I'm **here**. Help me. 😱\""))
         assertEquals("Okay. Left.", spoken("- Okay.\n- Left."))
