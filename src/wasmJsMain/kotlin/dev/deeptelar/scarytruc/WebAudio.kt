@@ -29,6 +29,8 @@ class WebAudio : SoundOutput {
         start(context, newBuffer(context, 1, Sound.RATE.toDouble()), 0.0, false)
         // Every buffer now, so that the first scream doesn't wait to be made; the keys once read.
         for (cue in Cue.entries) if (Sound.ready(cue)) buffers.getOrPut(cue) { buffer(Sound.samples(cue)) }
+        // The drone asked for before the tap had nowhere to play: it starts now.
+        Sound.opened()
     }
 
     private fun buffer(samples: FloatArray): JsAny {
@@ -57,7 +59,7 @@ class WebAudio : SoundOutput {
         droning = samples
         if (drone != null && samples != null) {
             val buffer = droneBuffers[drone]?.takeIf { it.first === samples }?.second ?: buffer(samples).also { droneBuffers[drone] = samples to it }
-            source = start(context, buffer, decibels(-8f), true)
+            source = start(context, buffer, decibels(Sound.DRONE + drone.gain), true)
         }
     }
 

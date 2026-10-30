@@ -105,6 +105,17 @@ class CallModel(
     var locked: Boolean by mutableStateOf(locked)
         private set
 
+    /** Whether the player turned the game's sound off; kept in the [store]. */
+    var muted: Boolean by mutableStateOf(runCatching { store?.get(MUTED) }.getOrNull() == "true")
+        private set
+
+    /** Turns the game's sound off, or back on, and remembers it. */
+    fun toggleMute() {
+        muted = !muted
+        Sound.on = !muted
+        runCatching { store?.set(MUTED, muted.toString()) }
+    }
+
     /** When the phone rings next. */
     private var ringAt = 0L
 
@@ -211,11 +222,13 @@ class CallModel(
         private set
 
     init {
+        if (muted) Sound.on = false
         Sound.place = plan.drone
         Sound.midnight = Drone.MIDNIGHT.random()
         scope.launch {
             while (true) {
-                if (ringing && !locked && !call.over && now() >= ringAt) {
+                // this.locked: in here, locked alone is the argument the phone was made with.
+                if (ringing && !this@CallModel.locked && !call.over && now() >= ringAt) {
                     Sound.play(Cue.RING)
                     // Two rings, then a breath of quiet.
                     ringAt = now() + 4500
@@ -517,6 +530,7 @@ class CallModel(
         private const val PROGRESS = "best"
         private const val SERVER = "server"
         private const val LANG = "lang"
+        private const val MUTED = "muted"
     }
 }
 

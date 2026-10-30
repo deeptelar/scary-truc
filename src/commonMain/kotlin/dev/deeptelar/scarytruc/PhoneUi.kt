@@ -162,7 +162,7 @@ private fun Phone(model: CallModel, now: Long, narrow: Boolean, modifier: Modifi
             Modifier.weight(1f).fillMaxWidth().pixelBox(lcd.paper, outline = Ink.outline, raised = false).padding(horizontal = 12.dp, vertical = 10.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            StatusBar(call, danger, lcd, if (model.locked || model.ringing || call.over) null else model.clue, model.clue in model.cluesRead, now, model::toggleClue)
+            StatusBar(call, danger, lcd, if (model.locked || model.ringing || call.over) null else model.clue, model.clue in model.cluesRead, now, model::toggleClue, model.muted, model::toggleMute)
             when {
                 model.locked -> Locked(lcd, model.lang, model::unlock)
                 model.ringing && screen == Screen.MENU -> Menu(model, lcd) { screen = it }
@@ -219,7 +219,7 @@ private fun Grille() {
  * the bars of the battery.
  */
 @Composable
-private fun StatusBar(call: Call, danger: Float, lcd: Lcd, clue: Clue?, read: Boolean, now: Long, open: () -> Unit) {
+private fun StatusBar(call: Call, danger: Float, lcd: Lcd, clue: Clue?, read: Boolean, now: Long, open: () -> Unit, muted: Boolean, mute: () -> Unit) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         val signal = (5 - (danger * 5).toInt()).coerceIn(1, 5)
         Bars(signal, lcd, antenna = true)
@@ -233,9 +233,17 @@ private fun StatusBar(call: Call, danger: Float, lcd: Lcd, clue: Clue?, read: Bo
         Spacer(Modifier.weight(1f))
         PixelText(clock(call), size = SMALL, color = lcd.ink)
         Spacer(Modifier.weight(1f))
+        // The game's sound, on or off: a speaker, crossed out when it is off.
+        Box(Modifier.padding(end = 10.dp).size(28.dp, 22.dp).clickable(onClick = mute), contentAlignment = Alignment.Center) {
+            Box(Modifier.size(20.dp, 16.dp).drawBehind { draw(Sprite(if (muted) SPEAKER_OFF else SPEAKER, mapOf('#' to lcd.ink)), center, 2.dp.toPx()) })
+        }
         Bars(((call.battery.coerceIn(0, 100) + 19) / 20), lcd, antenna = false)
     }
 }
+
+/** A speaker, as a phone showed its ringer on, and off. */
+private val SPEAKER = listOf("...#....#.", "..##..#..#", "####.#.#.#", "####.#.#.#", "####.#.#.#", "..##..#..#", "...#....#.")
+private val SPEAKER_OFF = listOf("...#......", "..##.#...#", "####..#.#.", "####...#..", "####..#.#.", "..##.#...#", "...#......")
 
 /** A bulb, the clue's notification, and lit. */
 private val BULB = listOf("..###..", ".#...#.", "#.....#", "#.....#", ".#...#.", "..#.#..", "..###..", "..###..", "...#...")

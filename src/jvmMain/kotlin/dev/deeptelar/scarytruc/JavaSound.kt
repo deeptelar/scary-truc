@@ -33,7 +33,7 @@ class JavaSound : SoundOutput {
             drone?.let {
                 val samples = Sound.samples(it)
                 drones[it]?.takeIf { made -> made.first === samples }?.second
-                    ?: runCatching { clip(samples, loop = true) }.getOrNull()?.also { clip -> drones.put(it, samples to clip)?.second?.close() }
+                    ?: runCatching { clip(samples, loop = true, gain = Sound.DRONE + it.gain) }.getOrNull()?.also { clip -> drones.put(it, samples to clip)?.second?.close() }
             }
         for ((_, clip) in drones.values) {
             if (clip == playing && !clip.isRunning) clip.loop(Clip.LOOP_CONTINUOUSLY)
@@ -41,7 +41,7 @@ class JavaSound : SoundOutput {
         }
     }
 
-    private fun clip(samples: FloatArray, loop: Boolean): Clip {
+    private fun clip(samples: FloatArray, loop: Boolean, gain: Float = 0f): Clip {
         val bytes = ByteArray(samples.size * 2)
         for (i in samples.indices) {
             val v = (samples[i].coerceIn(-1f, 1f) * 32767).toInt()
@@ -50,7 +50,7 @@ class JavaSound : SoundOutput {
         }
         return AudioSystem.getClip().apply {
             open(format, bytes, 0, bytes.size)
-            if (loop) (getControl(FloatControl.Type.MASTER_GAIN) as? FloatControl)?.value = -8f
+            if (loop) (getControl(FloatControl.Type.MASTER_GAIN) as? FloatControl)?.let { it.value = gain.coerceIn(it.minimum, it.maximum) }
         }
     }
 }

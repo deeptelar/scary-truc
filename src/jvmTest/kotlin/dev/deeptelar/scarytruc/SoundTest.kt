@@ -33,8 +33,8 @@ class SoundTest {
         val scope = CoroutineScope(Dispatchers.Default)
         Sound.midnight = Drone.OTHERWORLD
         Sound.start(scope)
-        val made = Sound.samples(Drone.OTHERWORLD)
-        withTimeout(10_000) { while (!Cue.entries.all { Sound.ready(it) } || Sound.samples(Drone.OTHERWORLD) === made) delay(10) }
+        // Read once, whichever test started the sound first.
+        withTimeout(10_000) { while (!Cue.entries.all { Sound.ready(it) } || Sound.samples(Drone.OTHERWORLD).size != 30 * 22050) delay(10) }
         // A place's drone is read once the place is picked, and only then.
         Sound.place = Drone.SHIP
         withTimeout(10_000) { while (Sound.samples(Drone.SHIP).size != 30 * 22050) delay(10) }

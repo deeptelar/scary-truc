@@ -31,14 +31,15 @@ private class Recording(val file: String, val cues: List<Cue>) {
 
 /**
  * The drones that loop under the night: one for each place, and after midnight one of [MIDNIGHT].
- * Each is read from [file] only once it is wanted.
+ * Each is read from [file] only once it is wanted, and played [gain] decibels under [Sound.DRONE]:
+ * a hiss sounds louder than a hum as strong, so the tape's and the wind in the trees are turned down.
  */
-enum class Drone(val file: String) {
+enum class Drone(val file: String, val gain: Float = 0f) {
     MINE("files/mine.pcm"),
-    WOODS("files/woods.pcm"),
+    WOODS("files/woods.pcm", gain = -10f),
     CUBE("files/cube.pcm"),
-    TAPE("files/tape.pcm"),
-    HEDGE("files/hedge.pcm"),
+    TAPE("files/tape.pcm", gain = -12f),
+    HEDGE("files/hedge.pcm", gain = -3f),
     SHIP("files/ship.pcm"),
     OTHERWORLD("files/otherworld.pcm"),
     DARK("files/ambient.pcm"),
@@ -72,6 +73,9 @@ interface SoundOutput {
  */
 object Sound {
     const val RATE: Float = 22050f
+
+    /** How many decibels under the other sounds a drone plays, before its own [Drone.gain]. */
+    const val DRONE: Float = -8f
 
     var output: SoundOutput? = null
 
@@ -264,6 +268,9 @@ object Sound {
             }
         }
     }
+
+    /** The output can play now, as a browser's after a tap: the drone that should be playing starts. */
+    fun opened() = drones()
 
     private fun drones() {
         if (!started) return
