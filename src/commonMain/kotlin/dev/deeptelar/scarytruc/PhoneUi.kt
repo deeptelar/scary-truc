@@ -774,14 +774,25 @@ private fun Talk(model: CallModel, now: Long, narrow: Boolean, lcd: Lcd, noteboo
         when {
             model.listening -> "Listening..."
             model.thinking -> "They're talking..."
-            else -> "Talk to them"
+            else -> "Talk to them, or just: left"
         },
         Modifier.fillMaxWidth().focusRequester(focus).onPreviewKeyEvent { event ->
-            if (event.type == KeyEventType.KeyDown && event.key == Key.Enter && !event.isShiftPressed) {
-                if (!model.thinking) model.send()
-                true
-            } else {
-                false
+            // The arrows are shortcuts while nothing is typed: the way, from where they face.
+            val way = mapOf(Key.DirectionLeft to "left", Key.DirectionRight to "right", Key.DirectionUp to "ahead", Key.DirectionDown to "back")[event.key]
+            when {
+                event.type != KeyEventType.KeyDown -> false
+                event.key == Key.Enter && !event.isShiftPressed -> {
+                    if (!model.thinking) model.send()
+                    true
+                }
+                way != null && model.typed.isEmpty() -> {
+                    if (!model.thinking) {
+                        model.type(way)
+                        model.send()
+                    }
+                    true
+                }
+                else -> false
             }
         },
         maxLines = 3,

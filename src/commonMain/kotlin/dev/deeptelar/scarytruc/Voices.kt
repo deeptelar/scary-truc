@@ -64,6 +64,19 @@ object Keywords : Ears {
         return Heard(order ?: Order.NONE, calm.coerceIn(-2, 2), item.takeIf { order == Order.USE }, toward.takeIf { order == Order.USE })
     }
 
+    /** Words that go around an order and change nothing: "go left now" is "left". */
+    private val fillers = setOf("go", "turn", "now", "please", "ok", "okay", "then", "it", "walk", "move", "just")
+
+    /**
+     * The order in [said] when it is only an order, a shortcut such as "left", "go left" or "hide":
+     * it needs no model to be understood. `null` when there is more to it, or no order.
+     */
+    fun bare(said: String): Order? {
+        val words = said.lowercase().replace(Regex("[^a-z' ]"), " ").split(" ").filter { it.isNotBlank() && it !in fillers }
+        val phrase = words.joinToString(" ").ifEmpty { return null }
+        return orders.firstOrNull { (order, words) -> order != Order.USE && phrase in words }?.first
+    }
+
     /** Where [word] starts in [text] as a whole word, or `null`. */
     private fun find(text: String, word: String): Int? = Regex("(?<![a-z])${Regex.escape(word)}(?![a-z])").find(text)?.range?.first
 }
@@ -91,6 +104,8 @@ class GemmaEars(
 ) : Ears {
     override suspend fun listen(call: Call): Heard {
         if (call.said.isBlank()) return Heard(Order.NONE, 0)
+        // A shortcut, "left" or "hide", needs no model: it is understood at once, and the same every time.
+        Keywords.bare(call.said)?.let { return Heard(it, 0) }
         return try {
             val understood = model.ask<Understood>(prompt(call), system = system(call))
             trouble(null)

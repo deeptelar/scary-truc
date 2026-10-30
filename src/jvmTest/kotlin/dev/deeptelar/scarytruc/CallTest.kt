@@ -38,6 +38,19 @@ class CallTest {
     }
 
     @Test
+    fun aBareOrderIsAShortcutThatNeedsNoModel() = runBlocking {
+        assertEquals(Order.LEFT, Keywords.bare("left"))
+        assertEquals(Order.LEFT, Keywords.bare("Go left!"))
+        assertEquals(Order.HIDE, Keywords.bare("hide"))
+        assertEquals(Order.AHEAD, Keywords.bare("keep going"))
+        assertNull(Keywords.bare("don't go left"))
+        assertNull(Keywords.bare("left, it's safe there"))
+        // The model is never asked: a script with no answers would fail.
+        val ears = GemmaEars(ScriptedChatModel {})
+        assertEquals(Order.RIGHT, ears.listen(Call.begin(plan, maze, empty).copy(said = "right")).order)
+    }
+
+    @Test
     fun theStrangersWordsAreReadForTheFirstWayAndTheTone() = runBlocking {
         suspend fun said(text: String) = Keywords.listen(Call.begin(plan, maze, empty).copy(said = text))
         assertEquals(Heard(Order.LEFT, 0), said("Go left, then right"))
