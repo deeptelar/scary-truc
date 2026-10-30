@@ -160,7 +160,7 @@ private fun Phone(model: CallModel, now: Long, narrow: Boolean, modifier: Modifi
             when {
                 model.locked -> Locked(lcd, model::unlock)
                 model.ringing && screen == Screen.MENU -> Menu(lcd, { screen = it })
-                model.ringing && screen == Screen.HELP -> Help(lcd, now, { screen = Screen.CALLS }, { screen = Screen.CALLS; model.answer() })
+                model.ringing && screen == Screen.HELP -> Help(lcd, now) { screen = Screen.CALLS }
                 model.ringing && screen == Screen.MODEL -> Options(model, lcd) { screen = Screen.MENU }
                 model.ringing -> Calls(model, now, lcd, Modifier.weight(1f)) { screen = Screen.MENU }
                 else -> {
@@ -393,24 +393,25 @@ private class Lesson(val line: String, val example: String?, val picture: List<S
 /** How to save them: the rules of the game, read as a threat, a page at a time. */
 private val LESSONS =
     listOf(
-        // They face you, eyes and all, and turn to their left: your right.
+        // The caller as the notebook draws them, an arrow facing down the page, towards YOU: their
+        // left, the L, is on your right, and that is where they go.
         Lesson(
-            "They see. You don't. Say where to go from where THEY face: facing you, their left is your right.",
+            "They see. You don't. Say where to go from where THEY face. Here they face you: their left is on your right.",
             "go left",
             listOf(
-                "++++++++.....++++++++",
-                "++++++++.....++++++++",
-                "++++++++.....++++++++",
-                "++++++++.....++++++++",
                 ".........###.........",
-                "........#####.....b..",
-                "........#-#-#.bbbbbb.",
-                "........#####.....b..",
-                ".........###.........",
-                "++++++++.....++++++++",
-                "++++++++.....++++++++",
-                "++++++++.....++++++++",
-                "++++++++.....++++++++",
+                ".++......###......#..",
+                ".+.+.....###....b.#..",
+                ".++.....#####.bbbb#..",
+                ".+.+.....###....b.#..",
+                ".+.+......#.......###",
+                ".....................",
+                ".....................",
+                ".....+.+.+++.+.+.....",
+                ".....+.+.+.+.+.+.....",
+                "......+..+.+.+.+.....",
+                "......+..+.+.+.+.....",
+                "......+..+++.+++.....",
             ),
         ),
         // Their steps fade from the notebook; the scratch on the wall stays.
@@ -540,13 +541,13 @@ private fun Lesson.sprite(frame: Int, lcd: Lcd): Sprite {
     return Sprite(picture, colors)
 }
 
-/** How to save them, a page at a time: tap the picture or Next. The last page answers the call. */
+/** How to save them, a page at a time: tap the picture or Next. The last page goes to the calls, to pick one. */
 @Composable
-private fun ColumnScope.Help(lcd: Lcd, now: Long, back: () -> Unit, answer: () -> Unit, start: Int = 0) {
+private fun ColumnScope.Help(lcd: Lcd, now: Long, start: Int = 0, back: () -> Unit) {
     var page by remember { mutableStateOf(start) }
     val lesson = LESSONS[page]
     val last = page == LESSONS.lastIndex
-    val next: () -> Unit = { if (last) answer() else page += 1 }
+    val next: () -> Unit = { if (last) back() else page += 1 }
     Header("How to save them", lcd)
     Column(Modifier.weight(1f).fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Box(
@@ -565,7 +566,7 @@ private fun ColumnScope.Help(lcd: Lcd, now: Long, back: () -> Unit, answer: () -
             PixelText("- the one who built the maze", size = SMALL, color = lcd.faint)
         }
     }
-    Softkeys(lcd, "Back" to { if (page == 0) back() else page -= 1 }, "${page + 1}/${LESSONS.size}" to {}, (if (last) "Answer" else "Next") to next)
+    Softkeys(lcd, "Back" to { if (page == 0) back() else page -= 1 }, "${page + 1}/${LESSONS.size}" to {}, (if (last) "Calls" else "Next") to next)
 }
 
 /** A page of how to save them on a lit screen, for the screenshots. */
@@ -573,7 +574,7 @@ private fun ColumnScope.Help(lcd: Lcd, now: Long, back: () -> Unit, answer: () -
 internal fun GuidePage(page: Int, now: Long) {
     val lcd = Lcd(Lcd.LIGHT, Lcd.DARK)
     Column(Modifier.fillMaxSize().background(Lcd.BODY).padding(6.dp).pixelBox(lcd.paper, outline = Ink.outline, raised = false).padding(horizontal = 12.dp, vertical = 10.dp)) {
-        Help(lcd, now, {}, {}, start = page)
+        Help(lcd, now, start = page) {}
     }
 }
 
