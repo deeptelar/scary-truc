@@ -102,8 +102,8 @@ enum class Who { CALLER, YOU, HOLLOW, LINE }
 @Serializable
 data class Line(val who: Who, val text: String)
 
-/** How a call ends. */
-enum class End { OUT, TAKEN, DOOM, BATTERY }
+/** How a call ends: [ALONE] when the stranger hung up, and no one gets out alone. */
+enum class End { OUT, TAKEN, DOOM, BATTERY, ALONE }
 
 /** Something the caller saw from next to it, which the notebook keeps: strange, or the light of the way out. */
 enum class Glimpse { STRANGE, LIGHT }
@@ -224,6 +224,15 @@ data class Call(
             panic = (panic + WHISPER_HURTS).coerceAtMost(100),
             lines = lines + Line(Who.HOLLOW, text),
             facts = facts + "A voice that isn't the stranger's just whispered on the phone: \"$text\"",
+        )
+
+    /** The call after the stranger hung up, with the caller somewhere in [maze]: without them, it is over. */
+    fun hungUp(maze: Maze): Call =
+        copy(
+            end = End.ALONE,
+            death = "the dark",
+            away = maze.distances(at)[maze.gate],
+            lines = lines + Line(Who.LINE, "You hung up"),
         )
 
     /** The call after the caller said [text]. */

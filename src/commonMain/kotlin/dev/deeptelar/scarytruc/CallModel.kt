@@ -6,6 +6,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import dev.deeptelar.telar.agent.ChatModel
@@ -315,13 +316,33 @@ class CallModel(
         return CallRun(plan, seed ?: Random.nextLong(), minds.ears { trouble = it }, minds.voice, minds.whisperer)
     }
 
+    /** The turn being played, to stop when the player hangs up. */
+    private var turn: Job? = null
+
+    /**
+     * The player hangs up: the turn stops where it is, and the caller is left alone in the dark,
+     * which no one gets out of. It counts as no try.
+     */
+    fun hangUp() {
+        if (ringing || call.over) return
+        turn?.cancel()
+        listening = false
+        microphone?.stop()
+        call = call.hungUp(run.mazeOf(call))
+        spokeAt = 0L
+        Sound.danger = 0f
+        Sound.otherworld = false
+        Sound.stop(Cue.MESSAGE)
+        Sound.play(Cue.HANGUP)
+    }
+
     /** Runs [work] alone, then plays the sounds of what changed. */
     private fun command(work: suspend () -> Call) {
         if (thinking) return
         thinking = true
         failure = null
         val before = call
-        scope.launch {
+        turn = scope.launch {
             try {
                 val after = work()
                 call = after
@@ -422,6 +443,7 @@ class CallModel(
                     delay(700)
                     Sound.play(Cue.HANGUP)
                 }
+                End.ALONE -> Unit
                 End.OUT -> {
                     Sound.play(Cue.DOOR)
                     delay(2400)
@@ -433,6 +455,7 @@ class CallModel(
     }
 
     private fun keep(call: Call) {
+        if (call.end == End.ALONE) return
         val away = call.away ?: return
         if ((best[call.plan] ?: Int.MAX_VALUE) <= away) return
         best = best + (call.plan to away)

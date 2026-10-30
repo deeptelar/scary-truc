@@ -27,6 +27,17 @@ class CallTest {
         }
 
     @Test
+    fun hangingUpLeavesTheCallerAloneAndCountsForNothing() = runBlocking {
+        val model = CallModel(kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Default), Minds.none, plan = plan, seed = 1, clock = false)
+        model.answer()
+        while (model.thinking) kotlinx.coroutines.delay(10)
+        model.hangUp()
+        assertEquals(End.ALONE, model.call.end)
+        assertEquals(Who.LINE, model.call.lines.last().who)
+        assertTrue(plan !in model.best)
+    }
+
+    @Test
     fun theStrangersWordsAreReadForTheFirstWayAndTheTone() = runBlocking {
         suspend fun said(text: String) = Keywords.listen(Call.begin(plan, maze, empty).copy(said = text))
         assertEquals(Heard(Order.LEFT, 0), said("Go left, then right"))

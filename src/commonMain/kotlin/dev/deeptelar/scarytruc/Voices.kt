@@ -181,6 +181,7 @@ class GemmaVoice(
                 End.OUT -> "You are out. Say it, and thank the stranger, or ask who they are."
                 End.TAKEN, End.DOOM -> "You are being taken, right now. Say only your last few words, cut off mid-sentence."
                 End.BATTERY -> "Your phone is dying. Say your last few words before the line goes dead."
+                End.ALONE -> "The stranger hung up on you."
                 null -> "Answer the stranger if they asked something, and say what happened and what you see."
             }
         val carried = if (call.carried.isEmpty()) "" else " You carry: ${call.carried.joinToString { it.thing }}."

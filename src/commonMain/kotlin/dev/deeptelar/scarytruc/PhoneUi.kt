@@ -630,6 +630,8 @@ private fun CallerBar(model: CallModel, now: Long, lcd: Lcd) {
                 PixelText(item.word, size = SMALL, color = lcd.paper)
             }
         }
+        // The red key, in the corner: twice, to be sure, and it is over for them.
+        if (!call.over) HangUp(now, model::hangUp, lcd)
     }
 }
 
@@ -667,6 +669,23 @@ private fun wave(ms: Long): Int =
         in 300 until 400 -> 1
         else -> 0
     }
+
+/** The key that hangs up: the first tap asks, a second within three seconds hangs up. */
+@Composable
+private fun HangUp(now: Long, hangUp: () -> Unit, lcd: Lcd) {
+    var asked by remember { mutableLongStateOf(-HANG_UP_WAIT) }
+    val sure = now - asked < HANG_UP_WAIT
+    PixelText(
+        if (sure) "Hang up?" else "End",
+        Modifier.background(lcd.ink).clickable { if (sure) hangUp() else asked = now() }.padding(horizontal = 6.dp, vertical = 2.dp),
+        size = SMALL,
+        color = lcd.paper,
+        maxLines = 1,
+    )
+}
+
+/** How long the hang-up key waits for its second tap. */
+private const val HANG_UP_WAIT = 3000L
 
 /** A thing the caller can carry, in pixels, [ink] on [paper]. */
 @Composable
@@ -791,6 +810,7 @@ private fun Ending(model: CallModel, lcd: Lcd) {
             when (call.end) {
                 End.OUT -> "${call.name} got out."
                 End.BATTERY -> "The battery died."
+                End.ALONE -> "You hung up. Alone, ${call.name} never found the way out."
                 else -> "Taken by ${call.death}."
             },
             size = SMALL,
