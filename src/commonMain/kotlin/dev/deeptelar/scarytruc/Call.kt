@@ -467,11 +467,13 @@ fun Call.walk(maze: Maze, haunt: Haunt): Call {
                 meet()
             } else {
                 var going = dir
+                // With one way on they keep going: what they already saw is no reason to stop and ask.
+                val seen = been
                 while (step(going)) {
                     val exits = maze.exits(at)
                     val ahead = exits.singleOrNull { it != going.opposite }
                     val stop =
-                        exits.size != 2 || ahead == null || at in haunt.notes || at in haunt.arrows || at in haunt.oddities ||
+                        exits.size != 2 || ahead == null || (at in haunt.notes && at !in read) || (at !in seen && (at in haunt.arrows || at in haunt.oddities)) ||
                             marks.any { it.at == at } || (at in haunt.items && at !in taken) || maze.doomAt(at + ahead) != null || at + ahead == maze.gate || woke ||
                             hollow?.takeIf { it.awake }?.let { (maze.distances(at)[it.at] ?: 99) <= 3 } == true || walked >= MAX_WALK
                     if (stop) break
@@ -702,7 +704,7 @@ private fun Call.look(maze: Maze, haunt: Haunt, facts: List<String>): Call {
                 seen += lang.t("$name: light under a door. Real light. And cold air.", "$name: luz bajo una puerta. Luz de verdad. Y aire frío.")
                 if (!lostTrack) glimpsed = glimpsed + (next to Glimpse.LIGHT)
             }
-            next in haunt.oddities -> {
+            next in haunt.oddities && next !in been -> {
                 seen += lang.t("$name: a corridor, and something in it: ${haunt.oddities.getValue(next)}.", "$name: un pasillo, y algo en él: ${haunt.oddities.getValue(next)}.")
                 if (!lostTrack) glimpsed = glimpsed + (next to Glimpse.STRANGE)
             }

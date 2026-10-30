@@ -5,6 +5,7 @@ import kotlinx.coroutines.runBlocking
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNotEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
@@ -106,6 +107,33 @@ class CallTest {
         assertEquals(2, twice.strays)
         assertTrue(plan.role.trust - once.trust < once.trust - twice.trust, "the second costs more")
         assertEquals(0, twice.copy(said = "left", heard = Heard(Order.LEFT, 0)).walk(maze, empty).strays)
+    }
+
+    @Test
+    fun withOneWayOnACallerStopsOnlyForWhatIsNew() {
+        // A corridor that goes on past the next cell, with nothing to stop for beyond it.
+        val (here, dir) =
+            maze.cells.firstNotNullOf { from ->
+                maze.exits(from).firstNotNullOfOrNull { way ->
+                    val next = from + way
+                    val on = maze.exits(next).singleOrNull { it != way.opposite }
+                    val clear = on != null && maze.exits(next).size == 2 && maze.doomAt(next) == null && next != maze.gate && maze.doomAt(next + on) == null && next + on != maze.gate
+                    if (clear) from to way else null
+                }
+            }
+        val next = here + dir
+        val walking = quiet(here, dir, Order.AHEAD)
+
+        val prop = Haunt(emptyMap(), emptyMap(), mapOf(next to "a boot"))
+        assertEquals(next, walking.copy(been = setOf(here)).walk(maze, prop).at, "the first time, they stop to look")
+        assertNotEquals(next, walking.copy(been = setOf(here, next)).walk(maze, prop).at, "a boot they saw is nothing to stop for")
+
+        val note = Haunt(emptyMap(), mapOf(next to "Run."), emptyMap())
+        assertEquals(next, walking.walk(maze, note).at, "a note not read yet")
+        assertNotEquals(next, walking.copy(read = setOf(next)).walk(maze, note).at, "a note already read")
+
+        val item = Haunt(emptyMap(), emptyMap(), emptyMap(), items = mapOf(next to Item.STONE))
+        assertEquals(next, walking.copy(been = setOf(here, next)).walk(maze, item).at, "something still to take")
     }
 
     @Test

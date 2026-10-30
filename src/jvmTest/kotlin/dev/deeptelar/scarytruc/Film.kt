@@ -75,7 +75,7 @@ class Film {
                     turn++
                 }
                 delay(4000)
-                File(out, "lines.txt").writeText(model.call.lines.joinToString("\n") { "${it.who}: ${it.text}" })
+                File(out, "log.txt").writeText(model.log.exported())
                 done = true
             }
         val frames = StringBuilder()
