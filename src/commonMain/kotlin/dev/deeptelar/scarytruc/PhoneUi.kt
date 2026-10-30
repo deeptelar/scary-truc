@@ -1,6 +1,10 @@
 package dev.deeptelar.scarytruc
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.rememberScrollState
@@ -28,6 +32,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -54,6 +59,7 @@ import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlin.random.Random
 
 /**
@@ -304,39 +310,38 @@ private fun Softkeys(lcd: Lcd, left: Pair<String, () -> Unit>?, middle: Pair<Str
 }
 
 /**
- * The phone between calls: a menu of the calls, the chosen one in reverse, and the one chosen
- * ringing under it.
+ * The phone between calls: a card for each call, to slide through, and the one at rest ringing
+ * under them.
  */
 @Composable
 private fun Calls(model: CallModel, now: Long, lcd: Lcd, modifier: Modifier, options: () -> Unit) {
     val lang = model.lang
+    val plans = Plan.entries
+    val pager = rememberPagerState(plans.indexOf(model.plan)) { plans.size }
+    val scope = rememberCoroutineScope()
+    // The card that comes to rest is the call that rings; while a call is being cleared, it waits.
+    LaunchedEffect(pager.settledPage, model.thinking) {
+        val plan = plans[pager.settledPage]
+        if (plan != model.plan) model.play(plan)
+    }
     Header(lang.t("Calls", "Llamadas"), lcd)
-    Column(modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-        for (plan in Plan.entries) {
-            val chosen = plan == model.plan
-            val best = model.best[plan]
-            Row(
-                Modifier.fillMaxWidth().background(if (chosen) lcd.ink else lcd.paper).clickable(enabled = !model.thinking) { model.play(plan) }
-                    .padding(horizontal = 6.dp, vertical = 3.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                PixelText(plan.text(lang).title, Modifier.weight(1f), color = if (chosen) lcd.paper else lcd.ink, maxLines = 1)
-                PixelText(
-                    when (best) {
-                        null -> ""
-                        0 -> lang.t("out", "fuera")
-                        else -> "$best"
-                    },
-                    size = SMALL,
-                    color = if (chosen) lcd.paper else lcd.ink,
-                )
+    Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        // The next card shows at the edge: there is more to slide to.
+        HorizontalPager(pager, Modifier.weight(1f).fillMaxWidth(), contentPadding = PaddingValues(horizontal = 14.dp), pageSpacing = 8.dp, verticalAlignment = Alignment.CenterVertically) { page ->
+            PlaceCard(plans[page], model.best[plans[page]], now, lang, lcd)
+        }
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
+            for ((label, step) in listOf("<" to -1, null to 0, ">" to 1)) {
+                if (label == null) {
+                    for (page in plans.indices) {
+                        Box(Modifier.padding(horizontal = 4.dp).size(6.dp).background(if (page == pager.currentPage) lcd.ink else lcd.faint))
+                    }
+                } else {
+                    val next = pager.currentPage + step
+                    PixelText(label, Modifier.clickable(enabled = next in plans.indices) { scope.launch { pager.animateScrollToPage(next) } }.padding(horizontal = 18.dp, vertical = 2.dp), color = if (next in plans.indices) lcd.ink else lcd.faint)
+                }
             }
         }
-        Spacer(Modifier.height(6.dp))
-        PixelText(lang.t("after ${model.plan.text(lang).film}", "según ${model.plan.text(lang).film}"), size = SMALL, color = lcd.ink)
-        PixelText(model.plan.text(lang).hint, size = SMALL, color = lcd.faint)
-        if (model.best.isEmpty()) PixelText(lang.t("First call? Menu > How to save them.", "¿Primera llamada? Menú > Cómo salvarles."), size = SMALL, color = lcd.ink)
-        Spacer(Modifier.height(8.dp))
         // The phone rings: its picture shakes.
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
             val shake = if ((now / 120) % 2 == 0L && (now / 1000) % 3 != 2L) 2.dp else 0.dp
@@ -349,6 +354,38 @@ private fun Calls(model: CallModel, now: Long, lcd: Lcd, modifier: Modifier, opt
     }
     Softkeys(lcd, lang.t("Menu", "Menú") to options, lang.t("Answer", "Contestar") to model::answer, null)
 }
+
+/** The card of a call: a picture of the place, its name, how it first sounds on the line, and how close the player came. */
+@Composable
+private fun PlaceCard(plan: Plan, best: Int?, now: Long, lang: Lang, lcd: Lcd) {
+    val text = plan.text(lang)
+    Column(
+        Modifier.fillMaxWidth().pixelBox(lcd.paper, outline = lcd.ink, raised = false).padding(8.dp).verticalScroll(rememberScrollState()),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        Box(
+            Modifier.fillMaxWidth().aspectRatio(PLACE_ASPECT).drawBehind {
+                val sprite = Sprite(PlaceArt.of(plan), mapOf('#' to lcd.ink, (if ((now / 700) % 2 == 0L) 'a' else 'b') to lcd.ink))
+                // Whole screen pixels, so that the picture stays sharp.
+                draw(sprite, center, minOf(size.width / sprite.width, size.height / sprite.height).toInt().toFloat())
+            },
+        )
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            PixelText(text.title, Modifier.weight(1f), color = lcd.ink, maxLines = 1)
+            when (best) {
+                null -> Unit
+                0 -> PixelText(lang.t("got out", "salieron"), size = SMALL, color = lcd.ink)
+                else -> PixelText(lang.t("closest: $best", "lo más cerca: $best"), size = SMALL, color = lcd.ink)
+            }
+        }
+        PixelText(lang.t("after ${text.film}", "según ${text.film}"), size = SMALL, color = lcd.ink)
+        PixelText(lang.t("\"", "«") + text.setting + lang.t("\"", "»"), size = SMALL, color = lcd.ink)
+        PixelText(text.hint, size = SMALL, color = lcd.faint)
+    }
+}
+
+/** How wide a picture of [PlaceArt] is for its height. */
+private const val PLACE_ASPECT = 56f / 34f
 
 /** Headphones: the night is heard better through them. */
 private val HEADPHONES =
