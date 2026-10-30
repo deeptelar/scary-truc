@@ -13,7 +13,7 @@ import kotlin.random.Random
 
 /** What the night sounds like at a moment of the game. */
 enum class Cue {
-    WOMAN_SCREAM_1, WOMAN_SCREAM_2, MAN_SCREAM_1, MAN_SCREAM_2, SOB_1, SOB_2, SOB_3, SOB_4,
+    WOMAN_SCREAM_1, WOMAN_SCREAM_2, MAN_SCREAM_1, MAN_SCREAM_2,
     STATIC_1, STATIC_2, STATIC_3, STATIC_4,
     STINGER, WAKE, BELL, SIREN, WHISPER, DOOR, CHIME, RING, HANGUP, MESSAGE,
     STEP_1, STEP_2, STEP_3, STEP_4, RUN,
@@ -21,7 +21,7 @@ enum class Cue {
     SNIFF, FLARE, STONE,
     WOMAN_FALL, MAN_FALL, CRUNCH, SHATTER, ROAR, GRIND,
     PICKUP, LOW_BATTERY, POWER_OFF, BATTERY_IN,
-    SCRATCH, PICK, WALL_1, WALL_2, RUSTLE_1, RUSTLE_2, HOWL, MAN_SOB_1, MAN_SOB_2, MAN_SOB_3, MAN_SOB_4, HEARTBEAT, WIND,
+    SCRATCH, PICK, WALL_1, WALL_2, RUSTLE_1, RUSTLE_2, HOWL, HEARTBEAT, WIND,
 }
 
 /** Sounds cut from a recording, read when the game starts: [cues] one after the other in [file], as long as each other. */
@@ -143,15 +143,6 @@ object Sound {
     /** Clothes as a caller crouches, one at random. */
     val RUSTLES: List<Cue> = listOf(Cue.RUSTLE_1, Cue.RUSTLE_2)
 
-    /** A caller at the edge of panic, a long cry or a catch of breath. */
-    private val SOBS: List<Cue> = listOf(Cue.SOB_1, Cue.SOB_2, Cue.SOB_3, Cue.SOB_4)
-    private val MAN_SOBS: List<Cue> = listOf(Cue.MAN_SOB_1, Cue.MAN_SOB_2, Cue.MAN_SOB_3, Cue.MAN_SOB_4)
-
-    private var lastSob: Cue? = null
-
-    /** A sob in the caller's voice, one at random, never the last one again. */
-    fun sob(woman: Boolean): Cue = (if (woman) SOBS else MAN_SOBS).filter { it != lastSob }.random().also { lastSob = it }
-
     /** The last sound of a caller, in their voice. */
     fun screams(woman: Boolean): List<Cue> = if (woman) listOf(Cue.WOMAN_SCREAM_1, Cue.WOMAN_SCREAM_2) else listOf(Cue.MAN_SCREAM_1, Cue.MAN_SCREAM_2)
 
@@ -178,7 +169,6 @@ object Sound {
             Recording("files/woman-scream-2.pcm", Cue.WOMAN_SCREAM_2),
             Recording("files/man-scream-1.pcm", Cue.MAN_SCREAM_1),
             Recording("files/man-scream-2.pcm", Cue.MAN_SCREAM_2),
-            Recording("files/sob.pcm", SOBS),
             Recording("files/stinger.pcm", Cue.STINGER),
             Recording("files/growl.pcm", Cue.WAKE),
             Recording("files/bell.pcm", Cue.BELL),
@@ -212,7 +202,6 @@ object Sound {
             Recording("files/rustle-1.pcm", Cue.RUSTLE_1),
             Recording("files/rustle-2.pcm", Cue.RUSTLE_2),
             Recording("files/howl.pcm", Cue.HOWL),
-            Recording("files/man-sob.pcm", MAN_SOBS),
             Recording("files/heartbeat.pcm", Cue.HEARTBEAT),
             Recording("files/wind.pcm", Cue.WIND),
         )
@@ -307,7 +296,7 @@ object Sound {
         val noise = Random(cue.ordinal)
         return when (cue) {
             // A thin, wavering scream that rises and breaks.
-            Cue.WOMAN_SCREAM_1, Cue.WOMAN_SCREAM_2, Cue.MAN_SCREAM_1, Cue.MAN_SCREAM_2, Cue.SOB_1, Cue.SOB_2, Cue.SOB_3, Cue.SOB_4, Cue.MAN_SOB_1, Cue.MAN_SOB_2, Cue.MAN_SOB_3, Cue.MAN_SOB_4, Cue.WOMAN_FALL, Cue.MAN_FALL ->
+            Cue.WOMAN_SCREAM_1, Cue.WOMAN_SCREAM_2, Cue.MAN_SCREAM_1, Cue.MAN_SCREAM_2, Cue.WOMAN_FALL, Cue.MAN_FALL ->
                 wave(0.9) { t, _ ->
                     val pitch = 700 + 900 * t / 0.9 * (1 - t / 0.9) * 4 + 40 * sin(2 * PI * 9 * t)
                     (saw(pitch * t) * 0.45 + (noise.nextDouble() - 0.5) * 0.3) * envelope(t, 0.03, 0.9)

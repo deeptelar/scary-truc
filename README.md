@@ -43,7 +43,7 @@ When the line goes dead, you learn how many steps they were from the way out.
 **They see. You don't.** Every way is said from where *they* face, so their left is not always
 your left.
 
-**Fear is loud.** A frightened caller stumbles, sobs and refuses, and sometimes runs down a
+**Fear is loud.** A frightened caller stumbles and refuses, and sometimes runs down a
 corridor you never chose. A kind voice steadies them; a cruel one doesn't.
 
 **It hunts by sound.** They call it the Hollow. You'll only ever hear it: slow, wet footsteps,
@@ -160,8 +160,6 @@ The sounds are cut from sound effects on [Pixabay](https://pixabay.com/sound-eff
 - Midnight bell: [freesound_community](https://pixabay.com/users/freesound_community-46691455/?utm_source=link-attribution&utm_medium=referral&utm_campaign=music&utm_content=33827)
 - Walls moving at midnight: [freesound_community](https://pixabay.com/users/freesound_community-46691455/?utm_source=link-attribution&utm_medium=referral&utm_campaign=music&utm_content=101019)
 - Midnight horn: [Alexander Jauk](https://pixabay.com/users/alex_jauk-16800354/?utm_source=link-attribution&utm_medium=referral&utm_campaign=music&utm_content=228913)
-- Woman sobbing: [DRAGON-STUDIO](https://pixabay.com/users/dragon-studio-38165424/?utm_source=link-attribution&utm_medium=referral&utm_campaign=music&utm_content=372482)
-- Man sobbing: [Ribhav Agrawal](https://pixabay.com/users/ribhavagrawal-39286533/?utm_source=link-attribution&utm_medium=referral&utm_campaign=music&utm_content=265500)
 - Woman's screams: [Dilip](https://pixabay.com/users/virtual_vibes-51361309/?utm_source=link-attribution&utm_medium=referral&utm_campaign=music&utm_content=379381) and [Dilip](https://pixabay.com/users/virtual_vibes-51361309/?utm_source=link-attribution&utm_medium=referral&utm_campaign=music&utm_content=379382)
 - Man's screams: [Official Profile](https://pixabay.com/users/universfield-28281460/?utm_source=link-attribution&utm_medium=referral&utm_campaign=music&utm_content=123078) and [Hiran Vinodya](https://pixabay.com/users/vinodadora-30315691/?utm_source=link-attribution&utm_medium=referral&utm_campaign=music&utm_content=128357)
 - Falling into the pit: [freesound_community](https://pixabay.com/users/freesound_community-46691455/?utm_source=link-attribution&utm_medium=referral&utm_campaign=music&utm_content=71789) and [Official Profile](https://pixabay.com/users/universfield-28281460/?utm_source=link-attribution&utm_medium=referral&utm_campaign=music&utm_content=326183)

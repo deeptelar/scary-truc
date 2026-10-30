@@ -166,7 +166,7 @@ data class Call(
     val role: Role,
     /** The caller's name, a different one on every try: the [role] is only how they are. */
     val name: String,
-    /** Whether the caller screams and sobs in a woman's voice or a man's. */
+    /** Whether the caller screams in a woman's voice or a man's. */
     val woman: Boolean,
     /** The language the caller speaks and understands. */
     val lang: Lang = Lang.EN,
