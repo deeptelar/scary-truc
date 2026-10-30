@@ -439,7 +439,7 @@ class CallModel(
                 delay(Sound.millis(Cue.RUN) - 1500)
             } else {
                 repeat(after.walked) {
-                    Sound.play(Sound.STEPS.random(), gain = -4f)
+                    Sound.play(Sound.STEPS.random(), gain = -1f)
                     delay(380)
                 }
             }
