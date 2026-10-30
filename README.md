@@ -21,7 +21,7 @@ is loud.
 on a phone.
 
 <p align="center">
-  <img src="docs/call.gif" width="300" alt="A call in The Hedge with Gemma as the caller: the phone unlocks, the cards of the six calls slide past, the caller's words appear under a notebook, midnight turns the screen dark, the Hollow whispers on the line, and the caller is taken mid-word">
+  <img src="docs/call.gif" width="300" alt="A call in The Hedge with Gemma as the caller: the phone unlocks, the cards of the six calls slide past, the caller's short, scared lines appear under a notebook with quick options to tap, midnight turns the screen dark, the Hollow speaks on the line, and the caller is taken mid-word">
 </p>
 
 ## Six calls

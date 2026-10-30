@@ -63,12 +63,18 @@ class Film {
                     val said = explorer.explore(model.call, model.maze, model.haunt)
                     val way = listOf("ahead", "right", "back", "left").firstOrNull { said.endsWith(it) }
                     val line = way?.let { tones[turn % tones.size].format(it) } ?: said
-                    for (i in 1..line.length) {
-                        model.type(line.take(i))
-                        delay(35)
+                    // Some turns typed, some tapped.
+                    if (way != null && turn % 2 == 1) {
+                        delay(900)
+                        model.tap("Go $way")
+                    } else {
+                        for (i in 1..line.length) {
+                            model.type(line.take(i))
+                            delay(35)
+                        }
+                        delay(300)
+                        model.send()
                     }
-                    delay(300)
-                    model.send()
                     delay(20)
                     while (model.thinking) delay(10)
                     delay(model.speaking() + 1500)
