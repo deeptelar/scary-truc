@@ -70,6 +70,20 @@ class CallTest {
     }
 
     @Test
+    fun aClueNamesWhatCouldHelpWithoutSayingWhatToDo() {
+        val (here, dir) = corridor
+        val call = quiet(here, dir, Order.STAY).copy(turn = 2)
+        val hunted = call.copy(hollow = Hollow(here + maze.exits(here).first(), awake = true))
+        assertEquals(Clue.LISTENS, Clue.of(hunted, maze, empty))
+        assertEquals(Clue.NOISE, Clue.of(hunted.copy(carried = listOf(Item.STONE)), maze, empty))
+        assertEquals(Clue.FIRE, Clue.of(hunted.copy(carried = listOf(Item.STONE, Item.FLARE)), maze, empty))
+        assertNull(Clue.of(call.copy(turn = 0), maze, empty), "not before they have said anything")
+        // Never an order: no clue starts with one of the caller's words.
+        val orders = Order.entries.map { it.word } + listOf("go", "hide", "throw", "light", "use")
+        for (clue in Clue.entries) assertTrue(orders.none { clue.en.lowercase().startsWith(it) }, clue.en)
+    }
+
+    @Test
     fun theStrangersWordsAreReadForTheFirstWayAndTheTone() = runBlocking {
         suspend fun said(text: String) = Keywords.listen(Call.begin(plan, maze, empty).copy(said = text))
         assertEquals(Heard(Order.LEFT, 0), said("Go left, then right"))

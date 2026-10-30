@@ -162,7 +162,7 @@ private fun Phone(model: CallModel, now: Long, narrow: Boolean, modifier: Modifi
             Modifier.weight(1f).fillMaxWidth().pixelBox(lcd.paper, outline = Ink.outline, raised = false).padding(horizontal = 12.dp, vertical = 10.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            StatusBar(call, danger, lcd)
+            StatusBar(call, danger, lcd, if (model.locked || model.ringing || call.over) null else model.clue, model.clue in model.cluesRead, now, model::toggleClue)
             when {
                 model.locked -> Locked(lcd, model.lang, model::unlock)
                 model.ringing && screen == Screen.MENU -> Menu(model, lcd) { screen = it }
@@ -171,6 +171,16 @@ private fun Phone(model: CallModel, now: Long, narrow: Boolean, modifier: Modifi
                 model.ringing -> Calls(model, now, lcd, Modifier.weight(1f)) { screen = Screen.MENU }
                 else -> {
                     CallerBar(model, now, lcd)
+                    // The clue, opened from the bulb, over the call until it is closed.
+                    model.clue?.takeIf { model.clueOpen && !call.over }?.let { clue ->
+                        Column(
+                            Modifier.fillMaxWidth().background(lcd.ink).clickable(onClick = model::toggleClue).padding(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(4.dp),
+                        ) {
+                            PixelText(model.lang.t("Clue", "Pista"), size = SMALL, color = lcd.paper)
+                            PixelText(clue.text(model.lang), color = lcd.paper)
+                        }
+                    }
                     val speaking = now - model.spokeAt < model.speaking()
                     when {
                         narrow && notebook -> Notebook(model, lcd, Modifier.weight(1f).fillMaxWidth())
@@ -209,16 +219,27 @@ private fun Grille() {
  * the bars of the battery.
  */
 @Composable
-private fun StatusBar(call: Call, danger: Float, lcd: Lcd) {
+private fun StatusBar(call: Call, danger: Float, lcd: Lcd, clue: Clue?, read: Boolean, now: Long, open: () -> Unit) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         val signal = (5 - (danger * 5).toInt()).coerceIn(1, 5)
         Bars(signal, lcd, antenna = true)
+        // A clue waits behind the bulb, as a notification: it blinks until it is read.
+        Box(Modifier.padding(start = 10.dp).size(28.dp, 22.dp).clickable(enabled = clue != null, onClick = open), contentAlignment = Alignment.Center) {
+            if (clue != null) {
+                val lit = !read && (now / 500) % 2 == 0L
+                Box(Modifier.size(16.dp, 20.dp).drawBehind { draw(Sprite(if (lit) BULB_LIT else BULB, mapOf('#' to if (read) lcd.faint else lcd.ink)), center, 2.dp.toPx()) })
+            }
+        }
         Spacer(Modifier.weight(1f))
         PixelText(clock(call), size = SMALL, color = lcd.ink)
         Spacer(Modifier.weight(1f))
         Bars(((call.battery.coerceIn(0, 100) + 19) / 20), lcd, antenna = false)
     }
 }
+
+/** A bulb, the clue's notification, and lit. */
+private val BULB = listOf("..###..", ".#...#.", "#.....#", "#.....#", ".#...#.", "..#.#..", "..###..", "..###..", "...#...")
+private val BULB_LIT = listOf("..###..", ".#####.", "#######", "#######", ".#####.", "..###..", "..###..", "..###..", "...#...")
 
 /** Five bars that grow to the right, with an antenna or a battery in front. */
 @Composable
