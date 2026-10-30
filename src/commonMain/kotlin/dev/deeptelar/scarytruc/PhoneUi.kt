@@ -312,6 +312,20 @@ private fun Calls(model: CallModel, now: Long, lcd: Lcd, modifier: Modifier, opt
     Softkeys(lcd, "Menu" to options, "Answer" to model::answer, null)
 }
 
+/** Headphones: the night is heard better through them. */
+private val HEADPHONES =
+    listOf(
+        "...#####...",
+        "..#.....#..",
+        ".#.......#.",
+        "#.........#",
+        "#.........#",
+        "###.....###",
+        "###.....###",
+        "###.....###",
+        ".##.....##.",
+    )
+
 /** A padlock, as a phone of the time showed its keys locked. */
 private val PADLOCK =
     listOf(
@@ -343,6 +357,9 @@ private fun ColumnScope.Locked(lcd: Lcd, unlock: () -> Unit) {
         Box(Modifier.size(60.dp).drawBehind { draw(Sprite(PADLOCK, mapOf('#' to lcd.ink)), center, 5.dp.toPx()) })
         PixelText("Keys locked", color = lcd.ink)
         PixelText("Turn the sound up, and unlock. Someone is about to call.", Modifier.fillMaxWidth(), size = SMALL, color = lcd.faint, align = TextAlign.Center)
+        Spacer(Modifier.height(10.dp))
+        Box(Modifier.size(36.dp, 30.dp).drawBehind { draw(Sprite(HEADPHONES, mapOf('#' to lcd.ink)), center, 3.dp.toPx()) })
+        PixelText("For the real experience, put your headphones on.", Modifier.fillMaxWidth(), size = SMALL, color = lcd.ink, align = TextAlign.Center)
     }
     Softkeys(lcd, null, "Unlock" to unlock, null)
 }
