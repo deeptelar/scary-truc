@@ -129,12 +129,16 @@ class CallModel(
     /** When the phone rings next. */
     private var ringAt = 0L
 
-    /** The player reads how to save them or the options: the phone holds its ring until they are back at the calls. */
+    /**
+     * The player reads how to save them or the options: the phone holds its ring and plays the dark
+     * loop until they are back at the calls, where the card at rest is heard.
+     */
     var reading: Boolean = false
         set(value) {
             if (value == field) return
             field = value
             if (value) Sound.stop(Cue.RING) else ringAt = 0L
+            Sound.waiting = value
         }
 
     /** Why the last turn was understood without Gemma. */
@@ -326,7 +330,7 @@ class CallModel(
         Sound.danger = 0f
         Sound.hushed = false
         Sound.otherworld = false
-        Sound.waiting = true
+        Sound.waiting = reading
         Sound.place = plan.drone
         // Each call has its own midnight.
         Sound.midnight = Drone.MIDNIGHT.random()

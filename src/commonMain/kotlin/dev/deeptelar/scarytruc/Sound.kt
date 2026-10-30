@@ -30,7 +30,7 @@ private class Recording(val file: String, val cues: List<Cue>) {
 }
 
 /**
- * The drones that loop under the night: the dark one while no call is on, one for each place, and after midnight one of [MIDNIGHT].
+ * The drones that loop under the night: the dark one on the lock and the guide, one for each place, and after midnight one of [MIDNIGHT].
  * Each is read from [file] only once it is wanted, and played [gain] decibels under [Sound.DRONE]:
  * a chirp sounds louder than a hum as strong, so the crickets in the trees are turned down, and the voices
  * of the tape a little, to leave the caller room.
@@ -96,7 +96,7 @@ object Sound {
             drones()
         }
 
-    /** No call is on: the phone is locked, or shows the guide or the calls, over the dark ambient loop. */
+    /** The phone is locked, or shows the guide or the options, over the dark ambient loop. */
     var waiting: Boolean = true
         set(value) {
             field = value
