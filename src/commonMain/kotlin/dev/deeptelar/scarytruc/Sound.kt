@@ -43,6 +43,9 @@ enum class Drone(val file: String, val gain: Float = 0f) {
     SHIP("files/ship.pcm"),
     OTHERWORLD("files/otherworld.pcm"),
     DARK("files/ambient.pcm"),
+
+    /** The dark loop under the screens around a call: to read over, not to listen to. */
+    WAITING("files/ambient.pcm", gain = -8f),
     ;
 
     companion object {
@@ -234,7 +237,7 @@ object Sound {
             // drone read first kept it silent for as long as a phone took to download it.
             val first = recordings.filter { it.cues.any { cue -> cue in FIRST } }
             for (recording in first) read(recording)
-            load(if (waiting) Drone.DARK else place)
+            load(if (waiting) Drone.WAITING else place)
             for (recording in recordings - first.toSet()) read(recording)
             load(place)
             load(midnight)
@@ -272,7 +275,7 @@ object Sound {
 
     private fun drones() {
         if (!started) return
-        runCatching { output?.drone(if (!on || hushed) null else if (waiting) Drone.DARK else if (otherworld) midnight else place) }.onFailure(fault)
+        runCatching { output?.drone(if (!on || hushed) null else if (waiting) Drone.WAITING else if (otherworld) midnight else place) }.onFailure(fault)
     }
 
     fun play(cue: Cue, gain: Float = 0f) {

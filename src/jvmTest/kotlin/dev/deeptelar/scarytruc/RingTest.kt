@@ -38,7 +38,7 @@ class RingTest {
         model.unlock()
         delay(1000)
         assertTrue(Cue.RING !in played, "while the guide is read, it doesn't ring")
-        assertEquals(Drone.DARK, droning, "the guide is over the dark loop")
+        assertEquals(Drone.WAITING, droning, "the guide is over the dark loop")
         model.reading = false
         delay(1000)
         assertEquals(model.plan.drone, droning, "at the calls, the place of the card at rest")
