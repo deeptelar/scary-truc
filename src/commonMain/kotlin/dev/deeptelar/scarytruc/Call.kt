@@ -665,7 +665,8 @@ private fun Call.look(maze: Maze, haunt: Haunt, facts: List<String>): Call {
     if (maze.exits(at).size == 1 && at != origin) seen += lang.t("It's a dead end.", "Es un callejón sin salida.")
 
     haunt.arrows[at]?.let { seen += lang.t("A chalk arrow on the wall here points ${pointing(facing.side(it), lang)}.", "Una flecha de tiza en la pared señala ${pointing(facing.side(it), lang)}.") }
-    haunt.notes[at]?.let {
+    // A note read out once is only mentioned again when they come back to it.
+    haunt.notes[at]?.takeIf { at !in read || walked > 0 }?.let {
         seen += if (at in read) lang.t("The note I already read is here.", "Aquí está la nota que ya he leído.") else lang.t("A note on the floor here, in pencil: \"$it\"", "Una nota en el suelo, a lápiz: \"$it\"")
         if (walked > 0 || turn == 0) panic -= 6
     }
