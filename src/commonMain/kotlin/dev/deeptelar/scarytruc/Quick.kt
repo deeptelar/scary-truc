@@ -22,10 +22,14 @@ object Quick {
             "Slowly. I won't leave you." to "Despacio. No voy a dejarte.",
         )
 
-    /** What [call] can be told in [maze] with [haunt]: the ways first. */
+    /** The ways open to [call] in [maze]. */
+    fun ways(call: Call, maze: Maze): List<Order> =
+        listOf(Order.AHEAD, Order.LEFT, Order.RIGHT, Order.BACK).filter { maze.canGo(call.at, call.facing.turned(it.turn!!)) }
+
+    /** What [call] can be told in [maze] with [haunt]: the ways first. A stone goes down a way: against a wall it only brings the Hollow. */
     fun of(call: Call, maze: Maze, haunt: Haunt): List<String> {
         val lang = call.lang
-        val ways = listOf(Order.AHEAD, Order.LEFT, Order.RIGHT, Order.BACK).filter { maze.canGo(call.at, call.facing.turned(it.turn!!)) }
+        val ways = ways(call, maze)
         val calm = CALM[call.turn % CALM.size].let { lang.t(it.first, it.second) }
         val here = haunt.items[call.at]?.takeIf { call.at !in call.taken }
         return ways.map { way(it, lang) } +
@@ -35,14 +39,14 @@ object Quick {
                 lang.t("Mark the wall", "Marca la pared").takeIf { call.marks.none { it.at == call.at } },
                 lang.t("Take it", "Cógelo").takeIf { here != null },
             ) +
-            call.carried.map { it.use(lang) }
+            call.carried.flatMap { item -> if (item == Item.STONE) ways.map { item.use(lang, it) } else listOf(item.use(lang)) }
     }
 }
 
-/** The words for using this, in [lang]. */
-fun Item.use(lang: Lang): String =
+/** The words for using this, in [lang]: a stone is thrown [toward] a way. */
+fun Item.use(lang: Lang, toward: Order = Order.AHEAD): String =
     when (this) {
         Item.BATTERY -> lang.t("Swap in the battery", "Cambia la batería")
         Item.FLARE -> lang.t("Light the flare", "Enciende la bengala")
-        Item.STONE -> lang.t("Throw the stone ahead", "Tira la piedra hacia delante")
+        Item.STONE -> lang.t("Throw the stone ${toward.word}", "Tira la piedra ${toward.way(Lang.ES)}")
     }

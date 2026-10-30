@@ -17,6 +17,24 @@ class QuickTest {
         Call.begin(plan, maze, empty, lang = lang).copy(at = at, facing = facing, hollow = null)
 
     @Test
+    fun aStoneIsOfferedOnlyDownAWayThatIsOpen() {
+        for (lang in Lang.entries) {
+            val walled = maze.cells.flatMap { at -> Dir.entries.map { at to it } }.first { (at, dir) -> !maze.canGo(at, dir) && maze.exits(at).isNotEmpty() }
+            val here = call(lang, walled.first, walled.second).copy(carried = listOf(Item.STONE))
+            val throws = Order.entries.filter { it.turn != null }.map { it to Item.STONE.use(lang, it) }
+            val offered = Quick.of(here, maze, empty)
+            assertFalse(throws.first { it.first == Order.AHEAD }.second in offered, "not against the wall")
+            assertEquals(Quick.ways(here, maze).toSet(), throws.filter { it.second in offered }.map { it.first }.toSet())
+            for ((way, words) in throws) {
+                val heard = runBlocking { Keywords.listen(here.copy(said = words)) }
+                assertEquals(Order.USE, heard.order, words)
+                assertEquals(Item.STONE, heard.item, words)
+                assertEquals(way, heard.toward, words)
+            }
+        }
+    }
+
+    @Test
     fun itOffersOnlyTheWaysThatAreOpen() {
         for (lang in Lang.entries) {
             val here = call(lang)

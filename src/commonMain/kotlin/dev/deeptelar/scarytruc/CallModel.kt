@@ -430,8 +430,8 @@ class CallModel(
 
     private fun say(words: String) = command { run.say(words) }
 
-    /** Tells the caller to use [item], as if the player had said it: a stone is thrown ahead. */
-    fun useItem(item: Item) = tap(item.use(lang))
+    /** Tells the caller to use [item], as if the player had said it: a stone is thrown down the first way open. */
+    fun useItem(item: Item) = tap(item.use(lang, Quick.ways(call, maze).firstOrNull() ?: Order.AHEAD))
 
     /** What the player can say with a tap this turn. */
     val quick: List<String> get() = if (ringing || call.over) emptyList() else Quick.of(call, maze, haunt)
