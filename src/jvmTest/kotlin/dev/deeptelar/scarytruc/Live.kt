@@ -62,7 +62,7 @@ class Live {
                     ),
             )
         for ((lang, lines) in said) {
-            val run = CallRun(Plan.CAVE, seed = 3, ears = minds.ears { if (it != null) println("TROUBLE $it") }, voice = minds.voice, whisperer = minds.whisperer, lang = lang)
+            val run = CallRun(Plan.CAVE, seed = 3, ears = minds.ears { if (it != null) println("TROUBLE $it") }, voice = minds.voice {}, whisperer = minds.whisperer {}, lang = lang)
             run.begin()
             for (line in lines) {
                 val heard = minds.ears {}.listen(run.call.copy(said = line))
@@ -81,7 +81,7 @@ class Live {
         val minds = Server.OPENROUTER.copy(key = key).minds(HttpClient(CIO))
         val words = mapOf(Lang.EN to listOf("wall", "corridor"), Lang.ES to listOf("pared", "pasillo"))
         for (lang in Lang.entries) {
-            val run = CallRun(Plan.WOODS, seed = 5, ears = minds.ears { if (it != null) println("TROUBLE $it") }, voice = minds.voice, whisperer = minds.whisperer, lang = lang)
+            val run = CallRun(Plan.WOODS, seed = 5, ears = minds.ears { if (it != null) println("TROUBLE $it") }, voice = minds.voice {}, whisperer = minds.whisperer {}, lang = lang)
             run.begin()
             val explorer = Balance()
             repeat(8) {
@@ -111,7 +111,7 @@ class Live {
             val (way, other) = maze.exits(here)
             val call = begun.copy(at = here, facing = other, been = maze.cells.toSet() - (here + way), stale = 2, said = "go on", heard = Heard(Order.AHEAD, 0)).walk(maze, haunt)
             println("LOOP [$lang] FACTS: ${call.facts}")
-            println("LOOP [$lang] SAID: ${call.spoke(minds.voice.speak(call)).lines.last().text}")
+            println("LOOP [$lang] SAID: ${call.spoke(minds.voice {}.speak(call)).lines.last().text}")
         }
     }
 
@@ -125,7 +125,7 @@ class Live {
                 Lang.ES to listOf("hola, ¿estás bien?", "ve a la izquierda, tranquila", "¿qué ves?", "go left please", "derecha", "escóndete, estoy contigo", "sigue recto, lo estás haciendo genial"),
             )
         for ((lang, lines) in said) {
-            val run = CallRun(Plan.CAVE, seed = 3, ears = minds.ears { if (it != null) println("TROUBLE $it") }, voice = minds.voice, whisperer = minds.whisperer, lang = lang)
+            val run = CallRun(Plan.CAVE, seed = 3, ears = minds.ears { if (it != null) println("TROUBLE $it") }, voice = minds.voice {}, whisperer = minds.whisperer {}, lang = lang)
             val (first, took) = measureTimedValue { run.begin() }
             println("[$lang] CALLER (${took.inWholeMilliseconds} ms): ${first.lines.last().text}")
             for (line in lines) {

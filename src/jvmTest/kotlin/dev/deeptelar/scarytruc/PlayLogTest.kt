@@ -21,6 +21,15 @@ class PlayLogTest {
     }
 
     @Test
+    fun aModelThatDoesNotSpeakIsInTheLog() = runBlocking {
+        val minds = Minds("broken", { Keywords }, { trouble -> Voice { trouble("the caller: it broke"); Script.speak(it) } }, { Echoes })
+        val model = CallModel(CoroutineScope(Dispatchers.Default), minds, plan = Plan.CAVE, seed = 1, clock = false, store = Memory())
+        model.answer()
+        while (model.thinking) delay(10)
+        assertTrue("trouble: the caller: it broke" in model.log.exported())
+    }
+
+    @Test
     fun aCallIsLoggedTurnByTurnAndKeptBetweenVisits() = runBlocking {
         val store = Memory()
         val model = CallModel(CoroutineScope(Dispatchers.Default), Minds.none, plan = Plan.CAVE, seed = 1, clock = false, store = store)

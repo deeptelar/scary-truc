@@ -246,13 +246,17 @@ object Script : Voice {
 class GemmaVoice(
     private val model: ChatModel,
     private val script: Voice = Script,
+    private val trouble: (String?) -> Unit = {},
 ) : Voice {
     override suspend fun speak(call: Call): String =
         try {
-            whole(spoken(model.chat(prompt(call), system = system(call)))).takeIf { it.length > 3 } ?: script.speak(call)
+            val line = whole(spoken(model.chat(prompt(call), system = system(call)))).takeIf { it.length > 3 }
+            trouble(if (line == null) "the caller's line came back empty" else null)
+            line ?: script.speak(call)
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
+            trouble("the caller: ${e.message ?: e::class.simpleName}")
             script.speak(call)
         }
 
@@ -343,7 +347,8 @@ fun spoken(text: String): String =
         .replace(Regex("\\*[^*]*\\*"), "")
         .replace(Regex("[#*_`>]+"), "")
         .replace(Regex("(?m)^\\s*[-•]\\s+"), "")
-        .replace(Regex("[\\x{1F000}-\\x{1FAFF}\\x{2600}-\\x{27BF}\\x{FE0F}]"), "")
+        // Not with a Regex: code points in a pattern work on the JVM and throw in a browser.
+        .filterNot { it.isSurrogate() || it in '\u2600'..'\u27BF' || it == '\uFE0F' }
         .replace(Regex("\\s+"), " ")
         .trim()
 
@@ -385,6 +390,7 @@ object Echoes : Whisperer {
 class GemmaWhispers(
     private val model: ChatModel,
     private val echoes: Whisperer = Echoes,
+    private val trouble: (String?) -> Unit = {},
 ) : Whisperer {
     override suspend fun whisper(call: Call): String =
         try {
@@ -393,6 +399,7 @@ class GemmaWhispers(
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
+            trouble("the Hollow: ${e.message ?: e::class.simpleName}")
             echoes.whisper(call)
         }
 

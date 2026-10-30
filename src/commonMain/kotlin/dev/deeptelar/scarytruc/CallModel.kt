@@ -63,15 +63,15 @@ interface Microphone {
 class Minds(
     val name: String?,
     val ears: ((String?) -> Unit) -> Ears,
-    val voice: Voice,
-    val whisperer: Whisperer,
+    val voice: ((String?) -> Unit) -> Voice,
+    val whisperer: ((String?) -> Unit) -> Whisperer,
 ) {
     val gemma: Boolean get() = name != null
 
     companion object {
-        val none: Minds = Minds(null, { Keywords }, Script, Echoes)
+        val none: Minds = Minds(null, { Keywords }, { Script }, { Echoes })
 
-        fun of(model: ChatModel, name: String): Minds = Minds(name, { GemmaEars(model, trouble = it) }, GemmaVoice(model), GemmaWhispers(model))
+        fun of(model: ChatModel, name: String): Minds = Minds(name, { GemmaEars(model, trouble = it) }, { GemmaVoice(model, trouble = it) }, { GemmaWhispers(model, trouble = it) })
     }
 }
 
@@ -143,6 +143,9 @@ class CallModel(
 
     /** Why the last turn was understood without Gemma. */
     var trouble: String? by mutableStateOf(null)
+
+    /** Why the model did not speak on this turn, if it didn't, for the log. */
+    private var mute: String? = null
         private set
 
     var minds: Minds by mutableStateOf(minds)
@@ -361,7 +364,7 @@ class CallModel(
     private fun newRun(plan: Plan, seed: Long?): CallRun {
         val minds = minds
         // The maze is the same every time; the chances of the call are not.
-        return CallRun(plan, seed ?: Random.nextLong(), minds.ears { trouble = it }, minds.voice, minds.whisperer, lang)
+        return CallRun(plan, seed ?: Random.nextLong(), minds.ears { trouble = it }, minds.voice { if (it != null) mute = it }, minds.whisperer { if (it != null) mute = it }, lang)
     }
 
     /** The turn being played, to stop when the player hangs up. */
@@ -393,12 +396,13 @@ class CallModel(
         val before = call
         val asked = now()
         val waited = asked - spokeAt
+        mute = null
         turn = scope.launch {
             try {
                 val after = work()
                 call = after
                 spokeAt = now()
-                log.turn(before, after, run.mazeOf(after), waited, spokeAt - asked, trouble)
+                log.turn(before, after, run.mazeOf(after), waited, spokeAt - asked, listOfNotNull(trouble, mute).joinToString("; ").ifEmpty { null })
                 // Their words arrive like a message on a phone of the time.
                 if (after.lines.lastOrNull { it.who == Who.CALLER } != before.lines.lastOrNull { it.who == Who.CALLER }) Sound.play(Cue.MESSAGE, gain = -4f)
                 sounds(before, after)
