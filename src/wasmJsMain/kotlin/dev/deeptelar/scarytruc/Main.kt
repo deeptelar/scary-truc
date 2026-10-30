@@ -2,25 +2,38 @@
 
 package dev.deeptelar.scarytruc
 
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.ExperimentalComposeUiApi
+import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.ui.text.font.FontVariation
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.window.ComposeViewport
+import dev.deeptelar.scarytruc.resources.PixelifySans
+import dev.deeptelar.scarytruc.resources.Res
 import kotlinx.browser.document
 import kotlinx.coroutines.CoroutineExceptionHandler
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.plus
+import org.jetbrains.compose.resources.ExperimentalResourceApi
+import org.jetbrains.compose.resources.preloadFont
 import kotlin.js.ExperimentalWasmJsInterop
 
 /**
  * The game in a browser. The caller has no model until the player connects one in the settings:
  * their Ollama, when the page and Ollama are both on http, or a hosted Gemma with a key.
  */
-@OptIn(ExperimentalComposeUiApi::class)
+@OptIn(ExperimentalComposeUiApi::class, ExperimentalResourceApi::class)
 fun main() {
     var failed: (Throwable) -> Unit = {}
     val scope = MainScope() + CoroutineExceptionHandler { _, error -> failed(error) }
     val audio = WebAudio()
     Sound.output = audio
-    Sound.start(scope)
     val store = LocalStore()
     // In the browser's language the first time, Spanish or English; the player can change it.
     val game = CallModel(scope, store = store, locked = true, lang = Lang.of(navigatorLanguage()))
@@ -41,13 +54,32 @@ fun main() {
     audio.unlock()
     if (WebMicrophone.available) game.microphone = WebMicrophone()
     ComposeViewport(document.body!!) {
-        Game(game)
+        // Every word on the phone is in this font: until it is here, the page's loading screen stays.
+        val font by preloadFont(Res.font.PixelifySans, FontWeight.Normal, FontStyle.Normal, FontVariation.Settings(FontVariation.weight(400)))
+        var late by remember { mutableStateOf(false) }
+        LaunchedEffect(Unit) {
+            delay(FONT_WAIT)
+            late = true
+        }
+        if (font != null || late) {
+            Game(game)
+            LaunchedEffect(Unit) {
+                // After the font, or the sounds, many and big, keep it waiting on a slow line.
+                Sound.start(scope)
+                // The canvas comes up white before its first frames.
+                withFrameNanos {}
+                delay(DRAWN_WAIT)
+                gone()
+            }
+        }
     }
-    gone()
 }
 
+private const val FONT_WAIT = 60_000L
+private const val DRAWN_WAIT = 700L
+
 /** Takes the page's loading screen away, once the game has drawn. */
-private fun gone(): Unit = js("requestAnimationFrame(() => requestAnimationFrame(() => document.getElementById('loading')?.remove()))")
+private fun gone(): Unit = js("document.getElementById('loading')?.remove()")
 
 /** Keeps values in the browser's `localStorage`, so they survive a reload. */
 private class LocalStore : Store {
