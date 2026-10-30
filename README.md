@@ -112,6 +112,9 @@ and how the call stood after each turn (battery, panic, trust, how far the Hollo
 found nothing new). **Menu > Export play log**, or **Log** at the end of a call, hands it over as a
 text file. It stays on the device until then, holds what the player typed, and never holds a key.
 
+It also traces what goes on underneath: the build and the browser, every call to the model with its
+time and tokens, and every fault with its stack, even a crash, which the next visit finds.
+
 ## Behind the wall
 
 A call is a [Telar](https://github.com/deeptelar/telar) graph that pauses for your words:

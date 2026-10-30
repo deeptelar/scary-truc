@@ -7,6 +7,9 @@ import kotlin.time.ExperimentalTime
  * What was played on this device, to evaluate a play test: for each call what the player said, what
  * was understood, what came back and how the call stood. Kept in the [store], and it leaves the
  * device only when the player exports it. It holds what the player typed, and never a key.
+ *
+ * It also traces what went on under the game, for when a play test goes wrong: `*` is something the
+ * player did, `~` a call to the model and `!` a fault, with its stack.
  */
 @OptIn(ExperimentalTime::class)
 class PlayLog(private val store: Store? = null) {
@@ -16,6 +19,11 @@ class PlayLog(private val store: Store? = null) {
     var calls: Int = Regex("(?m)^$CALL").findAll(text).count()
         private set
 
+    /** The key of the model: whatever an error message quotes of it, it leaves out of the log. */
+    var secret: String? = null
+
+    private val faults = mutableSetOf<String>()
+
     /** Starts a call. */
     fun call(call: Call, mind: String?) {
         calls++
@@ -24,6 +32,31 @@ class PlayLog(private val store: Store? = null) {
 
     /** Something the player did that is not a turn. */
     fun note(what: String) = add("${time()} * $what\n")
+
+    /** A call to the model, or anything else that is no turn and no action of the player. */
+    fun trace(what: String) = add("${time()} ~ $what\n")
+
+    /** What went wrong in [where], with its stack. */
+    fun error(where: String, error: Throwable) = fault(where, error.stackTraceToString())
+
+    /**
+     * Something that went wrong in [where]. The same fault comes once in a visit, however often it
+     * happens, and after [MAX_FAULTS] others no more come: a broken frame could fill the log.
+     */
+    fun fault(where: String, what: String) {
+        val first = what.lineSequence().first()
+        if (!faults.add("$where $first") || faults.size > MAX_FAULTS + 1) return
+        if (faults.size > MAX_FAULTS) return add("${time()} ! more faults, not logged\n")
+        add("${time()} ! $where: ${what.take(MAX_FAULT).trim().replace("\n", "\n    ")}\n")
+    }
+
+    /** Takes in the faults the page kept in the [store] when the game could not: a crash on the last visit, or at the start. */
+    fun recover() {
+        val crash = runCatching { store?.get(CRASH) }.getOrNull().orEmpty()
+        if (crash.isBlank()) return
+        add("${time()} ! before this visit's game started: ${crash.trim().replace("\n", "\n    ")}\n")
+        runCatching { store?.set(CRASH, "") }
+    }
 
     /**
      * The turn from [before] to [after] in [maze]: the player [waited] milliseconds, and the answer
@@ -69,7 +102,7 @@ class PlayLog(private val store: Store? = null) {
     fun fileName(): String = "scary-truc-log-${stamp().take(16).replace(':', '-')}.txt"
 
     private fun add(more: String) {
-        text += more
+        text += secret?.takeIf { it.isNotBlank() }?.let { more.replace(it, "***") } ?: more
         // Too long for the store: the oldest calls go first, whole.
         if (text.length > MAX) {
             val keep = text.indexOf("\n$CALL", text.length - MAX)
@@ -87,6 +120,9 @@ class PlayLog(private val store: Store? = null) {
 
     private companion object {
         const val KEY = "log"
+        const val CRASH = "crash"
+        const val MAX_FAULTS = 50
+        const val MAX_FAULT = 1500
         const val CALL = "=== Call"
         const val MAX = 200_000
     }

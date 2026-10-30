@@ -160,7 +160,10 @@ private fun Phone(model: CallModel, now: Long, narrow: Boolean, modifier: Modifi
     var notebook by remember { mutableStateOf(false) }
     // The phone opens on how to save them, every time; the first page can skip it.
     var screen by remember { mutableStateOf(Screen.HELP) }
-    LaunchedEffect(screen) { model.reading = screen != Screen.CALLS }
+    LaunchedEffect(screen) {
+        model.reading = screen != Screen.CALLS
+        model.log.trace("screen ${screen.name.lowercase()}")
+    }
     Column(
         modifier.pixelBox(Lcd.BODY, outline = Lcd.BODY_EDGE).padding(horizontal = if (narrow) 6.dp else 22.dp, vertical = if (narrow) 6.dp else 18.dp),
         horizontalAlignment = Alignment.CenterHorizontally,

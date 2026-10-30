@@ -5,7 +5,9 @@ package dev.deeptelar.scarytruc
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.window.ComposeViewport
 import kotlinx.browser.document
+import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.MainScope
+import kotlinx.coroutines.plus
 import kotlin.js.ExperimentalWasmJsInterop
 
 /**
@@ -14,13 +16,19 @@ import kotlin.js.ExperimentalWasmJsInterop
  */
 @OptIn(ExperimentalComposeUiApi::class)
 fun main() {
-    val scope = MainScope()
+    var failed: (Throwable) -> Unit = {}
+    val scope = MainScope() + CoroutineExceptionHandler { _, error -> failed(error) }
     val audio = WebAudio()
     Sound.output = audio
     Sound.start(scope)
     val store = LocalStore()
     // In the browser's language the first time, Spanish or English; the player can change it.
     val game = CallModel(scope, store = store, locked = true, lang = Lang.of(navigatorLanguage()))
+    failed = { game.log.error("game", it) }
+    // From here the page's own net hands what it catches to the log, see index.html.
+    onFault { game.log.fault("page", it) }
+    game.log.trace("visit: ${visit()}")
+    onHidden { hidden -> game.log.trace(if (hidden) "page hidden" else "page shown") }
     game.saved()?.let { game.use(it) }
     game.onAnswer = audio::unlock
     game.export = ::handOver
@@ -59,10 +67,18 @@ private fun handOver(name: String, text: String): Unit =
             link.remove();
             setTimeout(() => URL.revokeObjectURL(link.href), 10000);
         };
-        if (navigator.canShare && navigator.canShare({ files: [file] })) navigator.share({ files: [file] }).catch(e => { if (e.name !== 'AbortError') download(); });
+        if (navigator.canShare && navigator.canShare({ files: [file] })) navigator.share({ files: [file] }).catch(e => { if (e.name !== 'AbortError') { console.error('share failed: ' + e); download(); } });
         else download();
     }""",
     )
+
+private fun onFault(report: (String) -> Unit): Unit = js("{ window.scaryTrucFault = text => report(text); }")
+
+private fun onHidden(report: (Boolean) -> Unit): Unit = js("document.addEventListener('visibilitychange', () => report(document.hidden))")
+
+/** Which build runs and on what: the build is written in the page when it is deployed. */
+private fun visit(): String =
+    js("`build ${'$'}{document.querySelector('meta[name=build]')?.content}, ${'$'}{navigator.userAgent}, ${'$'}{innerWidth}x${'$'}{innerHeight}, ${'$'}{navigator.language}, ${'$'}{navigator.onLine ? 'online' : 'offline'}`")
 
 private fun localGet(key: String): String? = js("window.localStorage.getItem(key)")
 

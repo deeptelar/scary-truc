@@ -15,6 +15,7 @@ import io.ktor.client.HttpClient
 import io.ktor.client.engine.cio.CIO
 import io.ktor.client.request.get
 import io.ktor.client.statement.bodyAsText
+import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -55,12 +56,15 @@ fun main(args: Array<String>) {
             parameters = buildJsonObject { put("reasoning_effort", "none") },
             timeout = 2.minutes,
         )
-    val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+    var failed: (Throwable) -> Unit = {}
+    val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main + CoroutineExceptionHandler { _, error -> failed(error) })
     Sound.output = JavaSound()
     Sound.on = "--mute" !in args
     Sound.start(scope)
     val home = Path.of(System.getProperty("user.home"), ".scary-truc")
     val game = CallModel(scope, if (gemma) Minds.of(model, modelName) else Minds.none, plan, store = FileStore(home))
+    failed = { game.log.error("game", it) }
+    Thread.setDefaultUncaughtExceptionHandler { _, error -> failed(error) }
     game.export = { name, text ->
         Files.createDirectories(home)
         Files.writeString(home.resolve(name), text)

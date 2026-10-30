@@ -10,6 +10,8 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import dev.deeptelar.telar.agent.ChatModel
+import dev.deeptelar.telar.agent.ChatRequest
+import dev.deeptelar.telar.agent.ChatResponse
 import dev.deeptelar.telar.openai.OpenAiChatModel
 import io.ktor.client.HttpClient
 import kotlinx.serialization.json.JsonObject
@@ -68,10 +70,35 @@ class Minds(
 ) {
     val gemma: Boolean get() = name != null
 
+    /** Told of every call to the model: who asked, how long it took and what it cost. */
+    var trace: (String) -> Unit = {}
+
+    private suspend fun traced(who: String, model: ChatModel, request: ChatRequest): ChatResponse {
+        val started = TimeSource.Monotonic.markNow()
+        try {
+            val response = model.chat(request)
+            val tokens = response.usage?.let { ", ${it.inputTokens} tokens in, ${it.outputTokens} out" }.orEmpty()
+            val cut = if (response.message.truncated) ", cut short" else ""
+            trace("$who ${started.elapsedNow().inWholeMilliseconds} ms, ${response.message.text.length} letters$tokens$cut")
+            return response
+        } catch (e: CancellationException) {
+            trace("$who cancelled after ${started.elapsedNow().inWholeMilliseconds} ms")
+            throw e
+        } catch (e: Exception) {
+            trace("$who failed after ${started.elapsedNow().inWholeMilliseconds} ms: ${e.message ?: e::class.simpleName}")
+            throw e
+        }
+    }
+
     companion object {
         val none: Minds = Minds(null, { Keywords }, { Script }, { Echoes })
 
-        fun of(model: ChatModel, name: String): Minds = Minds(name, { GemmaEars(model, trouble = it) }, { GemmaVoice(model, trouble = it) }, { GemmaWhispers(model, trouble = it) })
+        fun of(model: ChatModel, name: String): Minds {
+            lateinit var minds: Minds
+            fun asked(who: String) = ChatModel { minds.traced(who, model, it) }
+            minds = Minds(name, { GemmaEars(asked("ears"), trouble = it) }, { GemmaVoice(asked("voice"), trouble = it) }, { GemmaWhispers(asked("hollow"), trouble = it) })
+            return minds
+        }
     }
 }
 
@@ -112,7 +139,10 @@ class CallModel(
     var export: (String, String) -> Unit = { _, _ -> }
 
     /** Hands over the play log. */
-    fun exportLog() = export(log.fileName(), log.exported())
+    fun exportLog() {
+        log.note("exported the log")
+        runCatching { export(log.fileName(), log.exported()) }.onFailure { log.error("export", it) }
+    }
 
     /** Whether the player turned the game's sound off; kept in the [store]. */
     var muted: Boolean by mutableStateOf(runCatching { store?.get(MUTED) }.getOrNull() == "true")
@@ -186,6 +216,7 @@ class CallModel(
             heard = { type(it) },
             done = { problem ->
                 listening = false
+                if (problem != null) log.fault("microphone", problem)
                 if (problem != null) failure = problem else if (!thinking) send()
             },
         )
@@ -229,6 +260,9 @@ class CallModel(
         private set
 
     init {
+        log.secret = server?.key
+        log.recover()
+        Sound.fault = { log.error("sound", it) }
         if (muted) Sound.on = false
         Sound.waiting = true
         Sound.place = plan.drone
@@ -348,6 +382,7 @@ class CallModel(
     /** Plays the caller with the model on [server], or with none, and remembers the choice. */
     fun connect(server: Server?) {
         this.server = server
+        log.secret = server?.key
         log.note("model ${server?.model ?: "none"}")
         runCatching { store?.set(SERVER, server?.let { listOf(it.url, it.model, it.key).joinToString("\n") }.orEmpty()) }
         use(server?.minds(client) ?: Minds.none)
@@ -363,6 +398,7 @@ class CallModel(
 
     private fun newRun(plan: Plan, seed: Long?): CallRun {
         val minds = minds
+        minds.trace = log::trace
         // The maze is the same every time; the chances of the call are not.
         return CallRun(plan, seed ?: Random.nextLong(), minds.ears { trouble = it }, minds.voice { if (it != null) mute = it }, minds.whisperer { if (it != null) mute = it }, lang)
     }
@@ -409,9 +445,9 @@ class CallModel(
                 if (after.over) keep(after)
             } catch (e: CancellationException) {
                 throw e
-            } catch (e: Exception) {
+            } catch (e: Throwable) {
                 failure = e.message ?: e::class.simpleName
-                log.note("failed: $failure")
+                log.error("turn ${call.turn}", e)
                 call = run.call
             } finally {
                 thinking = false

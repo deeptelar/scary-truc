@@ -9,6 +9,39 @@
     <style>
         html, body { width: 100%; height: 100%; margin: 0; padding: 0; overflow: hidden; background: #0E0A14; }
     </style>
+    <meta name="build" content="dev">
+    <script>
+        // The net under the game, up before it is: what goes wrong goes to the play log, or is kept
+        // for the next visit when there is no game to take it, because it didn't start or it died.
+        (() => {
+            const keep = text => {
+                try {
+                    const key = 'scary-truc.crash';
+                    localStorage.setItem(key, ((localStorage.getItem(key) || '') + text + '\n').slice(-4000));
+                } catch (e) {}
+            };
+            const report = text => {
+                try {
+                    if (window.scaryTrucFault) window.scaryTrucFault(text);
+                    else keep(text);
+                } catch (e) {
+                    keep(text);
+                }
+            };
+            const stack = error => (error && error.stack ? '\n' + error.stack : '');
+            window.addEventListener('error', e => {
+                const place = e.filename ? ` at ${e.filename}:${e.lineno}:${e.colno}` : '';
+                report(e.message ? e.message + place + stack(e.error) : 'could not load ' + (e.target.src || e.target.href));
+            }, true);
+            window.addEventListener('unhandledrejection', e => report('rejected: ' + e.reason + stack(e.reason)));
+            const error = console.error;
+            console.error = (...args) => {
+                // Every visit, from the wasm runtime: not a fault of ours.
+                if (!String(args[0]).includes('is deprecated')) report('console: ' + args.join(' '));
+                error(...args);
+            };
+        })();
+    </script>
     <script type="application/javascript" src="scaryTruc.js"></script>
 </head>
 <body>

@@ -88,6 +88,9 @@ object Sound {
     /** How close the Hollow is to the caller, from 0 (far or asleep) to 1 (next to them). */
     var danger: Float = 0f
 
+    /** Told of what went wrong with the sound, which never stops the game. */
+    var fault: (Throwable) -> Unit = {}
+
     /** The silence before the scare: no drone, no static. */
     var hushed: Boolean = false
         set(value) {
@@ -269,16 +272,16 @@ object Sound {
 
     private fun drones() {
         if (!started) return
-        runCatching { output?.drone(if (!on || hushed) null else if (waiting) Drone.DARK else if (otherworld) midnight else place) }
+        runCatching { output?.drone(if (!on || hushed) null else if (waiting) Drone.DARK else if (otherworld) midnight else place) }.onFailure(fault)
     }
 
     fun play(cue: Cue, gain: Float = 0f) {
         if (!on || !ready(cue)) return
-        runCatching { output?.play(cue, gain) }
+        runCatching { output?.play(cue, gain) }.onFailure(fault)
     }
 
     fun stop(cue: Cue) {
-        runCatching { output?.stop(cue) }
+        runCatching { output?.stop(cue) }.onFailure(fault)
     }
 
     /** The samples of [cue], from -1 to 1: its recording, or until it is read, a sound made like it. */
@@ -391,7 +394,7 @@ object Sound {
 
     /** A recording in [file]: mono, 16 bits, at [RATE]. */
     private suspend fun read(file: String): FloatArray? {
-        val bytes = runCatching { Res.readBytes(file) }.getOrNull() ?: return null
+        val bytes = runCatching { Res.readBytes(file) }.onFailure(fault).getOrNull() ?: return null
         return FloatArray(bytes.size / 2) { i -> ((bytes[2 * i].toInt() and 0xFF) or (bytes[2 * i + 1].toInt() shl 8)).toShort() / 32768f }
     }
 
