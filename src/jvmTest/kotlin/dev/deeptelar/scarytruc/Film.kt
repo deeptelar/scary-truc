@@ -65,7 +65,9 @@ class Film {
                 while (turn < turns && !model.call.over) {
                     val said = explorer.explore(model.call, model.maze, model.haunt)
                     val way = listOf("ahead", "right", "back", "left").firstOrNull { said.endsWith(it) }
-                    val line = way?.let { tones[turn % tones.size].format(it) } ?: said
+                    val answers = listOf("I don't know. I swear. My phone just rang, and I'm scared too. I'm staying with you.", "I'm nobody. I'm in my kitchen and I can't sleep. I won't hang up on you.")
+                    val asked = answers[(model.call.doubts.size - 1).coerceIn(answers.indices)]
+                    val line = if (model.call.doubt != null) "$asked ${way?.let { "Go $it." }.orEmpty()}".trim() else way?.let { tones[turn % tones.size].format(it) } ?: said
                     model.listen()
                     delay(900)
                     val words = line.split(" ")
