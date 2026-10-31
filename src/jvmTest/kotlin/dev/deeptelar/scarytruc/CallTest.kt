@@ -323,7 +323,7 @@ class CallTest {
     }
 
     @Test
-    fun kindWordsAloneToACallerInAPanicAreABreatherAndNoTurn() {
+    fun kindWordsAloneToACallerInAPanicAreABreatherAndNoTurnOnceACall() {
         val (here, dir) = corridor
         val hunting = Hollow(maze.lair, awake = true)
         val panicked = quiet(here, dir, Order.NONE, calm = 2).copy(panic = 80, hollow = hunting)
@@ -333,6 +333,9 @@ class CallTest {
         assertEquals(panicked.at, breather.at)
         assertEquals(hunting, breather.hollow, "the Hollow waits")
         assertTrue(breather.panic < panicked.panic - 2 * 6, "calmer than the words alone")
+        // Once a call: the next time, kind words cost a turn.
+        assertTrue(breather.breathed)
+        assertEquals(panicked.turn + 1, panicked.copy(breathed = true).walk(maze, empty).turn)
         // Calm already, kind words cost a turn; and an order is never a breather.
         assertEquals(panicked.turn + 1, panicked.copy(panic = CALM_ENOUGH - 1).walk(maze, empty).turn)
         assertEquals(panicked.turn + 1, panicked.copy(heard = Heard(Order.STAY, 2)).walk(maze, empty).turn)

@@ -79,8 +79,8 @@ to do.
 Every turn the phone offers what you could say with a tap: the ways they named, a kind word, what
 can be done here. They open only as their patience runs out, and a word picked in a hurry scares
 them a little. Choosing is the hard part: a kind word costs a turn, and something is still
-walking, unless they are already panicking: then a kind word and nothing else is a breather, and
-no turn at all; nothing moves, and your time starts again. Or type anything, the way you'd talk to a stranger who is terrified, and do both at once. Gemma reads how you said it as
+walking. Once a call, when they are already panicking, a kind word and nothing else is a
+breather, and no turn at all: nothing moves, and your time starts again. Or type anything, the way you'd talk to a stranger who is terrified, and do both at once. Gemma reads how you said it as
 well as where you said to go. A bare word works when there's no time: "left", "hide", "take it",
 or the arrow keys. On a phone you can tap **Mic** and just speak; what you said goes when you
 pause. (Speech recognition is the browser's own, and most browsers do it on their maker's

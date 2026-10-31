@@ -3,7 +3,7 @@ package dev.deeptelar.scarytruc
 /**
  * What the player can say with a tap this turn, in the words they would type: the ways the caller
  * named, something to calm them, and what can be done here. The choice is the player's: a kind word
- * costs a turn, unless the caller is in a panic, and only typing can do both at once. They open
+ * costs a turn, except once a call when the caller is in a panic, and only typing can do both at once. They open
  * only as time runs out, and the hurry scares the caller a little.
  */
 object Quick {
