@@ -323,6 +323,37 @@ class CallTest {
     }
 
     @Test
+    fun theFirstRushedTapTheCallerAsksToBeTalkedTo() {
+        val (here, dir) = corridor
+        val tapped = quiet(here, dir, Order.STAY).copy(hurried = true)
+        assertEquals(Thought.HURRIED.en, tapped.walk(maze, empty).hunch)
+        assertNull(tapped.copy(thoughts = setOf(Thought.HURRIED)).walk(maze, empty).hunch?.takeIf { it == Thought.HURRIED.en }, "once a call")
+        assertFalse(tapped.walk(maze, empty).spoke("Okay.").hurried)
+    }
+
+    @Test
+    fun kindWordsAloneToACallerInAPanicAreABreatherAndNoTurnOnceACall() {
+        val (here, dir) = corridor
+        val hunting = Hollow(maze.lair, awake = true)
+        val panicked = quiet(here, dir, Order.NONE, calm = 2).copy(panic = 80, hollow = hunting)
+        val breather = panicked.walk(maze, empty)
+        assertEquals(panicked.turn, breather.turn, "no turn")
+        assertEquals(panicked.battery, breather.battery, "no battery")
+        assertEquals(panicked.at, breather.at)
+        assertEquals(hunting, breather.hollow, "the Hollow waits")
+        val close = panicked.copy(hollow = Hollow(maze.exits(here).first().let { here + it }, awake = true))
+        assertTrue(close.whispers(maze))
+        assertFalse(close.walk(maze, empty).whispers(maze), "its voice waits too")
+        assertTrue(breather.panic < panicked.panic - 2 * 6, "calmer than the words alone")
+        // Once a call: the next time, kind words cost a turn.
+        assertTrue(breather.breathed)
+        assertEquals(panicked.turn + 1, panicked.copy(breathed = true).walk(maze, empty).turn)
+        // Calm already, kind words cost a turn; and an order is never a breather.
+        assertEquals(panicked.turn + 1, panicked.copy(panic = CALM_ENOUGH - 1).walk(maze, empty).turn)
+        assertEquals(panicked.turn + 1, panicked.copy(heard = Heard(Order.STAY, 2)).walk(maze, empty).turn)
+    }
+
+    @Test
     fun theHollowTakesWhomItMeetsUnlessTheyHideCalm() {
         val (here, dir) = corridor
         val awake = Hollow(here + dir, awake = true)

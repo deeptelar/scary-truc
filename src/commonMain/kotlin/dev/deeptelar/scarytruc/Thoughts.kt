@@ -22,6 +22,8 @@ enum class Thought(val en: String, val es: String) {
     STONE_HERE("That stone might be useful.", "Esa piedra podría venirnos bien."),
     DRAFT("I can feel the air moving. It has to be going somewhere.", "Noto que se mueve el aire. Tiene que ir a algún sitio."),
     DRAIN("My battery is going. Every step and every word costs me.", "Se me va la batería. Cada paso y cada palabra me cuestan."),
+    /** Said the first time the stranger taps an option: rushed words scare, kind ones along the way don't. */
+    HURRIED("Don't rush me like that. Talk to me while you guide me... it helps.", "No me metas prisa. Háblame mientras me guías... me ayuda."),
     LOOKALIKE("It all looks the same. I wish I could tell these walls apart.", "Todo parece igual. Ojalá pudiera distinguir estas paredes."),
     ;
 

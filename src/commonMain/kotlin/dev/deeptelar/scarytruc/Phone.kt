@@ -63,14 +63,20 @@ class CallRun(
         return call
     }
 
-    /** The stranger says [words], or nothing when they are blank, and the caller answers. */
-    suspend fun say(words: String): Call {
+    /**
+     * The stranger says [words], or nothing when they are blank, and the caller answers. Words
+     * [tapped] in a hurry, as time runs out, scare them a little.
+     */
+    suspend fun say(words: String, tapped: Boolean = false): Call {
         if (call.over) return call
         val said = words.trim()
         call =
             graph.resume(config) {
-                it.copy(said = said, lines = it.lines + Line(Who.YOU, said.ifEmpty { "…" }))
+                it.copy(said = said, lines = it.lines + Line(Who.YOU, said.ifEmpty { "…" }), panic = if (tapped) (it.panic + RUSHED).coerceAtMost(100) else it.panic, hurried = tapped)
             }.state
         return call
     }
 }
+
+/** How much a tapped option, picked as time runs out, scares the caller. */
+const val RUSHED: Int = 3

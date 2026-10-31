@@ -600,7 +600,7 @@ private val LESSONS =
         ),
         // The bar under what you type empties while they wait for you.
         Lesson(
-            "Don't leave them in silence. Wait too long and they choose for themselves. They choose badly.",
+            "Don't leave them in silence. Wait too long and they choose for themselves. They choose badly. My buttons wake only when time is almost gone.",
             null,
             listOf(
                 "...#############.....",
@@ -648,7 +648,7 @@ private val LESSONS_ES: List<Lesson> =
         "Los que vinieron antes dejaron notas. Aprendieron qué mata. Demasiado tarde." to "¿qué pone?",
         "Mi mascota es ciega. Oye el miedo. Mantenlos en calma y, cuando esté cerca, que se escondan." to "escóndete. no te muevas. estoy aquí.",
         "Dejo cosas en los rincones. Una batería da tiempo. Una bengala lo asusta. Una piedra, lanzada, lo atrae." to "cógela",
-        "No los dejes en silencio. Si esperas demasiado, eligen ellos. Y eligen mal." to null,
+        "No los dejes en silencio. Si esperas demasiado, eligen ellos. Y eligen mal. Mis botones despiertan solo cuando casi no queda tiempo." to null,
         "A medianoche muevo las paredes, y tu libreta miente. La salida está fría. Mi frío nunca miente." to "¿dónde hace más frío?",
     ).mapIndexed { i, (line, example) ->
         Lesson(
@@ -1012,12 +1012,14 @@ private fun Talk(model: CallModel, now: Long, narrow: Boolean, lcd: Lcd, noteboo
     LaunchedEffect(model.ringing, model.call.turn) { runCatching { focus.requestFocus() } }
     // What can be said with a tap this turn; the row slides, and the next option shows at its edge.
     Row(Modifier.fillMaxWidth().horizontalScroll(remember(model.call.turn) { ScrollState(0) }), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        // They open only at the end of the time to decide.
+        val open = !model.thinking && model.quickOpen(now)
         for (words in model.quick) {
             PixelText(
                 words,
-                Modifier.pixelBox(lcd.paper, outline = if (model.thinking) lcd.faint else lcd.ink, raised = false).clickable(enabled = !model.thinking) { model.tap(words) }.padding(horizontal = 8.dp, vertical = 6.dp),
+                Modifier.pixelBox(lcd.paper, outline = if (open) lcd.ink else lcd.faint, raised = false).clickable(enabled = open) { model.tap(words) }.padding(horizontal = 8.dp, vertical = 6.dp),
                 size = SMALL,
-                color = if (model.thinking) lcd.faint else lcd.ink,
+                color = if (open) lcd.ink else lcd.faint,
                 maxLines = 1,
             )
         }

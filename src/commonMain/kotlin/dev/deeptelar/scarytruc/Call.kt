@@ -222,6 +222,10 @@ data class Call(
     val lines: List<Line> = emptyList(),
     /** The turn the Hollow last spoke on the line. */
     val whispered: Int = -99,
+    /** Whether the stranger's words this turn were an option tapped in a hurry. */
+    val hurried: Boolean = false,
+    /** Whether the caller already had their breather in this call: there is one a call. */
+    val breathed: Boolean = false,
     /** What the caller picked up and still has. */
     val carried: List<Item> = emptyList(),
     /** Where the caller picked something up: it is gone from there. */
@@ -274,6 +278,7 @@ data class Call(
             facts = emptyList(),
             hunch = null,
             said = "",
+            hurried = false,
             heard = null,
             understood = heard,
         )
@@ -316,6 +321,24 @@ fun Call.walk(maze: Maze, haunt: Haunt): Call {
     val heard = heard ?: Heard(Order.NONE, 0)
     // Words in another language: nothing happens, and they say so.
     if (heard.foreign) return copy(facts = listOf(lang.t("I don't understand what you're saying.", "No entiendo lo que dices.")), walked = 0, ran = false, bumped = false, sniffed = false)
+    // Only kind words, to a caller in a panic: they catch their breath, and the maze waits for them.
+    // It is no turn: no step, no battery, the Hollow doesn't move, and the stranger's time starts again.
+    // Its voice waits too: a whisper would undo the breath. Once a call.
+    if (!breathed && said.isNotBlank() && heard.order == Order.NONE && heard.calm >= 1 && !heard.offTopic && !heard.again && panic >= CALM_ENOUGH) {
+        val breath = lang.t("Okay. Okay... I'm breathing. I'm staying right here until I can think.", "Vale. Vale... Estoy respirando. Me quedo aquí hasta que pueda pensar.")
+        return copy(
+            panic = (panic - heard.calm * 6 - BREATHER).coerceIn(0, 100),
+            trust = (trust + heard.calm * 2).coerceIn(0, 100),
+            strays = 0,
+            breathed = true,
+            whispered = turn,
+            facts = listOf(breath),
+            walked = 0,
+            ran = false,
+            bumped = false,
+            sniffed = false,
+        )
+    }
     val facts = mutableListOf<String>()
     var panic = panic
     var trust = trust
@@ -775,7 +798,14 @@ private fun Call.look(maze: Maze, haunt: Haunt, facts: List<String>): Call {
     // Standing where they stood, they say only what changed, unless the stranger asked again.
     val around = seen.drop(happened)
     val stayed = turn > 0 && walked == 0 && heard?.again != true
-    val thought = if (hunch == null && turn > 0 && turn - thoughtAt >= THINKS_EVERY) Thought.of(copy(panic = panic, lostTrack = lostTrack), maze, haunt) else null
+    val thought =
+        when {
+            hunch != null -> null
+            // The first rushed tap, they say so at once.
+            hurried && Thought.HURRIED !in thoughts -> Thought.HURRIED
+            turn > 0 && turn - thoughtAt >= THINKS_EVERY -> Thought.of(copy(panic = panic, lostTrack = lostTrack), maze, haunt)
+            else -> null
+        }
     return copy(
         facts = seen.take(happened) + if (stayed) around.filter { it !in told } else around,
         told = if (stayed) told + around else around.toSet(),
@@ -854,6 +884,9 @@ const val DOUBT: Int = 20
 
 /** Hiding works only while the caller is calmer than this: fear is loud. */
 const val CALM_ENOUGH: Int = 60
+
+/** How much more a breather calms a panicking caller than the words alone. */
+const val BREATHER: Int = 4
 
 /** Calmer than this, the caller can creep past the sleeping Hollow. */
 const val QUIET: Int = 40

@@ -35,6 +35,19 @@ class QuickTest {
     }
 
     @Test
+    fun aKindWordIsOnlyKindWordsEvenWithNoModel() {
+        for (lang in Lang.entries) {
+            val kind = (0..2).map { size -> Quick.of(call(lang).copy(lines = List(size) { Line(Who.YOU, "...") }), maze, empty) }.map { offered -> offered.first { Keywords.bare(it, lang)?.turn == null } }
+            assertEquals(3, kind.toSet().size, "a different one each time: $kind")
+            for (words in kind) {
+                val heard = runBlocking { Keywords.listen(call(lang).copy(said = words)) }
+                assertEquals(Order.NONE, heard.order, words)
+                assertTrue(heard.calm >= 1, words)
+            }
+        }
+    }
+
+    @Test
     fun itOffersOnlyTheWaysThatAreOpen() {
         for (lang in Lang.entries) {
             val here = call(lang)

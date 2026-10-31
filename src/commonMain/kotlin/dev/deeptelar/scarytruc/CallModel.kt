@@ -428,19 +428,28 @@ class CallModel(
         say(words)
     }
 
-    private fun say(words: String) = command { run.say(words) }
+    private fun say(words: String, tapped: Boolean = false) = command { run.say(words, tapped) }
 
     /** Tells the caller to use [item], as if the player had said it: a stone is thrown down the first way open. */
-    fun useItem(item: Item) = tap(item.use(lang, Quick.ways(call, maze).firstOrNull() ?: Order.AHEAD))
+    fun useItem(item: Item) {
+        if (thinking || ringing || call.over) return
+        say(item.use(lang, Quick.ways(call, maze).firstOrNull() ?: Order.AHEAD))
+    }
 
     /** What the player can say with a tap this turn. */
     val quick: List<String> get() = if (ringing || call.over) emptyList() else Quick.of(call, maze, haunt)
 
-    /** Says [words] with a tap. */
+    /**
+     * Whether the tapped options can be picked [now]: only at the end of the time to decide, when
+     * the caller's patience is almost gone. Without a clock, always.
+     */
+    fun quickOpen(now: Long): Boolean = (waited(now) ?: 1f) >= QUICK_AT
+
+    /** Says [words] with a tap, as time runs out: the hurry scares the caller a little. */
     fun tap(words: String) {
-        if (thinking || ringing || call.over) return
+        if (thinking || ringing || call.over || !quickOpen(now())) return
         log.note("tapped")
-        say(words)
+        say(words, tapped = true)
     }
 
     /** The same call from its start. */
@@ -673,6 +682,9 @@ class CallModel(
     companion object {
         /** How long the caller waits for a word before the silence scares them. */
         const val SILENCE: Long = 45_000
+
+        /** How much of the caller's patience must be gone before the tapped options open. */
+        const val QUICK_AT: Float = 0.75f
 
         /** How long a letter of the caller's line takes to appear: time to read as it comes. */
         const val LETTER: Long = 42
