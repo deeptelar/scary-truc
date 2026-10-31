@@ -341,6 +341,9 @@ class CallTest {
         assertEquals(panicked.battery, breather.battery, "no battery")
         assertEquals(panicked.at, breather.at)
         assertEquals(hunting, breather.hollow, "the Hollow waits")
+        val close = panicked.copy(hollow = Hollow(maze.exits(here).first().let { here + it }, awake = true))
+        assertTrue(close.whispers(maze))
+        assertFalse(close.walk(maze, empty).whispers(maze), "its voice waits too")
         assertTrue(breather.panic < panicked.panic - 2 * 6, "calmer than the words alone")
         // Once a call: the next time, kind words cost a turn.
         assertTrue(breather.breathed)

@@ -323,7 +323,7 @@ fun Call.walk(maze: Maze, haunt: Haunt): Call {
     if (heard.foreign) return copy(facts = listOf(lang.t("I don't understand what you're saying.", "No entiendo lo que dices.")), walked = 0, ran = false, bumped = false, sniffed = false)
     // Only kind words, to a caller in a panic: they catch their breath, and the maze waits for them.
     // It is no turn: no step, no battery, the Hollow doesn't move, and the stranger's time starts again.
-    // Once a call.
+    // Its voice waits too: a whisper would undo the breath. Once a call.
     if (!breathed && said.isNotBlank() && heard.order == Order.NONE && heard.calm >= 1 && !heard.offTopic && !heard.again && panic >= CALM_ENOUGH) {
         val breath = lang.t("Okay. Okay... I'm breathing. I'm staying right here until I can think.", "Vale. Vale... Estoy respirando. Me quedo aquí hasta que pueda pensar.")
         return copy(
@@ -331,6 +331,7 @@ fun Call.walk(maze: Maze, haunt: Haunt): Call {
             trust = (trust + heard.calm * 2).coerceIn(0, 100),
             strays = 0,
             breathed = true,
+            whispered = turn,
             facts = listOf(breath),
             walked = 0,
             ran = false,
