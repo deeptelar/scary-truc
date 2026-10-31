@@ -64,19 +64,16 @@ class CallRun(
     }
 
     /**
-     * The stranger says [words], or nothing when they are blank, and the caller answers. Words
-     * [tapped] in a hurry, as time runs out, scare them a little.
+     * The stranger says [words], or nothing when they are blank, and the caller answers. What the
+     * caller said meanwhile, when the line went quiet, is their [nudge].
      */
-    suspend fun say(words: String, tapped: Boolean = false): Call {
+    suspend fun say(words: String, nudge: String? = null): Call {
         if (call.over) return call
         val said = words.trim()
         call =
             graph.resume(config) {
-                it.copy(said = said, lines = it.lines + Line(Who.YOU, said.ifEmpty { "…" }), panic = if (tapped) (it.panic + RUSHED).coerceAtMost(100) else it.panic, hurried = tapped)
+                it.copy(said = said, lines = it.lines + listOfNotNull(nudge?.let { words -> Line(Who.CALLER, words) }) + Line(Who.YOU, said.ifEmpty { "…" }))
             }.state
         return call
     }
 }
-
-/** How much a tapped option, picked as time runs out, scares the caller. */
-const val RUSHED: Int = 3

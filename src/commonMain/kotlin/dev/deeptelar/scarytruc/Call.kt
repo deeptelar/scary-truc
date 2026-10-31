@@ -222,8 +222,6 @@ data class Call(
     val lines: List<Line> = emptyList(),
     /** The turn the Hollow last spoke on the line. */
     val whispered: Int = -99,
-    /** Whether the stranger's words this turn were an option tapped in a hurry. */
-    val hurried: Boolean = false,
     /** Whether the caller already had their breather in this call: there is one a call. */
     val breathed: Boolean = false,
     /** What the caller picked up and still has. */
@@ -278,7 +276,6 @@ data class Call(
             facts = emptyList(),
             hunch = null,
             said = "",
-            hurried = false,
             heard = null,
             understood = heard,
         )
@@ -803,8 +800,6 @@ private fun Call.look(maze: Maze, haunt: Haunt, facts: List<String>): Call {
     val thought =
         when {
             hunch != null -> null
-            // The first rushed tap, they say so at once.
-            hurried && Thought.HURRIED !in thoughts -> Thought.HURRIED
             turn > 0 && turn - thoughtAt >= THINKS_EVERY -> Thought.of(copy(panic = panic, lostTrack = lostTrack), maze, haunt)
             else -> null
         }
@@ -918,3 +913,28 @@ private const val HEARING = 4
 private const val WHISPER_EVERY = 3
 private const val WHISPER_REACH = 3
 private const val WHISPER_HURTS = 10
+
+/** The ways open to this caller in [maze]. */
+fun Call.ways(maze: Maze): List<Order> =
+    listOf(Order.AHEAD, Order.LEFT, Order.RIGHT, Order.BACK).filter { maze.canGo(at, facing.turned(it.turn!!)) }
+
+/** The words for using this, in [lang]: a stone is thrown [toward] a way. */
+fun Item.use(lang: Lang, toward: Order = Order.AHEAD): String =
+    when (this) {
+        Item.BATTERY -> lang.t("Swap in the battery", "Cambia la batería")
+        Item.FLARE -> lang.t("Light the flare", "Enciende la bengala")
+        Item.STONE -> lang.t("Throw the stone ${toward.word}", "Tira la piedra ${toward.way(Lang.ES)}")
+    }
+
+/** What the caller says when the line has gone quiet for too long, with the ways open in [maze]: it costs nothing, and moves nothing. */
+fun Call.nudge(maze: Maze): String {
+    val pleas =
+        listOf(
+            lang.t("Are you still there? Please... say something.", "¿Sigues ahí? Por favor... di algo."),
+            lang.t("Hello? Don't go quiet on me. Not now.", "¿Hola? No te calles ahora, por favor."),
+            lang.t("I can't hear you. Are you there?", "No te oigo. ¿Estás ahí?"),
+        )
+    val names = ways(maze).map { way -> lang.t(way.word, listOf("delante", "derecha", "atrás", "izquierda")[way.turn!!]) }
+    val asked = (names.dropLast(1).joinToString(", ").ifEmpty { null }?.let { "$it ${lang.t("or", "o")} " }.orEmpty() + names.lastOrNull().orEmpty()).replaceFirstChar { it.uppercase() }
+    return listOf(pleas[turn % pleas.size], if (asked.isEmpty()) "" else lang.t("$asked?", "¿$asked?")).filter { it.isNotEmpty() }.joinToString(" ")
+}

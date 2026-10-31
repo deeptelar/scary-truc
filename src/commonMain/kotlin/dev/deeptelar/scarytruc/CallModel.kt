@@ -382,6 +382,7 @@ class CallModel(
             scope.launch {
                 while (true) {
                     delay(250)
+                    hurry(now())
                     if ((waited(now()) ?: 0f) >= 1f) say("")
                 }
             }
@@ -428,28 +429,29 @@ class CallModel(
         say(words)
     }
 
-    private fun say(words: String, tapped: Boolean = false) = command { run.say(words, tapped) }
+    private fun say(words: String) {
+        if (thinking) return
+        val nudged = nudge
+        nudge = null
+        command { run.say(words, nudged) }
+    }
+
+    /** What the caller said because the line went quiet, until the player answers. */
+    var nudge: String? by mutableStateOf(null)
+        private set
+
+    /** The line has been quiet for most of the caller's patience by [now]: they break the silence, once a turn. */
+    fun hurry(now: Long) {
+        if (nudge != null || (waited(now) ?: 0f) < NUDGE_AT) return
+        nudge = call.nudge(maze)
+        log.note("the caller asked if you are there")
+        Sound.play(Cue.MESSAGE, gain = -4f)
+    }
 
     /** Tells the caller to use [item], as if the player had said it: a stone is thrown down the first way open. */
     fun useItem(item: Item) {
         if (thinking || ringing || call.over) return
-        say(item.use(lang, Quick.ways(call, maze).firstOrNull() ?: Order.AHEAD))
-    }
-
-    /** What the player can say with a tap this turn. */
-    val quick: List<String> get() = if (ringing || call.over) emptyList() else Quick.of(call, maze, haunt)
-
-    /**
-     * Whether the tapped options can be picked [now]: only at the end of the time to decide, when
-     * the caller's patience is almost gone. Without a clock, always.
-     */
-    fun quickOpen(now: Long): Boolean = (waited(now) ?: 1f) >= QUICK_AT
-
-    /** Says [words] with a tap, as time runs out: the hurry scares the caller a little. */
-    fun tap(words: String) {
-        if (thinking || ringing || call.over || !quickOpen(now())) return
-        log.note("tapped")
-        say(words, tapped = true)
+        say(item.use(lang, call.ways(maze).firstOrNull() ?: Order.AHEAD))
     }
 
     /** The same call from its start. */
@@ -461,6 +463,7 @@ class CallModel(
         run = newRun(plan, seed)
         call = run.call
         typed = ""
+        nudge = null
         ringing = true
         Sound.danger = 0f
         Sound.hushed = false
@@ -534,6 +537,7 @@ class CallModel(
         listening = false
         microphone?.stop()
         call = call.hungUp(run.mazeOf(call))
+        nudge = null
         log.hungUp(call)
         spokeAt = 0L
         Sound.danger = 0f
@@ -683,8 +687,8 @@ class CallModel(
         /** How long the caller waits for a word before the silence scares them. */
         const val SILENCE: Long = 45_000
 
-        /** How much of the caller's patience must be gone before the tapped options open. */
-        const val QUICK_AT: Float = 0.75f
+        /** How much of the caller's patience must be gone before they break the silence. */
+        const val NUDGE_AT: Float = 0.75f
 
         /** How long a letter of the caller's line takes to appear: time to read as it comes. */
         const val LETTER: Long = 42

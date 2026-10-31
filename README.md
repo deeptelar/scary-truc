@@ -21,7 +21,7 @@ is loud.
 on a phone.
 
 <p align="center">
-  <img src="docs/call.gif" width="300" alt="A call in The Hedge with Gemma as the caller: the phone unlocks, the cards of the six calls slide past, the caller's short, scared lines appear under a notebook with quick options to tap, midnight turns the screen dark, the Hollow speaks on the line, and the caller is taken mid-word">
+  <img src="docs/call.gif" width="300" alt="A call in The Hedge with Gemma as the caller: the phone unlocks, the cards of the six calls slide past, the caller's short, scared lines appear under a notebook, midnight turns the screen dark, the Hollow speaks on the line, and the caller is taken mid-word">
 </p>
 
 ## Six calls
@@ -76,13 +76,13 @@ to do.
 
 ## Talking to them
 
-Every turn the phone offers what you could say with a tap: the ways they named, a kind word, what
-can be done here. They open only as their patience runs out, and a word picked in a hurry scares
-them a little. Choosing is the hard part: a kind word costs a turn, and something is still
-walking. Once a call, when they are already panicking, a kind word and nothing else is a
-breather, and no turn at all: nothing moves, and your time starts again. Or type anything, the way you'd talk to a stranger who is terrified, and do both at once. Gemma reads how you said it as
-well as where you said to go. A bare word works when there's no time: "left", "hide", "take it",
-or the arrow keys. On a phone you can tap **Mic** and just speak; what you said goes when you
+There are no options to pick. They ask, and you answer, the way you'd talk to a stranger who is
+terrified. Gemma reads how you said it as well as where you said to go. A kind word costs a turn,
+and something is still walking, so say both at once. Once a call, when they are already panicking,
+a kind word and nothing else is a breather, and no turn at all: nothing moves, and your time starts
+again. Joke with them and they'll wonder who you really are. Go quiet and they'll beg you to say
+something, then choose for themselves. A bare word works when there's no time: "left", "hide",
+"take it", or the arrow keys. On a phone you can tap **Mic** and just speak; what you said goes when you
 pause. (Speech recognition is the browser's own, and most browsers do it on their maker's
 servers; the page only receives the text.)
 

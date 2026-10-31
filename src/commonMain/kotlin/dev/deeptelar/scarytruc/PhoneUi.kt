@@ -288,12 +288,14 @@ private fun Header(text: String, lcd: Lcd) {
 
 /** Labels over the keys under the screen; each is tapped. A blank label is no key. */
 @Composable
-private fun Softkeys(lcd: Lcd, left: Pair<String, () -> Unit>?, middle: Pair<String, () -> Unit>?, right: Pair<String, () -> Unit>?) {
+private fun Softkeys(lcd: Lcd, left: Pair<String, () -> Unit>?, middle: Pair<String, () -> Unit>?, right: Pair<String, () -> Unit>?, loud: Boolean = false) {
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         for ((key, align) in listOf(left to Alignment.CenterStart, middle to Alignment.Center, right to Alignment.CenterEnd)) {
             Box(Modifier.weight(1f), contentAlignment = align) {
                 if (key != null) {
-                    PixelText(key.first, Modifier.clickable(onClick = key.second).padding(vertical = 6.dp, horizontal = 4.dp), color = lcd.ink, maxLines = 1)
+                    // The left key in reverse, when it is the one to reach for.
+                    val reverse = loud && key === left
+                    PixelText(key.first, Modifier.background(if (reverse) lcd.ink else Color.Transparent).clickable(onClick = key.second).padding(vertical = 6.dp, horizontal = 4.dp), color = if (reverse) lcd.paper else lcd.ink, maxLines = 1)
                 }
             }
         }
@@ -655,7 +657,7 @@ private val LESSONS =
         ),
         // The bar under what you type empties while they wait for you.
         Lesson(
-            "Don't leave them in silence. Wait too long and they choose for themselves. They choose badly. My buttons wake only when time is almost gone.",
+            "Don't leave them in silence. Wait too long and they choose for themselves. They choose badly.",
             null,
             listOf(
                 "...#############.....",
@@ -703,7 +705,7 @@ private val LESSONS_ES: List<Lesson> =
         "Los que vinieron antes dejaron notas. Aprendieron qué mata. Demasiado tarde." to "¿qué pone?",
         "Mi mascota es ciega. Oye el miedo. Mantenlos en calma y, cuando esté cerca, que se escondan." to "escóndete. no te muevas. estoy aquí.",
         "Dejo cosas en los rincones. Una batería da tiempo. Una bengala lo asusta. Una piedra, lanzada, lo atrae." to "cógela",
-        "No los dejes en silencio. Si esperas demasiado, eligen ellos. Y eligen mal. Mis botones despiertan solo cuando casi no queda tiempo." to null,
+        "No los dejes en silencio. Si esperas demasiado, eligen ellos. Y eligen mal." to null,
         "A medianoche muevo las paredes, y tu libreta miente. La salida está fría. Mi frío nunca miente." to "¿dónde hace más frío?",
     ).mapIndexed { i, (line, example) ->
         Lesson(
@@ -1012,6 +1014,7 @@ private fun Transcript(model: CallModel, now: Long, danger: Float, lcd: Lcd, mod
     val shown = ((now - model.spokeAt) / CallModel.LETTER).toInt()
     LazyColumn(modifier, reverseLayout = true, verticalArrangement = Arrangement.spacedBy(8.dp)) {
         if (model.thinking) item { Said(".".repeat(1 + ((now / 400) % 3).toInt()), Who.CALLER, lcd) }
+        model.nudge?.let { nudge -> item { Said(nudge, Who.CALLER, lcd) } }
         items(lines.indices.reversed().toList()) { i ->
             val line = lines[i]
             var text = line.text
@@ -1065,26 +1068,13 @@ private fun Said(text: String, who: Who, lcd: Lcd, now: Long = 0) {
 private fun Talk(model: CallModel, now: Long, narrow: Boolean, lcd: Lcd, notebook: Boolean, toggleNotebook: () -> Unit) {
     val focus = remember { FocusRequester() }
     LaunchedEffect(model.ringing, model.call.turn) { runCatching { focus.requestFocus() } }
-    // What can be said with a tap this turn; the row slides, and the next option shows at its edge.
-    Row(Modifier.fillMaxWidth().horizontalScroll(remember(model.call.turn) { ScrollState(0) }), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-        // They open only at the end of the time to decide.
-        val open = !model.thinking && model.quickOpen(now)
-        for (words in model.quick) {
-            PixelText(
-                words,
-                Modifier.pixelBox(lcd.paper, outline = if (open) lcd.ink else lcd.faint, raised = false).clickable(enabled = open) { model.tap(words) }.padding(horizontal = 8.dp, vertical = 6.dp),
-                size = SMALL,
-                color = if (open) lcd.ink else lcd.faint,
-                maxLines = 1,
-            )
-        }
-    }
     PixelField(
         model.typed,
         model::type,
         when {
             model.listening -> model.lang.t("Listening...", "Escuchando...")
             model.thinking -> model.lang.t("They're talking...", "Está hablando...")
+            model.microphone != null -> model.lang.t("Talk to them, or tap Mic", "Háblale, o toca Micro")
             else -> model.lang.t("Talk to them, or just: left", "Háblale, o solo: izquierda")
         },
         Modifier.fillMaxWidth().focusRequester(focus).onPreviewKeyEvent { event ->
@@ -1120,6 +1110,7 @@ private fun Talk(model: CallModel, now: Long, narrow: Boolean, lcd: Lcd, noteboo
         model.microphone?.let { (if (model.listening) model.lang.t("Stop", "Parar") else model.lang.t("Mic", "Micro")) to model::listen },
         model.lang.t("Say", "Decir") to model::send,
         if (narrow) (if (notebook) model.lang.t("Call", "Llamada") else model.lang.t("Notes", "Notas")) to toggleNotebook else null,
+        loud = true,
     )
 }
 
