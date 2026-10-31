@@ -940,7 +940,7 @@ private val CALLERS =
     )
 
 /** How much of [Call.patience] they have left for a word, from the moment they stop talking. */
-private const val PATIENT = 0.45f
+private const val PATIENT = 0.67f
 private const val AFRAID = 0.27f
 
 /** The seconds of thinking that cost nothing, and how many more cost the caller something. */
