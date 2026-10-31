@@ -316,6 +316,21 @@ fun Call.walk(maze: Maze, haunt: Haunt): Call {
     val heard = heard ?: Heard(Order.NONE, 0)
     // Words in another language: nothing happens, and they say so.
     if (heard.foreign) return copy(facts = listOf(lang.t("I don't understand what you're saying.", "No entiendo lo que dices.")), walked = 0, ran = false, bumped = false, sniffed = false)
+    // Only kind words, to a caller in a panic: they catch their breath, and the maze waits for them.
+    // It is no turn: no step, no battery, the Hollow doesn't move, and the stranger's time starts again.
+    if (said.isNotBlank() && heard.order == Order.NONE && heard.calm >= 1 && !heard.offTopic && !heard.again && panic >= CALM_ENOUGH) {
+        val breath = lang.t("Okay. Okay... I'm breathing. I'm staying right here until I can think.", "Vale. Vale... Estoy respirando. Me quedo aquí hasta que pueda pensar.")
+        return copy(
+            panic = (panic - heard.calm * 6 - BREATHER).coerceIn(0, 100),
+            trust = (trust + heard.calm * 2).coerceIn(0, 100),
+            strays = 0,
+            facts = listOf(breath),
+            walked = 0,
+            ran = false,
+            bumped = false,
+            sniffed = false,
+        )
+    }
     val facts = mutableListOf<String>()
     var panic = panic
     var trust = trust
@@ -854,6 +869,9 @@ const val DOUBT: Int = 20
 
 /** Hiding works only while the caller is calmer than this: fear is loud. */
 const val CALM_ENOUGH: Int = 60
+
+/** How much more a breather calms a panicking caller than the words alone. */
+const val BREATHER: Int = 4
 
 /** Calmer than this, the caller can creep past the sleeping Hollow. */
 const val QUIET: Int = 40

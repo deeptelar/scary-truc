@@ -1012,12 +1012,14 @@ private fun Talk(model: CallModel, now: Long, narrow: Boolean, lcd: Lcd, noteboo
     LaunchedEffect(model.ringing, model.call.turn) { runCatching { focus.requestFocus() } }
     // What can be said with a tap this turn; the row slides, and the next option shows at its edge.
     Row(Modifier.fillMaxWidth().horizontalScroll(remember(model.call.turn) { ScrollState(0) }), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        // They open only at the end of the time to decide.
+        val open = !model.thinking && model.quickOpen(now)
         for (words in model.quick) {
             PixelText(
                 words,
-                Modifier.pixelBox(lcd.paper, outline = if (model.thinking) lcd.faint else lcd.ink, raised = false).clickable(enabled = !model.thinking) { model.tap(words) }.padding(horizontal = 8.dp, vertical = 6.dp),
+                Modifier.pixelBox(lcd.paper, outline = if (open) lcd.ink else lcd.faint, raised = false).clickable(enabled = open) { model.tap(words) }.padding(horizontal = 8.dp, vertical = 6.dp),
                 size = SMALL,
-                color = if (model.thinking) lcd.faint else lcd.ink,
+                color = if (open) lcd.ink else lcd.faint,
                 maxLines = 1,
             )
         }

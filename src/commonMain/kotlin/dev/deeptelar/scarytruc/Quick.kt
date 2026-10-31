@@ -3,7 +3,8 @@ package dev.deeptelar.scarytruc
 /**
  * What the player can say with a tap this turn, in the words they would type: the ways the caller
  * named, something to calm them, and what can be done here. The choice is the player's: a kind word
- * costs a turn, and only typing can do both at once.
+ * costs a turn, unless the caller is in a panic, and only typing can do both at once. They open
+ * only as time runs out, and the hurry scares the caller a little.
  */
 object Quick {
     /** The words for going [order], in [lang]. */
@@ -30,7 +31,8 @@ object Quick {
     fun of(call: Call, maze: Maze, haunt: Haunt): List<String> {
         val lang = call.lang
         val ways = ways(call, maze)
-        val calm = CALM[call.turn % CALM.size].let { lang.t(it.first, it.second) }
+        // By the lines: a breather is no turn, and the next kind word is another.
+        val calm = CALM[call.lines.size % CALM.size].let { lang.t(it.first, it.second) }
         val here = haunt.items[call.at]?.takeIf { call.at !in call.taken }
         return ways.map { way(it, lang) } +
             calm +
