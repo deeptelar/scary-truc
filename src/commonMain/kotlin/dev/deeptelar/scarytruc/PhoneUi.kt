@@ -552,6 +552,26 @@ private class Lesson(val line: String, val example: String?, val picture: List<S
 /** How to save them: the rules of the game, read as a threat, a page at a time. */
 private val LESSONS =
     listOf(
+        // Who is talking comes first, before anything they teach: someone is walking in what they built.
+        Lesson(
+            "I built this maze. I put them in it. If you want them back, these are my rules.",
+            null,
+            listOf(
+                "+++++++++++++++++++++",
+                "+.......+.....+.....+",
+                "+.+++++.+.+++.+.+++.+",
+                "+.+.....+.+...+...+.+",
+                "+.+.+++++.+.+++++.+.+",
+                "+.+.......+.......+.+",
+                "+.+++++.+++++.+++++.+",
+                "+.....+...a.b...+...+",
+                "+.+++.+++.+.+++.+++.+",
+                "+.+.......+.......+.+",
+                "+.+.+++++.+.+++++.+.+",
+                "+.........+.........+",
+                "+++++++++++++++++++++",
+            ),
+        ),
         // The caller as the notebook draws them, an arrow facing down the page, towards YOU: their
         // left, the L, is on your right, and that is where they go.
         Lesson(
@@ -713,9 +733,10 @@ private val LESSONS =
         ),
     )
 
-/** How to save them in Spanish: the same pages, the first with its letters in Spanish (I is izquierda). */
+/** How to save them in Spanish: the same pages, the one that spells words with its letters in Spanish (I is izquierda). */
 private val LESSONS_ES: List<Lesson> =
     listOf(
+        "Yo construí este laberinto. Yo los metí dentro. Si los quieres de vuelta, estas son mis reglas." to null,
         "Ellos ven. Tú no. Háblales en voz alta. Di adónde ir desde donde ELLOS miran. Aquí te miran a ti: su izquierda está a tu derecha." to "ve a la izquierda",
         "Tu libreta olvida. Una marca rayada en mis paredes, no." to "raya una marca",
         "Los que vinieron antes dejaron notas. Ninguna te dice qué mata. Eso lo aprendes perdiendo a alguien." to "¿qué pone?",
@@ -728,7 +749,7 @@ private val LESSONS_ES: List<Lesson> =
         Lesson(
             line,
             example,
-            if (i > 0) {
+            if (i != 1) {
                 LESSONS[i].picture
             } else {
                 listOf(
@@ -777,10 +798,9 @@ private fun ColumnScope.Help(lcd: Lcd, now: Long, lang: Lang, start: Int = 0, ba
         PixelText(lesson.line, Modifier.fillMaxWidth(), color = lcd.ink)
         lesson.example?.let { Said(it, Who.YOU, lcd) }
     }
-    if (last) {
-        Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.CenterEnd) {
-            PixelText(lang.t("- the one who built the maze", "- quien construyó el laberinto"), size = SMALL, color = lcd.faint)
-        }
+    // Signed on every page: whoever skips to the end, or stops halfway, knows who wrote this.
+    Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.CenterEnd) {
+        PixelText(lang.t("- the one who put them there", "- quien los metió ahí"), size = SMALL, color = lcd.ink)
     }
     Softkeys(lcd, (if (page == 0) lang.t("Skip", "Saltar") else lang.t("Back", "Atrás")) to { if (page == 0) back() else page -= 1 }, "${page + 1}/${LESSONS.size}" to {}, (if (last) lang.t("Calls", "Llamadas") else lang.t("Next", "Siguiente")) to next)
 }
