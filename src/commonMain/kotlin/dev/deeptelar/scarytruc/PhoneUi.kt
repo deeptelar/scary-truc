@@ -67,8 +67,8 @@ import kotlin.time.ExperimentalTime
 import kotlin.time.Instant
 
 /**
- * The whole window: the phone on the left and the notebook on the right, or, on a narrow screen
- * like a phone's, the phone alone, with the notebook on its screen above the call.
+ * The whole window: a phone and nothing else. On a phone it fills the screen; on anything wider it
+ * stands in the dark at the size of one.
  */
 @Composable
 fun Game(model: CallModel) {
@@ -79,32 +79,17 @@ fun Game(model: CallModel) {
             now = now()
         }
     }
-    BoxWithConstraints(Modifier.fillMaxSize().background(Ink.dark)) {
-        if (maxWidth < 760.dp) {
-            Phone(model, now, narrow = true, Modifier.fillMaxSize())
-            return@BoxWithConstraints
-        }
-        Row(Modifier.fillMaxSize().padding(16.dp), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
-            Phone(model, now, narrow = false, Modifier.width(420.dp).fillMaxHeight())
-            Column(Modifier.weight(1f).fillMaxHeight(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                val other = model.call.afterMidnight && !model.ringing && !model.call.over
-                val lang = model.lang
-                val text = model.plan.text(lang)
-                PixelText(if (other) lang.t("OTHERWORLD", "EL OTRO LADO") else "SCARY TRUC", size = BIG, color = if (other) Ink.red else Ink.orange)
-                PixelText(lang.t("${text.title}, after ${text.film}", "${text.title}, según ${text.film}"), color = Ink.orange)
-                PixelText(text.hint, size = SMALL, color = Ink.faint, maxLines = 3)
-                // The notebook is a second screen of the same kind, beside the phone.
-                val call = model.call
-                val lcd = Lcd.of(call, model.ringing, if (model.ringing || call.over) 0f else danger(call, model.maze), now)
-                Box(Modifier.weight(1f).fillMaxWidth().pixelBox(Lcd.BODY, outline = Lcd.BODY_EDGE).padding(14.dp)) {
-                    Notebook(model, lcd, Modifier.fillMaxSize().pixelBox(lcd.paper, outline = Ink.outline, raised = false).padding(12.dp))
-                }
-                PixelText(mind(model), size = SMALL, color = if (model.gemma && model.trouble == null) Ink.faint else Ink.candle, maxLines = 3)
-                model.failure?.let { PixelText(it, size = SMALL, color = Ink.red, maxLines = 2) }
-            }
-        }
+    BoxWithConstraints(Modifier.fillMaxSize().background(Ink.dark), contentAlignment = Alignment.Center) {
+        Phone(model, now, keys = maxWidth >= KEYBOARD_FROM, Modifier.size(minOf(maxWidth, PHONE_WIDTH), minOf(maxHeight, PHONE_HEIGHT)))
     }
 }
+
+/** The size of the phone, on a screen bigger than one. */
+val PHONE_WIDTH = 390.dp
+val PHONE_HEIGHT = 844.dp
+
+/** From this wide, the player has a keyboard at hand. */
+private val KEYBOARD_FROM = 760.dp
 
 /** Whose mind the caller has, and what went wrong with it. */
 private fun mind(model: CallModel): String =
@@ -151,11 +136,11 @@ private class Lcd(val paper: Color, val ink: Color) {
 private enum class Screen { CALLS, MENU, HELP, MODEL, STATS }
 
 /**
- * The phone: a monochrome screen in a plastic body, with softkeys under the screen. On a narrow
- * screen it fills it.
+ * The phone: a monochrome screen in a plastic body, with softkeys under the screen, the notebook's
+ * map above the call. With [keys], there is a keyboard to type on from the first moment.
  */
 @Composable
-private fun Phone(model: CallModel, now: Long, narrow: Boolean, modifier: Modifier) {
+private fun Phone(model: CallModel, now: Long, keys: Boolean, modifier: Modifier) {
     val call = model.call
     val danger = if (model.ringing || call.over) 0f else danger(call, model.maze)
     val lcd = Lcd.of(call, model.ringing, danger, now)
@@ -166,11 +151,10 @@ private fun Phone(model: CallModel, now: Long, narrow: Boolean, modifier: Modifi
         model.log.trace("screen ${screen.name.lowercase()}")
     }
     Column(
-        modifier.pixelBox(Lcd.BODY, outline = Lcd.BODY_EDGE).padding(horizontal = if (narrow) 6.dp else 22.dp, vertical = if (narrow) 6.dp else 18.dp),
+        modifier.pixelBox(Lcd.BODY, outline = Lcd.BODY_EDGE).padding(6.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        if (!narrow) Grille()
         Column(
             Modifier.weight(1f).fillMaxWidth().pixelBox(lcd.paper, outline = Ink.outline, raised = false).padding(horizontal = 12.dp, vertical = 10.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -188,35 +172,19 @@ private fun Phone(model: CallModel, now: Long, narrow: Boolean, modifier: Modifi
                 else -> {
                     CallerBar(model, now, lcd)
                     val speaking = now - model.spokeAt < model.speaking()
-                    when {
-                        // On a phone the map and the call share the screen: no switching to follow both.
-                        narrow -> {
-                            Notebook(model, lcd, Modifier.weight(0.4f).fillMaxWidth(), compact = true)
-                            Box(Modifier.fillMaxWidth().height(2.dp).background(lcd.ink))
-                            Transcript(model, now, danger, lcd, Modifier.weight(0.6f).fillMaxWidth())
-                        }
-                        else -> Transcript(model, now, danger, lcd, Modifier.weight(1f).fillMaxWidth())
-                    }
+                    // The map and the call share the screen: no switching to follow both.
+                    Notebook(model, lcd, Modifier.weight(0.4f).fillMaxWidth())
+                    Box(Modifier.fillMaxWidth().height(2.dp).background(lcd.ink))
+                    Transcript(model, now, danger, lcd, Modifier.weight(0.6f).fillMaxWidth())
                     if (call.over && !model.thinking && !speaking) {
                         Ending(model, lcd)
                     } else {
-                        Talk(model, now, narrow, lcd)
+                        Talk(model, now, keys, lcd)
                     }
                 }
             }
         }
-        if (!narrow) PixelText("TRUC", size = SMALL, color = Lcd.BODY_EDGE)
     }
-}
-
-/** The slits of the earpiece. */
-@Composable
-private fun Grille() {
-    Box(
-        Modifier.size(90.dp, 10.dp).drawBehind {
-            repeat(5) { i -> drawRect(Ink.outline, Offset(i * size.width / 5 + 4f, 0f), Size(size.width / 5 - 8f, size.height)) }
-        },
-    )
 }
 
 /**
@@ -981,26 +949,6 @@ private fun ItemIcon(item: Item, ink: Color, paper: Color) {
     Box(Modifier.size(12.dp, 14.dp).drawBehind { draw(Sprite(NotebookArt.item(item), mapOf('#' to ink, '+' to lerp(paper, ink, 0.55f), '-' to paper)), center, 2.dp.toPx()) })
 }
 
-/** What the caller carries, under the notebook's map: a tap on a thing uses it. */
-@Composable
-private fun Pocket(model: CallModel, lcd: Lcd) {
-    val call = model.call
-    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        PixelText(model.lang.t("Pocket:", "Bolsillo:"), size = SMALL, color = lcd.ink)
-        if (call.carried.isEmpty()) PixelText(model.lang.t("nothing yet", "nada aún"), size = SMALL, color = lcd.faint)
-        for (item in call.carried) {
-            Row(
-                Modifier.clickable(enabled = !model.thinking && !call.over) { model.useItem(item) }.padding(2.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(3.dp),
-            ) {
-                ItemIcon(item, lcd.ink, lcd.paper)
-                PixelText(item.word(model.lang), size = SMALL, color = lcd.ink)
-            }
-        }
-    }
-}
-
 /** The call so far, the newest at the bottom; the caller's last line appears letter by letter. */
 @Composable
 private fun Transcript(model: CallModel, now: Long, danger: Float, lcd: Lcd, modifier: Modifier) {
@@ -1065,10 +1013,11 @@ private fun Said(text: String, who: Who, lcd: Lcd, now: Long = 0) {
  * in the field the same key says them, as Enter does.
  */
 @Composable
-private fun Talk(model: CallModel, now: Long, narrow: Boolean, lcd: Lcd) {
+private fun Talk(model: CallModel, now: Long, keys: Boolean, lcd: Lcd) {
     val focus = remember { FocusRequester() }
     val talking = model.microphone != null
-    LaunchedEffect(model.ringing, model.call.turn) { if (!narrow || !talking) runCatching { focus.requestFocus() } }
+    LaunchedEffect(model.ringing, model.call.turn) { if (keys || !talking) runCatching { focus.requestFocus() } }
+    model.failure?.let { PixelText(it, Modifier.background(lcd.ink).padding(4.dp), size = SMALL, color = lcd.paper, maxLines = 2) }
     PixelField(
         model.typed,
         model::type,
@@ -1153,22 +1102,18 @@ private fun Ending(model: CallModel, lcd: Lcd) {
  * it can lie. While the caller is lost, nothing is drawn and the caller isn't on it.
  */
 @Composable
-private fun Notebook(model: CallModel, lcd: Lcd, modifier: Modifier, compact: Boolean = false) {
+private fun Notebook(model: CallModel, lcd: Lcd, modifier: Modifier) {
     val call = model.call
     val haunt = model.haunt
     val measurer = rememberTextMeasurer()
     val font = PixelFont
     Column(modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        if (!compact) Header(model.lang.t("Notebook", "Libreta"), lcd)
         Box(
             Modifier.weight(1f).fillMaxWidth().drawBehind {
                 if (model.ringing) return@drawBehind
                 drawNotebook(call, haunt, measurer, font, lcd, model.lang)
             },
         )
-        if (!compact && !model.ringing) Pocket(model, lcd)
-        val notes = if (model.ringing || compact) emptyList() else haunt.notes.filterKeys { it in call.mapped }.values
-        for (note in notes.toList().takeLast(3)) PixelText("\"$note\"", size = SMALL, color = lcd.ink, maxLines = 2)
         if (call.lostTrack && !call.over) PixelText(model.lang.t("They ran. They don't know where they are: find a mark or a note you know.", "Ha huido. No sabe dónde está: busca una marca o una nota que conozcas."), Modifier.background(lcd.ink).padding(6.dp), size = SMALL, color = lcd.paper, maxLines = 3)
     }
 }

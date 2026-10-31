@@ -71,7 +71,9 @@ fun main(args: Array<String>) {
         println("The play log is in ${home.resolve(name)}")
     }
     application {
-        val state = rememberWindowState(size = DpSize(1240.dp, 800.dp))
+        // A window the size of a phone, or as tall as the screen allows.
+        val screen = java.awt.Toolkit.getDefaultToolkit().screenSize.height
+        val state = rememberWindowState(size = DpSize(PHONE_WIDTH, minOf(PHONE_HEIGHT + 32.dp, (screen - 64).dp)))
         Window(
             onCloseRequest = ::exitApplication,
             state = state,
