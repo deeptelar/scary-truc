@@ -8,7 +8,7 @@ It's past midnight and your phone is ringing. **Unknown number.**
 
 You answer, and someone is whispering on the line, too fast, too close. They woke up somewhere
 they shouldn't be. They don't know how they got there. The others who came with them are gone,
-and out of every number in that phone, you're the one who picked up.
+and yours is the only number in that phone.
 
 You can't see where they are. You have their voice, a battery that is running out, and a notebook
 where you draw the maze from what they tell you. The pencil fades.
@@ -21,7 +21,7 @@ is loud.
 it out loud. It plays on a phone.
 
 <p align="center">
-  <img src="docs/call.gif" width="300" alt="A call in The Hedge with Gemma as the caller: the phone unlocks, the cards of the six calls slide past, the player taps Talk and speaks, the caller's short, scared lines appear under a notebook, midnight turns the screen dark, the Hollow speaks on the line, and the caller is taken mid-word">
+  <img src="docs/call.gif" width="300" alt="A call in The Hedge with Gemma as the caller: the phone unlocks, the cards of the six calls slide past, the player taps Talk and speaks, the caller's short, scared lines appear under a notebook, the caller stops to ask if there is a person on the phone, midnight turns the screen dark, the Hollow speaks on the line, and the caller is taken mid-word">
 </p>
 
 ## Six calls
@@ -39,11 +39,6 @@ When the line goes dead, you learn how many steps they were from the way out.
 | **The Ship**, after *Alien* | "Pipes, steam, and a red alarm light turning somewhere." | *It's awake. It's always awake.* |
 
 ## What the builder of the mazes wants you to know
-
-**They don't know you.** Yours is the only number in their phone, and they never saved it. Sooner
-or later they'll stop and ask who you are, or whether you're the one who put them there, and they
-won't take another step until you answer. An order is no answer. Keep dodging and they stop
-listening, and then they hang up on you.
 
 **They see. You don't.** Every way is said from where *they* face, so their left is not always
 your left.
@@ -103,16 +98,29 @@ all: nothing moves, and your time starts again. Joke with them and they'll wonde
 are. Go quiet and they'll beg you to say something, then choose for themselves. A bare word works
 when there's no time: "left", "hide", "take it", or the arrow keys.
 
-When they ask who you are, tell them something. "I don't know, I'm scared too" works better than
-"trust me". Gemma judges what you said, it remembers what you told them, and the Hollow heard it
-too.
-
 They speak English or Spanish: the language of your browser at first, or whichever you pick on the
 lock screen. Talk to them in the wrong one and you'll get *"I don't understand what you're
 saying."*
 
 Whatever you say, they stay who they are: a scared person in a maze, with no idea what an AI is,
 who can't call anyone else and doesn't know more than they can see.
+
+## Spoilers
+
+The game doesn't tell you this, and it's better to find it out during a call.
+
+<details>
+<summary><strong>Spoilers: read only if you've played</strong></summary>
+
+**They don't know you.** Yours is the only number in their phone, and they never saved it. Sooner
+or later they'll stop and ask who you are, or whether you're the one who put them there, and they
+won't take another step until you answer. An order is no answer. Keep dodging and they stop
+listening, and then they hang up on you.
+
+When they ask, tell them something. "I don't know, I'm scared too" works better than "trust me".
+Gemma judges what you said, it remembers what you told them, and the Hollow heard it too.
+
+</details>
 
 ## Playing it
 
