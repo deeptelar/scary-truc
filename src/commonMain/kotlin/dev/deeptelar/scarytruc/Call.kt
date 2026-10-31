@@ -949,6 +949,9 @@ fun Call.nudge(maze: Maze): String {
     return listOf(pleas[turn % pleas.size], if (asked.isEmpty()) "" else lang.t("$asked?", "¿$asked?")).filter { it.isNotEmpty() }.joinToString(" ")
 }
 
+/** The first words of the call. */
+fun Call.hello(): String = lang.t("Hello? Hello?! Oh thank god, someone picked up. I just woke up here. I don't know how I got here.", "¿Hola? ¿¡Hola!? Gracias a Dios, alguien ha contestado. Me acabo de despertar aquí. No sé cómo he llegado.")
+
 /**
  * Does what the stranger said, with what [mazeOf] is at each turn: a deed here, and then what they
  * said to do next, as in "take it and go back". Each is a turn of its own, and something is walking.

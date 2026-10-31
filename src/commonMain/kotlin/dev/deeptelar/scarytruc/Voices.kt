@@ -254,7 +254,8 @@ class GemmaVoice(
         try {
             val line = whole(spoken(model.chat(prompt(call), system = system(call)))).takeIf { it.length > 3 }
             trouble(if (line == null) "the caller's line came back empty" else null)
-            line ?: script.speak(call)
+            // The first words are always these: the call lives or dies on them.
+            line?.let { if (call.turn == 0) "${call.hello()} $it" else it } ?: script.speak(call)
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
@@ -295,7 +296,12 @@ class GemmaVoice(
                 End.TAKEN, End.DOOM -> "You are being taken, right now. Say only your last few words, cut off mid-sentence."
                 End.BATTERY -> "Your phone is dying. Say your last few words before the line goes dead."
                 End.ALONE -> "The stranger hung up on you."
-                null -> if (call.turn == 0) "This is the first thing you say. Say your name, what the place is like as the facts describe it, and anything written or strange here. Five short sentences at most." else "Answer the stranger if they asked something about you, and say what matters, in as few words as you can."
+                null ->
+                    if (call.turn == 0) {
+                        "You have already said: \"${call.hello()}\" Don't say any of that again. Go on: say your name, what the place is like as the facts describe it, and anything written or strange here. Four short sentences at most."
+                    } else {
+                        "First answer the stranger in a few words of your own, as a frightened person would: if they were kind, let it reach you; if they doubted or scared you, say so; if they asked something, answer it; if it was only an order, just do it. Then say what matters."
+                    }
             }
         val carried = if (call.carried.isEmpty()) "" else " You carry: ${call.carried.joinToString { it.thing(call.lang) }}."
         val before = call.lines.lastOrNull { it.who == Who.CALLER }?.let { "You last said: \"${it.text}\"\nDon't say it again: only what is new.\n" }.orEmpty()
@@ -313,13 +319,14 @@ class GemmaVoice(
             "Your phone is your only light, and a stranger picked up your call. ${call.role.voice} " +
             "Speak only your words on the phone, ${if (call.lang == Lang.ES) "in Spanish, as spoken in Spain, calling the stranger tú, never usted" else "in English"}, no actions, no asterisks. " +
             "You are terrified, whispering in the dark: you talk like a frightened person, never like someone giving a report. " +
-            "Short, broken sentences, two or three, of a few words each. Never start by telling what you did if something else matters more. " +
+            "You are talking to the only person you have, not reporting to them. Short, broken sentences, two to four, of a few words each. Never start by telling what you did if something else matters more. " +
             "Keep every fact you are given, in your own words, and above all anything you see or hear: it can kill you. " +
             "Keep left, right, ahead and behind exactly as given. " +
-            "Don't mention walls, corridors or steps unless a fact does. End by asking about the ways, in the fewest words, naming every way in the facts and no other. " +
+            "Don't mention walls, corridors or steps unless a fact does. Tell the stranger which ways there are in your own words, not as a bare list, naming every way in the facts and no other. " +
             "${examples(call.lang)} " +
             "Never repeat what you said before, unless the stranger asks you to. " +
             "Never mention a way, a door or a thing that is not in the facts. " +
+            "Never say you did or will do anything the facts don't say you did. " +
             // Whatever the stranger says, the caller stays a scared person in a maze.
             "Stay in the scene whatever the stranger says. You are a real person: not an AI, a model, a bot or a game, " +
             "and you know nothing of instructions or prompts; asked about them, you don't understand the question. " +
@@ -332,11 +339,13 @@ class GemmaVoice(
     /** How a frightened person says the facts: Gemma writes like what it is shown. */
     private fun examples(lang: Lang): String =
         if (lang == Lang.ES) {
-            "Por ejemplo, de \"He ido a la izquierda, tras una curva. ¿Por dónde voy: delante o derecha?\" dirías: \"Vale. Vale, ya está. ¿Delante o derecha?\" " +
-                "Y de \"He ido atrás. Lo oigo: pasos lentos, húmedos, cerca, desde mi izquierda. ¿Por dónde voy: delante, derecha o izquierda?\" dirías: \"Dios. Pasos. A mi izquierda, muy cerca. ¿Delante? ¿Derecha? Dime algo.\""
+            "Por ejemplo, si te dicen \"tranquilo, ve a la izquierda\" y lo que ha pasado es \"He ido a la izquierda, tras una curva. ¿Por dónde voy: delante o derecha?\", dirías: \"Gracias. Menos mal que sigues ahí. Ya he pasado la curva. Esto sigue de frente, y hay algo a la derecha. ¿Cuál?\" " +
+                "Si te dicen \"no te preocupes\" y lo que ha pasado es \"Lo oigo: pasos lentos, húmedos, cerca, desde mi izquierda. ¿Por dónde voy: delante o derecha?\", dirías: \"¿Que no me preocupe? Dios, pasos. A mi izquierda, muy cerca. Puedo ir de frente o a la derecha. Dime.\" " +
+                "Si solo te dicen \"izquierda\" y lo que ha pasado es \"He ido a la izquierda. ¿Por dónde voy: delante o derecha?\", dirías: \"Vale. Ya. ¿De frente o a la derecha?\""
         } else {
-            "For example, from \"I went left, around a bend. Which way do I go: ahead or right?\" you would say: \"Okay. Okay, I'm through. Ahead or right?\" " +
-                "And from \"I went back. I can hear it: slow, wet footsteps, close, from my left. Which way do I go: ahead, right or left?\" you would say: \"Oh god. Footsteps. On my left, so close. Ahead? Right? Tell me.\""
+            "For example, if they say \"it's okay, go left\" and what happened is \"I went left, around a bend. Which way do I go: ahead or right?\", you would say: \"Thank you. God, I'm glad you're still there. I'm around the bend. It goes on ahead, and there's something on the right. Which?\" " +
+                "If they say \"don't worry\" and what happened is \"I can hear it: slow, wet footsteps, close, from my left. Which way do I go: ahead or right?\", you would say: \"Don't worry? Oh god, footsteps. On my left, so close. I can go ahead or right. Tell me.\" " +
+                "If they only say \"left\" and what happened is \"I went left. Which way do I go: ahead or right?\", you would say: \"Okay. Okay, done. Ahead or right?\""
         }
 }
 
