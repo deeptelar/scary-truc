@@ -19,8 +19,8 @@ object Quick {
     private val CALM =
         listOf(
             "Breathe. I'm here with you." to "Respira. Estoy aquí contigo.",
-            "You're doing great. Stay with me." to "Lo estás haciendo genial. Sigue conmigo.",
-            "Slowly. I won't leave you." to "Despacio. No voy a dejarte.",
+            "You're doing great. I'm with you." to "Lo estás haciendo genial. Estoy contigo.",
+            "Slow down. I won't leave you." to "Despacio. No voy a dejarte.",
         )
 
     /** The ways open to [call] in [maze]. */
