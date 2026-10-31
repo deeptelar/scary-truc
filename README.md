@@ -152,7 +152,7 @@ there, can't be talked out of a wall that is, and can't claim a stone they never
 
 ## The challenge
 
-Built for the [DEV Hacktoberfest Open-Source AI Challenge, week 4](https://dev.to/challenges/hacktoberfest-week4-2026-10-26), with [Gemma 4](https://ai.google.dev/gemma) by Google.
+Built for the [DEV Hacktoberfest Open-Source AI Challenge, week 4: Ghost in the Machine](https://dev.to/challenges/hacktoberfest-week4-2026-10-26), with [Gemma 4](https://ai.google.dev/gemma) by Google.
 
 ## Build
 
