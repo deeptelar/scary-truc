@@ -14,6 +14,21 @@ import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class PlayLogTest {
+    @Test
+    fun aPhoneSaysWhereTheLogWentOrWhyItDidNot() {
+        val model = CallModel(CoroutineScope(Dispatchers.Default), Minds.none, clock = false)
+        model.exportLog()
+        assertEquals(null, model.exported, "a browser shows it itself")
+        model.export = { name, _ -> "Saved in /home/$name" }
+        model.exportLog()
+        assertTrue(model.exported!!.startsWith("Saved in /home/scary-truc-log-"))
+        model.export = { _, _ -> error("disk full") }
+        model.exportLog()
+        assertTrue("disk full" in model.exported!!)
+        model.play(model.plan)
+        assertEquals(null, model.exported)
+    }
+
     private class Memory : Store {
         val values = mutableMapOf<String, String>()
 

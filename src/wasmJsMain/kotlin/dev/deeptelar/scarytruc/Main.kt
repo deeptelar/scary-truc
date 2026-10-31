@@ -46,7 +46,11 @@ fun main() {
     game.links = WebLinks()
     game.tryCode = tryCode()
     game.onAnswer = audio::unlock
-    game.export = ::handOver
+    // The browser shows what it does with a file.
+    game.export = { name, text ->
+        handOver(name, text)
+        null
+    }
     // A browser plays sound only after a tap: the phone opens locked, and the first tap anywhere
     // opens the sound too.
     onGesture(audio::unlock)

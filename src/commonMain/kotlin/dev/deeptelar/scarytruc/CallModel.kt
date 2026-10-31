@@ -141,13 +141,21 @@ class CallModel(
     /** What was played on this device, to evaluate a play test. */
     val log: PlayLog = PlayLog(store)
 
-    /** Hands a file over, by its name and its text: what the platform does with it. */
-    var export: (String, String) -> Unit = { _, _ -> }
+    /** Hands a file over, by its name and its text: what the platform does with it. It says where it went, unless the player can see that for themselves. */
+    var export: (String, String) -> String? = { _, _ -> null }
+
+    /** Where the play log went, or why it didn't. */
+    var exported: String? by mutableStateOf(null)
+        private set
 
     /** Hands over the play log. */
     fun exportLog() {
         log.note("exported the log")
-        runCatching { export(log.fileName(), log.exported()) }.onFailure { log.error("export", it) }
+        exported =
+            runCatching { export(log.fileName(), log.exported()) }.getOrElse {
+                log.error("export", it)
+                lang.t("The log could not be saved: ${it.message}", "No se ha podido guardar el registro: ${it.message}")
+            }
     }
 
     /** Whether the player turned the game's sound off; kept in the [store]. */
@@ -473,6 +481,7 @@ class CallModel(
         typed = ""
         firstKey = null
         nudge = null
+        exported = null
         ringing = true
         Sound.danger = 0f
         Sound.hushed = false

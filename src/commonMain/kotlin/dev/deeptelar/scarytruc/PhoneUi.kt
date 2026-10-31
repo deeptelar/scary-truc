@@ -454,7 +454,14 @@ private fun ColumnScope.Menu(model: CallModel, lcd: Lcd, go: (Screen) -> Unit) {
             )
         }
     }
+    Exported(model, lcd)
     Softkeys(lcd, lang.t("Back", "Atrás") to { go(Screen.CALLS) }, null, null)
+}
+
+/** Where the play log went, when the phone has to say. */
+@Composable
+private fun Exported(model: CallModel, lcd: Lcd) {
+    model.exported?.let { PixelText(it, Modifier.fillMaxWidth().background(lcd.ink).padding(4.dp), size = SMALL, color = lcd.paper, maxLines = 4) }
 }
 
 /**
@@ -1093,6 +1100,7 @@ private fun Ending(model: CallModel, lcd: Lcd) {
         val best = model.best[call.plan]
         if (best != null && call.end != End.OUT) PixelText(if (best == 0) lang.t("Once, you got them out.", "Una vez lo lograste.") else lang.t("Your closest: $best.", "Lo más cerca: $best."), size = SMALL, color = lcd.faint)
     }
+    Exported(model, lcd)
     Softkeys(lcd, model.lang.t("Log", "Registro") to model::exportLog, "OK" to model::again, null)
 }
 

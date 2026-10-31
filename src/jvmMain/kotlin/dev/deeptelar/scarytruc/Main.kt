@@ -66,9 +66,10 @@ fun main(args: Array<String>) {
     failed = { game.log.error("game", it) }
     Thread.setDefaultUncaughtExceptionHandler { _, error -> failed(error) }
     game.export = { name, text ->
-        Files.createDirectories(home)
-        Files.writeString(home.resolve(name), text)
-        println("The play log is in ${home.resolve(name)}")
+        val folder = downloads()
+        Files.createDirectories(folder)
+        Files.writeString(folder.resolve(name), text)
+        game.lang.t("Saved in ${folder.resolve(name)}", "Guardado en ${folder.resolve(name)}")
     }
     application {
         // A window the size of a phone, or as tall as the screen allows.
@@ -103,6 +104,13 @@ fun main(args: Array<String>) {
 }
 
 private fun Array<String>.valueOf(flag: String): String? = indexOf(flag).takeIf { it >= 0 }?.let { getOrNull(it + 1) }
+
+/** The player's downloads, wherever their system keeps them and in their language, or their home. */
+private fun downloads(): Path {
+    val home = Path.of(System.getProperty("user.home"))
+    val named = runCatching { ProcessBuilder("xdg-user-dir", "DOWNLOAD").start().inputStream.bufferedReader().readText().trim() }.getOrNull()
+    return listOfNotNull(named?.takeIf { it.isNotEmpty() }?.let(Path::of), home.resolve("Downloads")).firstOrNull { Files.isDirectory(it) } ?: home
+}
 
 /** Whether Ollama answers at [ollama] and has [model]. */
 private suspend fun pulled(client: HttpClient, ollama: String, model: String): Boolean =
