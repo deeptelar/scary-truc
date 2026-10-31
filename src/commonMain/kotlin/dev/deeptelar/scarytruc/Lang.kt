@@ -140,7 +140,7 @@ private val SPANISH: Map<Plan, PlanText> =
                 ),
                 listOf(
                     "figuritas hechas de palos, colgando de una rama",
-                    "un montón de piedras, apiladas con cuidado",
+                    "un círculo de pájaros muertos, colocados con cuidado",
                     "un hombre de pie, de cara a un árbol, sin moverse",
                     "una tienda de campaña, rasgada desde dentro",
                 ),

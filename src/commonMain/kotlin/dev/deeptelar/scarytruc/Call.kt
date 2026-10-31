@@ -953,17 +953,24 @@ fun Call.nudge(maze: Maze): String {
 fun Call.hello(): String = lang.t("Hello? Hello?! Oh thank god, someone picked up. I just woke up here. I don't know how I got here.", "¿Hola? ¿¡Hola!? Gracias a Dios, alguien ha contestado. Me acabo de despertar aquí. No sé cómo he llegado.")
 
 /**
- * Does what the stranger said, with what [mazeOf] is at each turn: a deed here, and then what they
- * said to do next, as in "take it and go back". Each is a turn of its own, and something is walking.
- * After a way, the caller stops to say what is there: the next word is the stranger's.
+ * Does what the stranger said, with what [mazeOf] is at each turn: both parts of "take it and go
+ * back" or "go right and take it", each a turn of its own, for something is walking. What isn't
+ * done can't be claimed: a stone that isn't there is a fact, not a word Gemma is left to fill in.
+ * After a way comes no other way: the caller stops to say what is there, and the stranger chooses.
  */
 fun Call.act(mazeOf: (Call) -> Maze, haunt: Haunt): Call {
     val first = walk(mazeOf(this), haunt)
-    val next = heard?.then?.takeIf { heard?.order in DEEDS } ?: return first
-    if (first.over) return first
-    val second = first.copy(heard = Heard(next, 0)).walk(mazeOf(first), haunt)
+    val told = heard ?: return first
+    val next = told.then?.takeIf { told.order in DEEDS || (told.order.turn != null && it.turn == null) } ?: return first
+    // They ran, or wouldn't go: the rest of it didn't reach them.
+    val refused = told.order.turn != null && first.walked == 0 && !first.bumped
+    if (first.over || first.ran || refused) return first
+    val second = first.copy(heard = Heard(next, 0, told.item, told.toward)).walk(mazeOf(first), haunt)
     val asked = lang.t("Which way do I go", "¿Por dónde voy")
-    return second.copy(facts = first.facts.filterNot { it.startsWith(asked) } + second.facts, heard = heard)
+    // One question of which way, last: a deed where they stand doesn't ask it again.
+    val (question, seen) = first.facts.partition { it.startsWith(asked) }
+    val again = second.facts.any { it.startsWith(asked) }
+    return second.copy(facts = seen + second.facts + if (again) emptyList() else question, heard = told)
 }
 
 private val DEEDS = setOf(Order.MARK, Order.TAKE, Order.USE)

@@ -85,6 +85,7 @@ class PlayLog(private val store: Store? = null) {
                 heard.order.word,
                 heard.item?.word,
                 heard.toward?.let { "toward ${it.word}" },
+                heard.then?.let { "then ${it.word}" },
                 "calm ${heard.calm}",
                 "foreign".takeIf { heard.foreign },
                 "off topic".takeIf { heard.offTopic },

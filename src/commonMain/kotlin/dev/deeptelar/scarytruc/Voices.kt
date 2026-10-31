@@ -193,7 +193,7 @@ class GemmaEars(
             val language = understood.language.trim().lowercase()
             if (language.isNotEmpty() && language != call.lang.code && call.said.trim().split(Regex("\\s+")).size >= 3) return Heard(Order.NONE, 0, foreign = true)
             val order = Order.of(understood.order) ?: return keywords.listen(call)
-            Heard(order, understood.calm.coerceIn(-2, 2), Item.of(understood.item), Order.of(understood.toward)?.takeIf { it.turn != null }, understood.again, offTopic = understood.offTopic && order == Order.NONE, then = Order.of(understood.then)?.takeIf { it != Order.NONE && it != Order.USE })
+            Heard(order, understood.calm.coerceIn(-2, 2), Item.of(understood.item), Order.of(understood.toward)?.takeIf { it.turn != null }, understood.again, offTopic = understood.offTopic && order == Order.NONE, then = Order.of(understood.then)?.takeIf { it != Order.NONE })
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
@@ -303,7 +303,7 @@ class GemmaVoice(
                         "First answer the stranger in a few words of your own, as a frightened person would: if they were kind, let it reach you; if they doubted or scared you, say so; if they asked something, answer it; if it was only an order, just do it. Then say what matters."
                     }
             }
-        val carried = if (call.carried.isEmpty()) "" else " You carry: ${call.carried.joinToString { it.thing(call.lang) }}."
+        val carried = if (call.carried.isEmpty()) " You carry nothing at all." else " You carry only: ${call.carried.joinToString { it.thing(call.lang) }}."
         val before = call.lines.lastOrNull { it.who == Who.CALLER }?.let { "You last said: \"${it.text}\"\nDon't say it again: only what is new.\n" }.orEmpty()
         val facts =
             if (call.facts.isEmpty()) {
@@ -311,7 +311,9 @@ class GemmaVoice(
             } else {
                 "What happened, and what is new around you (\"I\" is you, \"you\" is the stranger):\n" + call.facts.joinToString("\n") { "- $it" } + "\n"
             }
-        return "$said\n$stray$feeling $trust$carried\n$before$facts$ending"
+        // Said last and said here: in the rules alone, Gemma took a stone it never picked up.
+        val honest = if (call.turn == 0 || call.over) "" else "\nYou did only what is written above. Anything else the stranger asked for has not happened: never say you did it or have it."
+        return "$said\n$stray$feeling $trust$carried\n$before$facts$ending$honest"
     }
 
     private fun system(call: Call): String =

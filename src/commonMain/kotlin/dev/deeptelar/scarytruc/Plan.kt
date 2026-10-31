@@ -66,7 +66,7 @@ enum class Plan(
         ),
         listOf(
             "little figures made of sticks, hanging from a branch",
-            "a pile of stones, stacked carefully",
+            "a ring of dead birds, laid out carefully",
             "a man standing with his face to a tree, not moving",
             "a tent, torn open from the inside",
         ),

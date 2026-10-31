@@ -130,6 +130,35 @@ class CallTest {
     }
 
     @Test
+    fun aWayAndThenADeedAreBothDoneAndWhatFailsIsAFact() {
+        val (here, dir) = corridor
+        val told = quiet(here, dir, Order.AHEAD).copy(heard = Heard(Order.AHEAD, 0, then = Order.TAKE))
+        val done = told.act({ maze }, empty)
+        assertNotEquals(here, done.at)
+        assertEquals(told.turn + 2, done.turn)
+        assertTrue(done.carried.isEmpty())
+        assertTrue("There's nothing here to take." in done.facts, "${done.facts}")
+        assertTrue(done.facts.last().startsWith("Which way do I go"), "they still say the ways: ${done.facts}")
+    }
+
+    @Test
+    fun aWayAndThenAThrowUseWhatTheStrangerNamed() {
+        val (here, dir) = corridor
+        val told = quiet(here, dir, Order.AHEAD).copy(carried = listOf(Item.STONE, Item.FLARE), heard = Heard(Order.AHEAD, 0, Item.STONE, Order.BACK, then = Order.USE))
+        assertEquals(listOf(Item.FLARE), told.act({ maze }, empty).carried)
+    }
+
+    @Test
+    fun whoRefusesAWayDoesNotDoTheRest() {
+        val (here, dir) = corridor
+        val told = quiet(here, dir, Order.AHEAD).copy(trust = 0, heard = Heard(Order.AHEAD, 0, then = Order.MARK))
+        val done = (1L..40L).map { told.copy(seed = it).act({ maze }, empty) }
+        assertTrue(done.any { it.at == here }, "some refuse")
+        assertTrue(done.filter { it.at == here }.all { it.marks.isEmpty() }, "and those mark nothing")
+        assertTrue(done.filter { it.at != here }.all { it.marks.isNotEmpty() }, "those who go, mark")
+    }
+
+    @Test
     fun theSameComfortWearsOffAndNoOneIsEverCalm() {
         val (here, dir) = corridor
         val scared = quiet(here, dir, Order.STAY, calm = 2).copy(panic = 80, heard = Heard(Order.STAY, 2))

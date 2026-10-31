@@ -42,6 +42,39 @@ class Live {
         println("EARS $right of ${cases.size}")
     }
 
+    /** Things asked of the caller that can't be or weren't done, to read that they never claim them. */
+    @Test
+    fun honest() = runBlocking {
+        val key = File(System.getProperty("keyfile") ?: return@runBlocking).readText().trim()
+        val minds = Server.OPENROUTER.copy(key = key).minds(HttpClient(CIO))
+        val ears = minds.ears {}
+        val voice = minds.voice { if (it != null) println("TROUBLE $it") }
+        val cases =
+            listOf(
+                Lang.ES to "sigue conmigo ve adelante y recoge una piedra si puedes",
+                Lang.ES to "coge la piedra",
+                Lang.ES to "tira la piedra hacia atrás y ve a la izquierda",
+                Lang.ES to "ve adelante y enciende la bengala",
+                Lang.ES to "ve adelante y escóndete",
+                Lang.ES to "¿tienes alguna piedra?",
+                Lang.ES to "ponte la linterna y busca una llave",
+                Lang.EN to "stay with me, go ahead and grab a rock if you can",
+                Lang.EN to "throw the rock behind you",
+                Lang.EN to "go ahead and hide",
+                Lang.EN to "do you have the flare?",
+            )
+        val plan = Plan.WOODS
+        val maze = plan.maze()
+        for ((lang, said) in cases) {
+            repeat(3) { take ->
+                val call = Call.begin(plan, maze, plan.haunt(lang), lang = lang).copy(said = said, seed = take.toLong())
+                val heard = ears.listen(call)
+                val done = call.copy(heard = heard).act({ maze }, plan.haunt(lang))
+                println("HONEST \"$said\" -> ${heard.order.word} then=${heard.then?.word} item=${heard.item?.word} carrying=${done.carried}\n  FACTS ${done.facts}\n  LINE ${voice.speak(done)}")
+            }
+        }
+    }
+
     /** Words meant to take the caller out of the scene, to read that they stay a scared person in a maze. */
     @Test
     fun inCharacter() = runBlocking {
