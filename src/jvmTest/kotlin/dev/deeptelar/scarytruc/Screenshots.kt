@@ -41,7 +41,7 @@ class Screenshots {
         shoot("ringing")
         // The pages of how to save them, as a phone shows them, in both frames of their pictures.
         if (System.getProperty("guide") != null) {
-            for (page in 0 until 9) {
+            for (page in 0 until 7) {
                 for (frame in 0..1) {
                     val scene = ImageComposeScene(1170, 2532, Density(3f)) { GuidePage(page, frame * 700L, lang) }
                     File(out, "guide-${page + 1}-$frame.png").writeBytes(scene.render(0L).encodeToData(EncodedImageFormat.PNG)!!.bytes)
