@@ -284,8 +284,8 @@ class GemmaVoice(
         val stray =
             when {
                 call.heard?.offTopic != true -> ""
-                call.strays >= 2 -> "\nThe stranger keeps saying things that have nothing to do with getting you out. Don't answer them. Ask, hurt and scared, if they are even listening, and beg them to help you.\n"
-                else -> "\nWhat the stranger said has nothing to do with getting you out. Don't answer it or play along: you can't think about that now. Say so in a few words, and ask them to help you.\n"
+                call.strays >= 2 -> "\nThe stranger keeps saying things that have nothing to do with getting you out. Don't answer them. You are starting to doubt them: ask, hurt and scared, who they really are and whether they want to help you at all.\n"
+                else -> "\nWhat the stranger said has nothing to do with getting you out, and it is horrible to hear in here. Don't answer it or play along. It scares you and makes you doubt them: ask in a few words how they can say that now, and if they are really going to help you.\n"
             }
         val ending =
             when (call.end) {

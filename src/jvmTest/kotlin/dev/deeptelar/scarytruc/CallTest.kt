@@ -110,6 +110,15 @@ class CallTest {
     }
 
     @Test
+    fun aJokeInTheDarkScaresThemHoweverFriendlyItSounds() {
+        val (here, dir) = corridor
+        val calmish = quiet(here, dir, Order.NONE).copy(panic = 40, trust = 60)
+        val joke = calmish.copy(said = "tell me a joke", heard = Heard(Order.NONE, 2, offTopic = true)).walk(maze, empty)
+        assertTrue(joke.panic >= calmish.panic + STRAY_PANIC, "panic ${joke.panic}")
+        assertTrue(joke.trust <= calmish.trust - STRAY_TRUST, "trust ${joke.trust}")
+    }
+
+    @Test
     fun withOneWayOnACallerStopsOnlyForWhatIsNew() {
         // A corridor that goes on past the next cell, with nothing to stop for beyond it.
         val (here, dir) =

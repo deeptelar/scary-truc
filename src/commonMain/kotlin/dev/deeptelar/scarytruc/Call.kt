@@ -318,7 +318,8 @@ data class Call(
  * [Call.facts] says what happened and what they see now. [maze] is the maze of this turn.
  */
 fun Call.walk(maze: Maze, haunt: Haunt): Call {
-    val heard = heard ?: Heard(Order.NONE, 0)
+    // A joke told in here comforts no one, however friendly it sounds.
+    val heard = (heard ?: Heard(Order.NONE, 0)).let { if (it.offTopic) it.copy(calm = minOf(it.calm, 0)) else it }
     // Words in another language: nothing happens, and they say so.
     if (heard.foreign) return copy(facts = listOf(lang.t("I don't understand what you're saying.", "No entiendo lo que dices.")), walked = 0, ran = false, bumped = false, sniffed = false)
     // Only kind words, to a caller in a panic: they catch their breath, and the maze waits for them.
@@ -351,11 +352,12 @@ fun Call.walk(maze: Maze, haunt: Haunt): Call {
         panic -= heard.calm * 6
         trust += heard.calm * 2
     }
-    // Words that have nothing to do with getting out cost time, and more trust each time in a row.
+    // Words that have nothing to do with getting out scare them and cost their trust, more each time in a row:
+    // a stranger who jokes now may not be there to help.
     val strays = if (heard.offTopic) strays + 1 else 0
     if (heard.offTopic) {
-        trust -= minOf(3 * strays, 9)
-        panic += 3
+        trust -= minOf(STRAY_TRUST * strays, STRAY_TRUST * 3)
+        panic += minOf(STRAY_PANIC * strays, STRAY_PANIC * 2)
     }
 
     var order = heard.order
@@ -884,6 +886,10 @@ const val DOUBT: Int = 20
 
 /** Hiding works only while the caller is calmer than this: fear is loud. */
 const val CALM_ENOUGH: Int = 60
+
+/** What the first words off the point cost in trust, and in calm; more each time in a row. */
+const val STRAY_TRUST: Int = 8
+const val STRAY_PANIC: Int = 8
 
 /** How much more a breather calms a panicking caller than the words alone. */
 const val BREATHER: Int = 4
