@@ -175,6 +175,10 @@ there, can't be talked out of a wall that is, and can't claim a stone they never
 
 Built for the [DEV Hacktoberfest Open-Source AI Challenge, week 4: Ghost in the Machine](https://dev.to/challenges/hacktoberfest-week4-2026-10-26), with [Gemma 4](https://ai.google.dev/gemma) by Google.
 
+## Thanks
+
+To [asierigle](https://github.com/asierigle), for testing the game and for the feedback.
+
 ## Build
 
 ```bash
