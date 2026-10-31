@@ -22,7 +22,7 @@ const val SPEAK: String = "speak"
 fun callGraph(mazeOf: (Call) -> Maze, haunt: Haunt, ears: Ears, voice: Voice, whisperer: Whisperer = Echoes): CompiledGraph<Call> =
     StateGraph<Call> {
         val listen = node(LISTEN, work = { call -> ears.listen(call) }) { call, heard -> call.copy(heard = heard) }
-        val walk = node(WALK) { call -> call.walk(mazeOf(call), haunt) }
+        val walk = node(WALK) { call -> call.act(mazeOf, haunt) }
         val whisper =
             node(WHISPER, work = { call -> if (call.whispers(mazeOf(call))) whisperer.whisper(call) else null }) { call, said ->
                 if (said == null) call else call.whisper(said)

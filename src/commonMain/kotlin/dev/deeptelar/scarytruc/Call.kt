@@ -72,6 +72,8 @@ data class Heard(
     val toward: Order? = null,
     /** Whether the stranger asked them to say again what is around them. */
     val again: Boolean = false,
+    /** What to do after [order], when the stranger said two things at once. */
+    val then: Order? = null,
     /** Whether the stranger spoke another language than the caller's, who didn't understand. */
     val foreign: Boolean = false,
     /** Whether the stranger's words had nothing to do with getting out: a joke, trivia, nonsense. */
@@ -946,3 +948,19 @@ fun Call.nudge(maze: Maze): String {
     val asked = (names.dropLast(1).joinToString(", ").ifEmpty { null }?.let { "$it ${lang.t("or", "o")} " }.orEmpty() + names.lastOrNull().orEmpty()).replaceFirstChar { it.uppercase() }
     return listOf(pleas[turn % pleas.size], if (asked.isEmpty()) "" else lang.t("$asked?", "¿$asked?")).filter { it.isNotEmpty() }.joinToString(" ")
 }
+
+/**
+ * Does what the stranger said, with what [mazeOf] is at each turn: a deed here, and then what they
+ * said to do next, as in "take it and go back". Each is a turn of its own, and something is walking.
+ * After a way, the caller stops to say what is there: the next word is the stranger's.
+ */
+fun Call.act(mazeOf: (Call) -> Maze, haunt: Haunt): Call {
+    val first = walk(mazeOf(this), haunt)
+    val next = heard?.then?.takeIf { heard?.order in DEEDS } ?: return first
+    if (first.over) return first
+    val second = first.copy(heard = Heard(next, 0)).walk(mazeOf(first), haunt)
+    val asked = lang.t("Which way do I go", "¿Por dónde voy")
+    return second.copy(facts = first.facts.filterNot { it.startsWith(asked) } + second.facts, heard = heard)
+}
+
+private val DEEDS = setOf(Order.MARK, Order.TAKE, Order.USE)

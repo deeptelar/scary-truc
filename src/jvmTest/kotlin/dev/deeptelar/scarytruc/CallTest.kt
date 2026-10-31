@@ -110,6 +110,26 @@ class CallTest {
     }
 
     @Test
+    fun aDeedAndThenAWayAreBothDoneAsTwoTurns() {
+        val (here, dir) = corridor
+        val stone = Haunt(emptyMap(), emptyMap(), emptyMap(), items = mapOf(here to Item.STONE))
+        val told = quiet(here, dir, Order.TAKE).copy(heard = Heard(Order.TAKE, 0, then = Order.AHEAD))
+        val done = told.act({ maze }, stone)
+        assertEquals(listOf(Item.STONE), done.carried)
+        assertNotEquals(here, done.at, "and they went on")
+        assertEquals(told.turn + 2, done.turn)
+        assertEquals(Order.TAKE, done.heard?.order)
+        assertEquals(1, done.facts.count { it.startsWith("Which way do I go") }, "${done.facts}")
+    }
+
+    @Test
+    fun afterAWayTheCallerStopsToSayWhatIsThere() {
+        val (here, dir) = corridor
+        val told = quiet(here, dir, Order.AHEAD).copy(heard = Heard(Order.AHEAD, 0, then = Order.LEFT))
+        assertEquals(told.turn + 1, told.act({ maze }, empty).turn)
+    }
+
+    @Test
     fun theSameComfortWearsOffAndNoOneIsEverCalm() {
         val (here, dir) = corridor
         val scared = quiet(here, dir, Order.STAY, calm = 2).copy(panic = 80, heard = Heard(Order.STAY, 2))

@@ -155,6 +155,8 @@ data class Understood(
     val item: String = "none",
     @Description("When you are to throw the stone: where, ahead, left, right or back; otherwise none")
     val toward: String = "none",
+    @Description("When the stranger says to do something after that, the next thing: ahead, left, right, back, stay, hide, mark, take, or none")
+    val then: String = "none",
     @Description("Whether the stranger asks you to repeat, or to say what you see around you")
     val again: Boolean = false,
     @Description("The language of the stranger's words: en, es, or other")
@@ -191,7 +193,7 @@ class GemmaEars(
             val language = understood.language.trim().lowercase()
             if (language.isNotEmpty() && language != call.lang.code && call.said.trim().split(Regex("\\s+")).size >= 3) return Heard(Order.NONE, 0, foreign = true)
             val order = Order.of(understood.order) ?: return keywords.listen(call)
-            Heard(order, understood.calm.coerceIn(-2, 2), Item.of(understood.item), Order.of(understood.toward)?.takeIf { it.turn != null }, understood.again, offTopic = understood.offTopic && order == Order.NONE)
+            Heard(order, understood.calm.coerceIn(-2, 2), Item.of(understood.item), Order.of(understood.toward)?.takeIf { it.turn != null }, understood.again, offTopic = understood.offTopic && order == Order.NONE, then = Order.of(understood.then)?.takeIf { it != Order.NONE && it != Order.USE })
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
@@ -207,7 +209,7 @@ class GemmaEars(
             "What does the stranger tell you to do now? Ways are from where you face: ahead, left, right, or back. " +
             "Or stay, hide (crouch, cover the light, keep still and quiet), mark (scratch a number on the wall), " +
             "take (pick up what lies here), use (swap in a battery, light a flare, throw a stone), " +
-            "or none when the stranger gives no instruction. If they give several, the first one." +
+            "or none when the stranger gives no instruction. If they give several, the first one, and in then the one after it." +
             (if (call.carried.isEmpty()) "" else " You carry: ${call.carried.joinToString { it.word }}.") +
             " And say which language the stranger's words are in."
     }
