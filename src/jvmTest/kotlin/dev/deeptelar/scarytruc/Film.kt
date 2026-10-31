@@ -18,8 +18,9 @@ import kotlin.test.Test
 
 /**
  * A call as a player sees it on a phone, a frame every tenth of a second, for the GIF of the README:
- * the lock, the guide, the cards, then the call, guided by [Balance]'s explorer. With a key file
- * Gemma plays the caller. It films nothing unless asked:
+ * the lock, the guide, the cards, then the call, guided by [Balance]'s explorer and said out loud,
+ * through a microphone that hears what it is given. With a key file Gemma plays the caller. It
+ * films nothing unless asked:
  * ./gradlew jvmTest --tests '*Film*' -Pshots=DIR [-Pnight=hedge] [-Pseed=1] [-Pturns=9] [-Pkeyfile=FILE]
  * and `frames.txt` in DIR is a list of the frames for ffmpeg's concat, each for as long as it lasted.
  */
@@ -35,6 +36,8 @@ class Film {
         val turns = System.getProperty("turns")?.toInt() ?: 9
         val minds = System.getProperty("keyfile")?.let { Server.OPENROUTER.copy(key = File(it).readText().trim()).minds(HttpClient(CIO)) } ?: Minds.none
         val model = CallModel(CoroutineScope(Dispatchers.Default), minds, plan = Plan.entries.first(), seed = seed, clock = false, locked = true)
+        val voice = Voice()
+        model.microphone = voice
         val scene = ImageComposeScene(780, 1688, Density(2f)) { Game(model) }
         var tap: Offset? = null
         var done = false
@@ -48,7 +51,7 @@ class Film {
                 delay(1500)
                 // The arrow under the cards, to the card of this call.
                 repeat(Plan.entries.indexOf(plan)) {
-                    tap = Offset(524f, 1426f)
+                    tap = Offset(524f, 1347f)
                     delay(1400)
                 }
                 delay(1500)
@@ -63,12 +66,15 @@ class Film {
                     val said = explorer.explore(model.call, model.maze, model.haunt)
                     val way = listOf("ahead", "right", "back", "left").firstOrNull { said.endsWith(it) }
                     val line = way?.let { tones[turn % tones.size].format(it) } ?: said
-                    for (i in 1..line.length) {
-                        model.type(line.take(i))
-                        delay(35)
+                    model.listen()
+                    delay(900)
+                    val words = line.split(" ")
+                    for (i in 1..words.size) {
+                        voice.heard(words.take(i).joinToString(" "))
+                        delay(260)
                     }
-                    delay(300)
-                    model.send()
+                    delay(500)
+                    voice.done(null)
                     delay(20)
                     while (model.thinking) delay(10)
                     delay(model.speaking() + 1500)
@@ -98,5 +104,18 @@ class Film {
         File(out, "frames.txt").writeText(frames.toString())
         player.join()
         scene.close()
+    }
+
+    /** The player's voice: what they say comes as it is said, as it does from a browser. */
+    private class Voice : Microphone {
+        var heard: (String) -> Unit = {}
+        var done: (String?) -> Unit = {}
+
+        override fun listen(lang: Lang, heard: (String) -> Unit, done: (String?) -> Unit) {
+            this.heard = heard
+            this.done = done
+        }
+
+        override fun stop() {}
     }
 }
