@@ -110,6 +110,20 @@ class CallTest {
     }
 
     @Test
+    fun theSameComfortWearsOffAndNoOneIsEverCalm() {
+        val (here, dir) = corridor
+        val scared = quiet(here, dir, Order.STAY, calm = 2).copy(panic = 80, heard = Heard(Order.STAY, 2))
+        val once = scared.walk(maze, empty)
+        val twice = once.copy(said = "go", heard = Heard(Order.STAY, 2)).walk(maze, empty)
+        assertTrue(scared.panic - once.panic > once.panic - twice.panic, "${scared.panic} ${once.panic} ${twice.panic}")
+        val rough = twice.copy(said = "go", heard = Heard(Order.STAY, 0)).walk(maze, empty)
+        assertEquals(0, rough.comforts)
+        var calm = scared.copy(panic = 20)
+        repeat(6) { calm = calm.copy(said = "go", heard = Heard(Order.STAY, 2)).walk(maze, empty) }
+        assertEquals(CALMEST, calm.panic)
+    }
+
+    @Test
     fun aJokeInTheDarkScaresThemHoweverFriendlyItSounds() {
         val (here, dir) = corridor
         val calmish = quiet(here, dir, Order.NONE).copy(panic = 40, trust = 60)

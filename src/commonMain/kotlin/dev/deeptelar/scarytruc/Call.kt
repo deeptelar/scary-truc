@@ -204,6 +204,8 @@ data class Call(
     val told: Set<String> = emptySet(),
     /** How many times in a row the stranger said something that had nothing to do with getting out. */
     val strays: Int = 0,
+    /** How many turns in a row the stranger's words calmed them. */
+    val comforts: Int = 0,
     /** The notes the caller read out: a note is read out once. */
     val read: Set<Pos> = emptySet(),
     /** Every cell the caller walked through, known to them or not. */
@@ -325,7 +327,7 @@ fun Call.walk(maze: Maze, haunt: Haunt): Call {
     if (!breathed && said.isNotBlank() && heard.order == Order.NONE && heard.calm >= 1 && !heard.offTopic && !heard.again && panic >= CALM_ENOUGH) {
         val breath = lang.t("Okay. Okay... I'm breathing. I'm staying right here until I can think.", "Vale. Vale... Estoy respirando. Me quedo aquí hasta que pueda pensar.")
         return copy(
-            panic = (panic - heard.calm * 6 - BREATHER).coerceIn(0, 100),
+            panic = (panic - heard.calm * 6 - BREATHER).coerceIn(CALMEST, 100),
             trust = (trust + heard.calm * 2).coerceIn(0, 100),
             strays = 0,
             breathed = true,
@@ -346,7 +348,9 @@ fun Call.walk(maze: Maze, haunt: Haunt): Call {
         panic += 8
         trust -= 3
     } else {
-        panic -= heard.calm * 6
+        // Comfort wears thin while all is quiet: kind words in a row reach them half as much. With
+        // something hunting them, a kind voice is all they have.
+        panic -= heard.calm * 6 / if (heard.calm > 0 && comforts > 0 && hollow?.awake != true) 2 else 1
         trust += heard.calm * 2
     }
     // Words that have nothing to do with getting out scare them and cost their trust, more each time in a row:
@@ -644,13 +648,14 @@ fun Call.walk(maze: Maze, haunt: Haunt): Call {
             taken = taken,
             turn = turn + 1,
             strays = strays,
+            comforts = if (heard.calm > 0) comforts + 1 else 0,
             end = end,
             death = death,
             walked = walked,
             ran = bolted && walked > 0,
             sniffed = sniffed,
             bumped = bumped,
-            panic = panic.coerceIn(0, 100),
+            panic = panic.coerceIn(CALMEST, 100),
             trust = trust.coerceIn(0, 100),
         )
     if (end == null && next.battery <= 0) {
@@ -661,7 +666,7 @@ fun Call.walk(maze: Maze, haunt: Haunt): Call {
     if (next.turn == plan.midnight) {
         facts += lang.t("A bell is ringing somewhere, twelve times. Midnight. The walls are grinding, like they're moving.", "Una campana suena en algún sitio, doce veces. Medianoche. Las paredes rechinan, como si se movieran.")
     }
-    if (heard.order == Order.NONE && heard.calm >= 1 && hollow?.awake != true && !bolted) next = next.copy(panic = (next.panic - 4).coerceAtLeast(0))
+    if (heard.order == Order.NONE && heard.calm >= 1 && hollow?.awake != true && !bolted) next = next.copy(panic = (next.panic - 4).coerceAtLeast(CALMEST))
     return next.look(maze, haunt, facts)
 }
 
@@ -810,7 +815,7 @@ private fun Call.look(maze: Maze, haunt: Haunt, facts: List<String>): Call {
         hunch = hunch ?: thought?.text(lang),
         thoughts = thoughts + listOfNotNull(thought),
         thoughtAt = if (thought != null) turn else thoughtAt,
-        panic = panic.coerceIn(0, 100),
+        panic = panic.coerceIn(CALMEST, 100),
         trust = trust.coerceIn(0, 100),
         lostTrack = lostTrack,
         mapped = mapped,
@@ -881,6 +886,9 @@ const val DOUBT: Int = 20
 
 /** Hiding works only while the caller is calmer than this: fear is loud. */
 const val CALM_ENOUGH: Int = 60
+
+/** No one in that dark is ever calmer than this. */
+const val CALMEST: Int = 15
 
 /** What the first words off the point cost in trust, and in calm; more each time in a row. */
 const val STRAY_TRUST: Int = 8
