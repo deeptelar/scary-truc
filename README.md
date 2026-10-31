@@ -82,8 +82,8 @@ and something is still walking, so say both at once. Once a call, when they are 
 a kind word and nothing else is a breather, and no turn at all: nothing moves, and your time starts
 again. Joke with them and they'll wonder who you really are. Go quiet and they'll beg you to say
 something, then choose for themselves. A bare word works when there's no time: "left", "hide",
-"take it", or the arrow keys. On a phone you can tap **Mic** and just speak; what you said goes when you
-pause. (Speech recognition is the browser's own, and most browsers do it on their maker's
+"take it", or the arrow keys. It's best played out loud: tap **Talk** and speak, and what you said goes
+when you pause. You can type instead. (Speech recognition is the browser's own, and most browsers do it on their maker's
 servers; the page only receives the text.)
 
 They speak English or Spanish: the language of your browser at first, or whichever you pick on the

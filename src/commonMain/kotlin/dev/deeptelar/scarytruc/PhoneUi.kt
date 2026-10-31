@@ -293,9 +293,9 @@ private fun Softkeys(lcd: Lcd, left: Pair<String, () -> Unit>?, middle: Pair<Str
         for ((key, align) in listOf(left to Alignment.CenterStart, middle to Alignment.Center, right to Alignment.CenterEnd)) {
             Box(Modifier.weight(1f), contentAlignment = align) {
                 if (key != null) {
-                    // The left key in reverse, when it is the one to reach for.
-                    val reverse = loud && key === left
-                    PixelText(key.first, Modifier.background(if (reverse) lcd.ink else Color.Transparent).clickable(onClick = key.second).padding(vertical = 6.dp, horizontal = 4.dp), color = if (reverse) lcd.paper else lcd.ink, maxLines = 1)
+                    // The middle key in reverse and larger, when it is the one to reach for.
+                    val reverse = loud && key === middle
+                    PixelText(key.first, Modifier.background(if (reverse) lcd.ink else Color.Transparent).clickable(onClick = key.second).padding(vertical = if (reverse) 10.dp else 6.dp, horizontal = if (reverse) 18.dp else 4.dp), color = if (reverse) lcd.paper else lcd.ink, maxLines = 1)
                 }
             }
         }
@@ -344,8 +344,9 @@ private fun Calls(model: CallModel, now: Long, lcd: Lcd, modifier: Modifier, opt
                 PixelText(lang.t("calling", "llamando") + if ((now / 600) % 2 == 0L) "" else ".", size = SMALL, color = lcd.ink)
             }
         }
+        if (model.microphone != null) PixelText(lang.t("Best out loud: tap Talk and speak.", "Mejor en voz alta: toca Hablar."), Modifier.padding(top = 14.dp), size = SMALL, color = lcd.ink)
     }
-    Softkeys(lcd, lang.t("Menu", "Menú") to options, lang.t("Answer", "Contestar") to model::answer, null)
+    Softkeys(lcd, lang.t("Menu", "Menú") to options, lang.t("Answer", "Atender") to model::answer, null)
 }
 
 /** The card of a call: a picture of the place, its name, how it first sounds on the line, and how close the player came. */
@@ -559,7 +560,7 @@ private val LESSONS =
         // The caller as the notebook draws them, an arrow facing down the page, towards YOU: their
         // left, the L, is on your right, and that is where they go.
         Lesson(
-            "They see. You don't. Say where to go from where THEY face. Here they face you: their left is on your right.",
+            "They see. You don't. Speak to them out loud. Say where to go from where THEY face. Here they face you: their left is on your right.",
             "go left",
             listOf(
                 ".........###.........",
@@ -700,7 +701,7 @@ private val LESSONS =
 /** How to save them in Spanish: the same pages, the first with its letters in Spanish (I is izquierda). */
 private val LESSONS_ES: List<Lesson> =
     listOf(
-        "Ellos ven. Tú no. Di adónde ir desde donde ELLOS miran. Aquí te miran a ti: su izquierda está a tu derecha." to "ve a la izquierda",
+        "Ellos ven. Tú no. Háblales en voz alta. Di adónde ir desde donde ELLOS miran. Aquí te miran a ti: su izquierda está a tu derecha." to "ve a la izquierda",
         "Tu libreta olvida. Una marca rayada en mis paredes, no." to "raya una marca",
         "Los que vinieron antes dejaron notas. Aprendieron qué mata. Demasiado tarde." to "¿qué pone?",
         "Mi mascota es ciega. Oye el miedo. Mantenlos en calma y, cuando esté cerca, que se escondan." to "escóndete. no te muevas. estoy aquí.",
@@ -1063,18 +1064,23 @@ private fun Said(text: String, who: Who, lcd: Lcd, now: Long = 0) {
     }
 }
 
-/** Where the player talks: Enter or Say says it; the microphone listens instead. */
+/**
+ * Where the player talks. This is a phone call, so the key to reach for is the microphone, where
+ * there is one, and the keyboard stays down on a phone until the player taps the field. With words
+ * in the field the same key says them, as Enter does.
+ */
 @Composable
 private fun Talk(model: CallModel, now: Long, narrow: Boolean, lcd: Lcd, notebook: Boolean, toggleNotebook: () -> Unit) {
     val focus = remember { FocusRequester() }
-    LaunchedEffect(model.ringing, model.call.turn) { runCatching { focus.requestFocus() } }
+    val talking = model.microphone != null
+    LaunchedEffect(model.ringing, model.call.turn) { if (!narrow || !talking) runCatching { focus.requestFocus() } }
     PixelField(
         model.typed,
         model::type,
         when {
             model.listening -> model.lang.t("Listening...", "Escuchando...")
             model.thinking -> model.lang.t("They're talking...", "Está hablando...")
-            model.microphone != null -> model.lang.t("Talk to them, or tap Mic", "Háblale, o toca Micro")
+            talking -> model.lang.t("Tap Talk and speak, or type", "Toca Hablar, o escribe")
             else -> model.lang.t("Talk to them, or just: left", "Háblale, o solo: izquierda")
         },
         Modifier.fillMaxWidth().focusRequester(focus).onPreviewKeyEvent { event ->
@@ -1105,12 +1111,17 @@ private fun Talk(model: CallModel, now: Long, narrow: Boolean, lcd: Lcd, noteboo
     // Their patience: a bar that empties while they wait, and then they choose themselves.
     val left = 1f - (model.waited(now) ?: 0f)
     Box(Modifier.fillMaxWidth().height(3.dp).drawBehind { drawRect(lcd.ink, size = size.copy(width = size.width * left)) })
+    val mic = talking && (model.listening || model.typed.isBlank())
     Softkeys(
         lcd,
-        model.microphone?.let { (if (model.listening) model.lang.t("Stop", "Parar") else model.lang.t("Mic", "Micro")) to model::listen },
-        model.lang.t("Say", "Decir") to model::send,
+        null,
+        when {
+            model.listening -> model.lang.t("Stop", "Parar") to model::listen
+            mic -> model.lang.t("Talk", "Hablar") to model::listen
+            else -> model.lang.t("Say", "Decir") to model::send
+        },
         if (narrow) (if (notebook) model.lang.t("Call", "Llamada") else model.lang.t("Notes", "Notas")) to toggleNotebook else null,
-        loud = true,
+        loud = mic,
     )
 }
 
