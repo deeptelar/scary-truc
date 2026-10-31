@@ -778,7 +778,7 @@ private fun Lesson.sprite(frame: Int, lcd: Lcd): Sprite {
     return Sprite(picture, colors)
 }
 
-/** How to save them, a page at a time: tap the picture or Next. The last page goes to the calls, to pick one. */
+/** How to save them, a page at a time: only Next turns it, so that a tap on the picture can't skip what it says. The last page goes to the calls, to pick one. */
 @Composable
 private fun ColumnScope.Help(lcd: Lcd, now: Long, lang: Lang, start: Int = 0, back: () -> Unit) {
     var page by remember { mutableStateOf(start) }
@@ -788,7 +788,7 @@ private fun ColumnScope.Help(lcd: Lcd, now: Long, lang: Lang, start: Int = 0, ba
     Header(lang.t("How to save them", "Cómo salvarles"), lcd)
     Column(Modifier.weight(1f).fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Box(
-            Modifier.weight(1f).fillMaxWidth().clickable(onClick = next).drawBehind {
+            Modifier.weight(1f).fillMaxWidth().drawBehind {
                 val sprite = lesson.sprite(((now / 700) % 2).toInt(), lcd)
                 // Whole screen pixels, so that the picture stays sharp.
                 val pixel = minOf(size.width / (sprite.width + 2), size.height / (sprite.height + 1)).toInt().toFloat()
