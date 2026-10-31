@@ -222,6 +222,8 @@ data class Call(
     val lines: List<Line> = emptyList(),
     /** The turn the Hollow last spoke on the line. */
     val whispered: Int = -99,
+    /** Whether the stranger's words this turn were an option tapped in a hurry. */
+    val hurried: Boolean = false,
     /** Whether the caller already had their breather in this call: there is one a call. */
     val breathed: Boolean = false,
     /** What the caller picked up and still has. */
@@ -276,6 +278,7 @@ data class Call(
             facts = emptyList(),
             hunch = null,
             said = "",
+            hurried = false,
             heard = null,
             understood = heard,
         )
@@ -794,7 +797,14 @@ private fun Call.look(maze: Maze, haunt: Haunt, facts: List<String>): Call {
     // Standing where they stood, they say only what changed, unless the stranger asked again.
     val around = seen.drop(happened)
     val stayed = turn > 0 && walked == 0 && heard?.again != true
-    val thought = if (hunch == null && turn > 0 && turn - thoughtAt >= THINKS_EVERY) Thought.of(copy(panic = panic, lostTrack = lostTrack), maze, haunt) else null
+    val thought =
+        when {
+            hunch != null -> null
+            // The first rushed tap, they say so at once.
+            hurried && Thought.HURRIED !in thoughts -> Thought.HURRIED
+            turn > 0 && turn - thoughtAt >= THINKS_EVERY -> Thought.of(copy(panic = panic, lostTrack = lostTrack), maze, haunt)
+            else -> null
+        }
     return copy(
         facts = seen.take(happened) + if (stayed) around.filter { it !in told } else around,
         told = if (stayed) told + around else around.toSet(),

@@ -72,7 +72,7 @@ class CallRun(
         val said = words.trim()
         call =
             graph.resume(config) {
-                it.copy(said = said, lines = it.lines + Line(Who.YOU, said.ifEmpty { "…" }), panic = if (tapped) (it.panic + RUSHED).coerceAtMost(100) else it.panic)
+                it.copy(said = said, lines = it.lines + Line(Who.YOU, said.ifEmpty { "…" }), panic = if (tapped) (it.panic + RUSHED).coerceAtMost(100) else it.panic, hurried = tapped)
             }.state
         return call
     }

@@ -323,6 +323,15 @@ class CallTest {
     }
 
     @Test
+    fun theFirstRushedTapTheCallerAsksToBeTalkedTo() {
+        val (here, dir) = corridor
+        val tapped = quiet(here, dir, Order.STAY).copy(hurried = true)
+        assertEquals(Thought.HURRIED.en, tapped.walk(maze, empty).hunch)
+        assertNull(tapped.copy(thoughts = setOf(Thought.HURRIED)).walk(maze, empty).hunch?.takeIf { it == Thought.HURRIED.en }, "once a call")
+        assertFalse(tapped.walk(maze, empty).spoke("Okay.").hurried)
+    }
+
+    @Test
     fun kindWordsAloneToACallerInAPanicAreABreatherAndNoTurnOnceACall() {
         val (here, dir) = corridor
         val hunting = Hollow(maze.lair, awake = true)
