@@ -148,7 +148,7 @@ private class Lcd(val paper: Color, val ink: Color) {
 }
 
 /** What the phone shows when no call is on. */
-private enum class Screen { CALLS, MENU, HELP, MODEL }
+private enum class Screen { CALLS, MENU, HELP, MODEL, STATS }
 
 /**
  * The phone: a monochrome screen in a plastic body, with softkeys under the screen. On a narrow
@@ -184,6 +184,7 @@ private fun Phone(model: CallModel, now: Long, narrow: Boolean, modifier: Modifi
                 model.ringing && screen == Screen.MENU -> Menu(model, lcd) { screen = it }
                 model.ringing && screen == Screen.HELP -> Help(lcd, now, model.lang) { screen = Screen.CALLS }
                 model.ringing && screen == Screen.MODEL -> Options(model, lcd) { screen = Screen.MENU }
+                model.ringing && screen == Screen.STATS -> Stats(model, lcd) { screen = Screen.MENU }
                 model.ringing -> Calls(model, now, lcd, Modifier.weight(1f)) { screen = Screen.MENU }
                 else -> {
                     CallerBar(model, now, lcd)
@@ -474,6 +475,7 @@ private fun ColumnScope.Menu(model: CallModel, lcd: Lcd, go: (Screen) -> Unit) {
             listOf(
                 lang.t("How to save them", "Cómo salvarles") to { go(Screen.HELP) },
                 lang.t("Model", "Modelo") to { go(Screen.MODEL) },
+                "${lang.t("Statistics", "Estadísticas")} (${model.log.plays.size})" to { go(Screen.STATS) },
                 "${lang.t("Language", "Idioma")}: ${lang.title} > ${other.title}" to { model.speak(other) },
                 "${lang.t("Export play log", "Exportar registro")} (${model.log.calls})" to model::exportLog,
             )
@@ -488,6 +490,59 @@ private fun ColumnScope.Menu(model: CallModel, lcd: Lcd, go: (Screen) -> Unit) {
     }
     Softkeys(lcd, lang.t("Back", "Atrás") to { go(Screen.CALLS) }, null, null)
 }
+
+/**
+ * The calls played on this device, just for fun: how many got out, what took the others, how close
+ * they came, and how often fear was to blame. The last calls come last, newest first.
+ */
+@Composable
+private fun ColumnScope.Stats(model: CallModel, lcd: Lcd, back: () -> Unit) {
+    val lang = model.lang
+    val plays = model.log.plays
+    Header(lang.t("Statistics", "Estadísticas"), lcd)
+    Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        if (plays.isEmpty()) {
+            PixelText(lang.t("No calls yet. Someone is waiting for you to pick up.", "Aún no hay llamadas. Alguien espera a que contestes."), size = SMALL, color = lcd.ink)
+        } else {
+            val lost = plays.filter { it.end != End.OUT }
+            val dead = lost.filter { it.end == End.TAKEN || it.end == End.DOOM }
+            StatLine(lang.t("Calls", "Llamadas"), "${plays.size}", lcd)
+            StatLine(lang.t("Got out", "Salieron"), "${plays.size - lost.size}", lcd)
+            StatLine(lang.t("Lost to panic", "Perdidos por el pánico"), "${dead.count { it.panicked }} / ${dead.size}", lcd)
+            StatLine(lang.t("Times they ran in a panic", "Veces que huyeron en pánico"), "${plays.sumOf { it.bolts }}", lcd)
+            val steps = lost.mapNotNull { it.away }
+            if (steps.isNotEmpty()) {
+                StatLine(lang.t("Steps from the way out, on average", "Pasos hasta la salida, de media"), "${(steps.average() * 10).toInt() / 10.0}", lcd)
+                StatLine(lang.t("Closest without getting out", "Lo más cerca sin salir"), "${steps.min()}", lcd)
+            }
+            StatTitle(lang.t("How it ended", "Cómo acabó"), lcd)
+            for ((ending, count) in plays.groupingBy { it.ending(lang) }.eachCount().entries.sortedByDescending { it.value }) StatLine(ending, "$count", lcd)
+            StatTitle(lang.t("Last calls", "Últimas llamadas"), lcd)
+            for (play in plays.takeLast(LAST_PLAYS).asReversed()) {
+                val away = play.away?.takeIf { play.end != End.OUT }?.let { lang.t(", $it steps away", ", a $it pasos") }.orEmpty()
+                val fear = if (play.panicked) lang.t(", panic", ", pánico") else ""
+                PixelText("${play.plan.text(lang).title}: ${play.ending(lang)}$away$fear", Modifier.fillMaxWidth(), size = SMALL, color = lcd.ink)
+            }
+        }
+    }
+    Softkeys(lcd, lang.t("Back", "Atrás") to back, null, null)
+}
+
+/** A line of the statistics: what is counted, and how many. */
+@Composable
+private fun StatLine(label: String, value: String, lcd: Lcd) {
+    Row(Modifier.fillMaxWidth()) {
+        PixelText(label, Modifier.weight(1f), size = SMALL, color = lcd.ink)
+        PixelText(value, size = SMALL, color = lcd.ink)
+    }
+}
+
+/** A part of the statistics, in reverse, as a menu of the time marks it. */
+@Composable
+private fun StatTitle(text: String, lcd: Lcd) = PixelText(text, Modifier.fillMaxWidth().background(lcd.ink).padding(horizontal = 4.dp, vertical = 1.dp), size = SMALL, color = lcd.paper)
+
+/** How many of the last calls the statistics list one by one. */
+private const val LAST_PLAYS = 10
 
 /**
  * A page of how to save them: a picture, one line in the words of whoever built the mazes, and

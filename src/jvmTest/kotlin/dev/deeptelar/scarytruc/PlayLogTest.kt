@@ -144,4 +144,52 @@ class PlayLogTest {
         assertFalse("call-0-" in log.exported())
         assertEquals(store.values.getValue("log").split("=== Call").size - 1, log.calls)
     }
+
+    @Test
+    fun eachCallThatEndsIsKeptForTheStatisticsAcrossVisits() {
+        val store = Memory()
+        val log = PlayLog(store)
+        val maze = Plan.CAVE.maze()
+        val call = Call.begin(Plan.CAVE, maze, Haunt(emptyMap(), emptyMap(), emptyMap()))
+        log.call(call, null)
+        val scared = call.copy(turn = 1, panic = 90, ran = true)
+        log.turn(call, scared, maze, 0, 0, null)
+        log.turn(scared, scared.copy(turn = 2, panic = 70, ran = false, end = End.TAKEN, death = "the Hollow", away = 4), maze, 0, 0, null)
+        log.call(call, null)
+        log.hungUp(call.hungUp(maze))
+        val again = PlayLog(store).plays
+        assertEquals(listOf(End.TAKEN, End.ALONE), again.map { it.end })
+        val taken = again.first()
+        assertEquals(4, taken.away)
+        assertEquals(90, taken.worst)
+        assertEquals(1, taken.bolts)
+        assertTrue(taken.panicked, "the Hollow heard their fear")
+        assertFalse(again.last().panicked)
+    }
+
+    @Test
+    fun theCallsInAnOldLogAreReadIntoTheStatistics() {
+        val old =
+            """
+            === Call 2026-10-01T20:00:00Z The Cave | Ana | SCOUT | en | model none | seed 1
+            20:00:05 YOU after 3.0s: left
+              turn 1: at 1,1 facing north, walked 2, battery 99, panic 88, trust 50, walks with nothing new 0, bolted
+              END DOOM (a pit with no bottom), 5 steps from the way out, after 1 turns
+            === Call 2026-10-01T20:10:00Z The Cave | Ana | SCOUT | en | model none | seed 2
+              turn 1: at 1,1 facing north, walked 1, battery 99, panic 30, trust 50, walks with nothing new 0
+            20:11:00 * hung up, 7 steps from the way out, after 1 turns
+            === Call 2026-10-01T20:20:00Z The Cave | Ana | SCOUT | en | model none | seed 3
+              turn 9: at 1,1 facing north, walked 1, battery 80, panic 10, trust 60, walks with nothing new 0
+              END OUT, 0 steps from the way out, after 9 turns
+            """.trimIndent()
+        val store = Memory()
+        store.values["log"] = old
+        val plays = PlayLog(store).plays
+        assertEquals(listOf(End.DOOM, End.ALONE, End.OUT), plays.map { it.end })
+        assertTrue(plays[0].panicked, "they ran into it")
+        assertEquals("a pit with no bottom", plays[0].death)
+        assertEquals(listOf(5, 7, 0), plays.map { it.away })
+        assertTrue(plays.all { it.plan == Plan.CAVE })
+        assertTrue("plays" in store.values, "read once, then kept")
+    }
 }

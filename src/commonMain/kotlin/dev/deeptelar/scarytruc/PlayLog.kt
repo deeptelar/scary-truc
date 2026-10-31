@@ -1,5 +1,6 @@
 package dev.deeptelar.scarytruc
 
+import kotlinx.serialization.json.Json
 import kotlin.time.Clock
 import kotlin.time.ExperimentalTime
 
@@ -10,6 +11,9 @@ import kotlin.time.ExperimentalTime
  *
  * It also traces what went on under the game, for when a play test goes wrong: `*` is something the
  * player did, `~` a call to the model and `!` a fault, with its stack.
+ *
+ * Each call that ended is also kept on its own, as a [Play], for the statistics: the text is cut
+ * when it grows too long, and the plays are not.
  */
 @OptIn(ExperimentalTime::class)
 class PlayLog(private val store: Store? = null) {
@@ -24,9 +28,19 @@ class PlayLog(private val store: Store? = null) {
 
     private val faults = mutableSetOf<String>()
 
+    /** The calls played on this device that ended, oldest first: the first time, read from the log. */
+    var plays: List<Play> = readPlays()
+        private set
+
+    /** How scared the caller of this call was at the worst, and how many times they ran off. */
+    private var worst = 0
+    private var bolts = 0
+
     /** Starts a call. */
     fun call(call: Call, mind: String?) {
         calls++
+        worst = call.panic
+        bolts = 0
         add("\n$CALL ${stamp()} ${call.plan.title} | ${call.name} | ${call.role} | ${call.lang.code} | model ${mind ?: "none"} | seed ${call.seed}\n")
     }
 
@@ -63,6 +77,8 @@ class PlayLog(private val store: Store? = null) {
      * [took] as many; [trouble] is why the model wasn't used, if it wasn't.
      */
     fun turn(before: Call, after: Call, maze: Maze, waited: Long, took: Long, trouble: String?) {
+        worst = maxOf(worst, after.panic)
+        if (after.ran) bolts++
         val lines = after.lines.drop(before.lines.size)
         val heard = after.understood?.let { heard ->
             listOfNotNull(
@@ -93,6 +109,33 @@ class PlayLog(private val store: Store? = null) {
             if (trouble != null) append("  trouble: $trouble\n")
             after.end?.let { append("  END $it${after.death?.let { death -> " ($death)" }.orEmpty()}, ${after.away ?: "?"} steps from the way out, after ${after.turn} turns\n") }
         })
+        if (after.over && !before.over) ended(after)
+    }
+
+    /** The stranger hung up on [call]. */
+    fun hungUp(call: Call) {
+        note("hung up, ${call.away ?: "?"} steps from the way out, after ${call.turn} turns")
+        ended(call)
+    }
+
+    /** Keeps [call], which just ended, with the plays. */
+    private fun ended(call: Call) {
+        val play = Play.of(call, worst, bolts, stamp()) ?: return
+        plays = (plays + play).takeLast(MAX_PLAYS)
+        savePlays()
+    }
+
+    private fun readPlays(): List<Play> {
+        val saved = runCatching { store?.get(PLAYS) }.getOrNull()
+        if (!saved.isNullOrBlank()) return runCatching { Json.decodeFromString<List<Play>>(saved) }.getOrDefault(emptyList())
+        // Before the plays were kept on their own: what the log still holds of them.
+        val old = runCatching { Play.fromLog(text) }.getOrDefault(emptyList()).takeLast(MAX_PLAYS)
+        if (old.isNotEmpty()) runCatching { store?.set(PLAYS, Json.encodeToString(old)) }
+        return old
+    }
+
+    private fun savePlays() {
+        runCatching { store?.set(PLAYS, Json.encodeToString(plays)) }
     }
 
     /** The whole log, as a file to hand over. */
@@ -120,6 +163,8 @@ class PlayLog(private val store: Store? = null) {
 
     private companion object {
         const val KEY = "log"
+        const val PLAYS = "plays"
+        const val MAX_PLAYS = 500
         const val CRASH = "crash"
         const val MAX_FAULTS = 50
         const val MAX_FAULT = 1500
