@@ -68,7 +68,7 @@ import kotlin.time.Instant
 
 /**
  * The whole window: the phone on the left and the notebook on the right, or, on a narrow screen
- * like a phone's, the phone alone, with the notebook a tap away.
+ * like a phone's, the phone alone, with the notebook on its screen above the call.
  */
 @Composable
 fun Game(model: CallModel) {
@@ -159,7 +159,6 @@ private fun Phone(model: CallModel, now: Long, narrow: Boolean, modifier: Modifi
     val call = model.call
     val danger = if (model.ringing || call.over) 0f else danger(call, model.maze)
     val lcd = Lcd.of(call, model.ringing, danger, now)
-    var notebook by remember { mutableStateOf(false) }
     // The phone opens on how to save them, every time; the first page can skip it.
     var screen by remember { mutableStateOf(Screen.HELP) }
     LaunchedEffect(screen) {
@@ -190,7 +189,6 @@ private fun Phone(model: CallModel, now: Long, narrow: Boolean, modifier: Modifi
                     CallerBar(model, now, lcd)
                     val speaking = now - model.spokeAt < model.speaking()
                     when {
-                        narrow && notebook -> Notebook(model, lcd, Modifier.weight(1f).fillMaxWidth())
                         // On a phone the map and the call share the screen: no switching to follow both.
                         narrow -> {
                             Notebook(model, lcd, Modifier.weight(0.4f).fillMaxWidth(), compact = true)
@@ -202,10 +200,7 @@ private fun Phone(model: CallModel, now: Long, narrow: Boolean, modifier: Modifi
                     if (call.over && !model.thinking && !speaking) {
                         Ending(model, lcd)
                     } else {
-                        Talk(model, now, narrow, lcd, notebook) {
-                            notebook = !notebook
-                            model.log.note(if (notebook) "notebook opened" else "notebook closed")
-                        }
+                        Talk(model, now, narrow, lcd)
                     }
                 }
             }
@@ -1091,7 +1086,7 @@ private fun Said(text: String, who: Who, lcd: Lcd, now: Long = 0) {
  * in the field the same key says them, as Enter does.
  */
 @Composable
-private fun Talk(model: CallModel, now: Long, narrow: Boolean, lcd: Lcd, notebook: Boolean, toggleNotebook: () -> Unit) {
+private fun Talk(model: CallModel, now: Long, narrow: Boolean, lcd: Lcd) {
     val focus = remember { FocusRequester() }
     val talking = model.microphone != null
     LaunchedEffect(model.ringing, model.call.turn) { if (!narrow || !talking) runCatching { focus.requestFocus() } }
@@ -1141,7 +1136,7 @@ private fun Talk(model: CallModel, now: Long, narrow: Boolean, lcd: Lcd, noteboo
             mic -> model.lang.t("Talk", "Hablar") to model::listen
             else -> model.lang.t("Say", "Decir") to model::send
         },
-        if (narrow) (if (notebook) model.lang.t("Call", "Llamada") else model.lang.t("Notes", "Notas")) to toggleNotebook else null,
+        null,
         loud = mic,
     )
 }
