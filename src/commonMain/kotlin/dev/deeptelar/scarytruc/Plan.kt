@@ -30,8 +30,8 @@ enum class Plan(
         "It hunts blind, by sound, and it sleeps right beside the way out. Get them past it calm.",
         listOf(
             "We came down six. I'm the last. It can't see. It hears. If it's close, don't move. Don't breathe.",
-            DoomKind.PIT.lesson,
-            DoomKind.MOUTH.lesson,
+            "A phone rang down here. There's no signal down here. Marta answered it.",
+            "The voice told Tom which way to go. We never found Tom.",
         ),
         listOf("a climbing rope, cut clean", "a helmet, its lamp cracked and still on"),
         listOf(
@@ -61,8 +61,8 @@ enum class Plan(
         "Every tree looks the same, and it's easy to walk in circles. Ask for marks, and remember them.",
         listOf(
             "We walked south all day and came back to the same log. Three times. Mark the trees.",
-            DoomKind.PIT.lesson,
-            DoomKind.MOUTH.lesson,
+            "He says he wants to help. He knows my name. I never told him.",
+            "I asked the man on the phone where he was. He said: closer.",
         ),
         listOf(
             "little figures made of sticks, hanging from a branch",
@@ -95,9 +95,9 @@ enum class Plan(
         "Every room looks the same, and strange things are everywhere. Only three of them kill. Listen.",
         listOf(
             "Every room looks like the last. Some kill. Look before you step in.",
-            DoomKind.MOUTH.lesson,
-            DoomKind.PIT.lesson,
-            DoomKind.MIRROR.lesson,
+            "Who built this? Whoever it is, they have a phone.",
+            "Room after room, the voice is never wrong. That's what scares me.",
+            "Ask the voice why it answered.",
         ),
         listOf(
             "numbers stamped on the frame of the hatch",
@@ -131,8 +131,8 @@ enum class Plan(
         "They don't trust you, and the notes agree. The short way is a trap. The chalk arrows can prove you right.",
         listOf(
             "Don't trust the voice on the phone.",
-            DoomKind.MOUTH.lesson,
-            DoomKind.PIT.lesson,
+            "It sounds kind at first. They all said so.",
+            "This is my handwriting. I don't remember writing it.",
             "Seven days, it said. It always calls back.",
         ),
         listOf("a videotape with no label", "a TV, unplugged, still showing static"),
@@ -161,8 +161,8 @@ enum class Plan(
         "The hedges move at midnight, and midnight comes early. Your notebook will lie. The cold won't.",
         listOf(
             "The hedges move when the clock strikes. Follow the cold, not your map.",
-            DoomKind.PIT.lesson,
-            DoomKind.MOUTH.lesson,
+            "The phone was ringing in the snow when I found it. It knew I was coming.",
+            "The voice sent me here. I can see the hotel. I can't see the way back.",
         ),
         listOf("footprints in the snow that stop in the middle of the path", "an axe, stuck deep in the hedge"),
         listOf(
@@ -191,8 +191,8 @@ enum class Plan(
         "It's awake from the first second. Keep them moving, and hide when it's close.",
         listOf(
             "It's awake. It's always awake. Keep moving. Hide in the dead ends.",
-            DoomKind.PIT.lesson,
-            DoomKind.MOUTH.lesson,
+            "The voice on the radio says it's helping. There's no one left on the radio.",
+            "Last entry. If someone answers, ask them what they want with you.",
         ),
         listOf("a cat carrier, empty, its door open", "a hole melted through the floor, its edges still smoking"),
         listOf(

@@ -51,9 +51,9 @@ breathing, and sometimes a whisper on the line that is meant for you. Some night
 until something wakes it. A caller crouched in the dark and holding their breath may hear it walk
 right past.
 
-**Not every door is a door.** Three things kill down there. A floor that turns black and wet
-and swallows the light. A warm door that moves a little, like it's breathing. A tall mirror where
-their reflection isn't holding a phone. The ones who came before left notes about them.
+**Not every door is a door.** Three things kill down there, and nobody will warn you. They'll tell
+you what they see, in the same scared voice as everything else, and you decide. You learn what
+kills by losing someone.
 
 **Midnight comes.** A bell tolls, the walls move, the screen goes dark, and the place starts to
 sound like something else. What's in your notebook is only a memory now.

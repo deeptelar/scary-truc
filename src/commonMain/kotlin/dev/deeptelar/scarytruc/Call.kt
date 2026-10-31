@@ -799,8 +799,8 @@ private fun Call.look(maze: Maze, haunt: Haunt, facts: List<String>): Call {
         seen += lang.t("The only way is ${ways.single()}.", "El único camino es ${ways.single()}.")
     }
 
-    // Finding what they were told to look for makes the stranger worth listening to.
-    if (heard?.order?.turn != null && walked > 0 && (at in haunt.notes || at in haunt.arrows || toGate <= COLD)) trust += 5
+    // Finding what they were told to look for makes the stranger worth listening to. A note doesn't.
+    if (heard?.order?.turn != null && walked > 0 && (at in haunt.arrows || toGate <= COLD)) trust += 5
     // Standing where they stood, they say only what changed, unless the stranger asked again.
     val around = seen.drop(happened)
     val stayed = turn > 0 && walked == 0 && heard?.again != true

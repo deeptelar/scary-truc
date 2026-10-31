@@ -459,8 +459,8 @@ class CallTest {
             assertEquals(call.notes.size, haunt.notes.size, "${call.name}: every note is in the maze")
             assertTrue(haunt.notes.keys.none { maze.doomAt(it) != null })
             for ((cell, dir) in haunt.arrows) assertTrue(maze.canGo(cell, dir), "${call.name}: an arrow at $cell points at a wall")
-            // Each doom's lesson is in a note, and a note can be read before the doom is reached.
-            for (doom in maze.dooms) assertTrue(doom.kind.lesson in call.notes, "${call.name}: no note teaches ${doom.kind}")
+            // What kills is for the stranger to find out: nothing written in the maze gives it away.
+            for (note in Lang.entries.flatMap { call.text(it).notes }) assertTrue(listOf("breath ", "floor", "mirror", "door", "suelo", "espejo", "puerta").none { it in note.lowercase() }, note)
             val shifted = maze.shifted()
             assertTrue(maze.gate in shifted.distances(maze.start, deadly), "${call.name}: still a way out after midnight")
         }

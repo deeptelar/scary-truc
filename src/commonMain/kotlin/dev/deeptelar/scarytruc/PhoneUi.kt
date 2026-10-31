@@ -599,7 +599,7 @@ private val LESSONS =
             ),
         ),
         Lesson(
-            "The ones before them left notes. They learned what kills. Too late.",
+            "The ones before them left notes. None of them tells you what kills. You learn that by losing someone.",
             "what does it say?",
             listOf(
                 "....###########......",
@@ -703,7 +703,7 @@ private val LESSONS_ES: List<Lesson> =
     listOf(
         "Ellos ven. Tú no. Háblales en voz alta. Di adónde ir desde donde ELLOS miran. Aquí te miran a ti: su izquierda está a tu derecha." to "ve a la izquierda",
         "Tu libreta olvida. Una marca rayada en mis paredes, no." to "raya una marca",
-        "Los que vinieron antes dejaron notas. Aprendieron qué mata. Demasiado tarde." to "¿qué pone?",
+        "Los que vinieron antes dejaron notas. Ninguna te dice qué mata. Eso lo aprendes perdiendo a alguien." to "¿qué pone?",
         "Mi mascota es ciega. Oye el miedo. Mantenlos en calma y, cuando esté cerca, que se escondan." to "escóndete. no te muevas. estoy aquí.",
         "Dejo cosas en los rincones. Una batería da tiempo. Una bengala lo asusta. Una piedra, lanzada, lo atrae." to "cógela",
         "No los dejes en silencio. Si esperas demasiado, eligen ellos. Y eligen mal." to null,

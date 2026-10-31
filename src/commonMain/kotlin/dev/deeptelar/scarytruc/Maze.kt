@@ -23,24 +23,21 @@ enum class Dir(val dx: Int, val dy: Int, val word: String) {
 }
 
 /**
- * What kills whoever walks in. The caller can't tell, but sees its [sign] from next to it; a note
- * left in the maze teaches its [lesson].
+ * What kills whoever walks in. The caller can't tell, and sees only its [sign] from next to it: no
+ * one warns them, and the stranger learns what it was by losing them.
  */
-enum class DoomKind(val word: String, val sign: String, val lesson: String) {
+enum class DoomKind(val word: String, val sign: String) {
     PIT(
         "a pit with no bottom",
         "the floor turns black and wet, and it swallows the light of my phone",
-        "Black floor that eats your light is not floor.",
     ),
     MOUTH(
         "a door that is a mouth",
         "a door, warm, and it moves a little, like it's breathing",
-        "Doors don't breathe. If one does, don't go through it.",
     ),
     MIRROR(
         "a mirror that takes you in",
         "a tall mirror, and my reflection isn't holding a phone",
-        "If your reflection doesn't copy you, it isn't a mirror. Don't walk into it.",
     ),
 }
 

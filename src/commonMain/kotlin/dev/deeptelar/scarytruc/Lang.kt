@@ -57,17 +57,6 @@ fun DoomKind.sign(lang: Lang): String =
         },
     )
 
-/** What a note teaches about it, in [lang]. */
-fun DoomKind.lesson(lang: Lang): String =
-    lang.t(
-        lesson,
-        when (this) {
-            DoomKind.PIT -> "El suelo negro que se come tu luz no es suelo."
-            DoomKind.MOUTH -> "Las puertas no respiran. Si una respira, no la cruces."
-            DoomKind.MIRROR -> "Si tu reflejo no te imita, no es un espejo. No entres en él."
-        },
-    )
-
 /** The name of a thing, in [lang]: all three are feminine in Spanish. */
 fun Item.word(lang: Lang): String =
     lang.t(
@@ -122,8 +111,8 @@ private val SPANISH: Map<Plan, PlanText> =
                 "Caza a ciegas, por el sonido, y duerme justo al lado de la salida. Haz que pasen a su lado en calma.",
                 listOf(
                     "Bajamos seis. Soy la última. No ve. Oye. Si está cerca, no te muevas. No respires.",
-                    DoomKind.PIT.lesson(Lang.ES),
-                    DoomKind.MOUTH.lesson(Lang.ES),
+                    "Aquí abajo sonó un teléfono. Aquí abajo no hay cobertura. Marta contestó.",
+                    "La voz le dijo a Tom por dónde ir. A Tom no lo encontramos.",
                 ),
                 listOf("una cuerda de escalada, cortada limpia", "un casco, con la lámpara rota y aún encendida"),
             ),
@@ -135,8 +124,8 @@ private val SPANISH: Map<Plan, PlanText> =
                 "Todos los árboles parecen iguales y es fácil andar en círculos. Pide marcas, y recuérdalas.",
                 listOf(
                     "Caminamos hacia el sur todo el día y volvimos al mismo tronco. Tres veces. Marca los árboles.",
-                    DoomKind.PIT.lesson(Lang.ES),
-                    DoomKind.MOUTH.lesson(Lang.ES),
+                    "Dice que quiere ayudar. Sabe mi nombre. Nunca se lo dije.",
+                    "Le pregunté al hombre del teléfono dónde estaba. Dijo: más cerca.",
                 ),
                 listOf(
                     "figuritas hechas de palos, colgando de una rama",
@@ -153,9 +142,9 @@ private val SPANISH: Map<Plan, PlanText> =
                 "Todas las salas parecen iguales, y hay cosas raras por todas partes. Solo tres matan. Escucha.",
                 listOf(
                     "Cada sala se parece a la anterior. Algunas matan. Mira antes de entrar.",
-                    DoomKind.MOUTH.lesson(Lang.ES),
-                    DoomKind.PIT.lesson(Lang.ES),
-                    DoomKind.MIRROR.lesson(Lang.ES),
+                    "¿Quién ha construido esto? Sea quien sea, tiene teléfono.",
+                    "Sala tras sala, la voz nunca se equivoca. Eso es lo que me asusta.",
+                    "Pregúntale a la voz por qué contestó.",
                 ),
                 listOf(
                     "números grabados en el marco de la escotilla",
@@ -172,8 +161,8 @@ private val SPANISH: Map<Plan, PlanText> =
                 "No se fían de ti, y las notas les dan la razón. El camino corto es una trampa. Las flechas de tiza pueden darte la razón a ti.",
                 listOf(
                     "No te fíes de la voz del teléfono.",
-                    DoomKind.MOUTH.lesson(Lang.ES),
-                    DoomKind.PIT.lesson(Lang.ES),
+                    "Al principio suena amable. Todos lo decían.",
+                    "Es mi letra. No recuerdo haberlo escrito.",
                     "Siete días, dijo. Siempre vuelve a llamar.",
                 ),
                 listOf("una cinta de vídeo sin etiqueta", "una tele, desenchufada, que sigue mostrando estática"),
@@ -186,8 +175,8 @@ private val SPANISH: Map<Plan, PlanText> =
                 "Los setos se mueven a medianoche, y la medianoche llega pronto. Tu libreta mentirá. El frío no.",
                 listOf(
                     "Los setos se mueven cuando da la hora. Sigue el frío, no tu mapa.",
-                    DoomKind.PIT.lesson(Lang.ES),
-                    DoomKind.MOUTH.lesson(Lang.ES),
+                    "El teléfono sonaba en la nieve cuando lo encontré. Sabía que venía.",
+                    "La voz me mandó aquí. Veo el hotel. No veo cómo volver.",
                 ),
                 listOf("huellas en la nieve que se acaban en mitad del camino", "un hacha, clavada hondo en el seto"),
             ),
@@ -199,8 +188,8 @@ private val SPANISH: Map<Plan, PlanText> =
                 "Está despierto desde el primer segundo. Que no paren, y que se escondan cuando esté cerca.",
                 listOf(
                     "Está despierto. Siempre está despierto. No pares. Escóndete en los callejones sin salida.",
-                    DoomKind.PIT.lesson(Lang.ES),
-                    DoomKind.MOUTH.lesson(Lang.ES),
+                    "La voz de la radio dice que ayuda. Ya no queda nadie en la radio.",
+                    "Última entrada. Si alguien contesta, pregúntale qué quiere de ti.",
                 ),
                 listOf("un transportín de gato, vacío, con la puerta abierta", "un agujero fundido en el suelo, con los bordes aún humeando"),
             ),
