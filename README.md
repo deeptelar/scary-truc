@@ -117,6 +117,11 @@ and how the call stood after each turn (battery, panic, trust, how far the Hollo
 found nothing new). **Menu > Export play log**, or **Log** at the end of a call, hands it over as a
 text file. It stays on the device until then, holds what the player typed, and never holds a key.
 
+Each call that ends is also kept on its own, and **Menu > Statistics** counts them, just for fun:
+how many got out, what took the others, how many steps from the way out, and how often panic was
+to blame (they ran into it, or the Hollow heard their fear). The calls in an older log are read in
+the first time.
+
 It also traces what goes on underneath: the build and the browser, every call to the model with its
 time and tokens, and every fault with its stack, even a crash, which the next visit finds.
 

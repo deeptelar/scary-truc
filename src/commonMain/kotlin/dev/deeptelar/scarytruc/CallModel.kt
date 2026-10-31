@@ -525,7 +525,7 @@ class CallModel(
         listening = false
         microphone?.stop()
         call = call.hungUp(run.mazeOf(call))
-        log.note("hung up, ${call.away ?: "?"} steps from the way out, after ${call.turn} turns")
+        log.hungUp(call)
         spokeAt = 0L
         Sound.danger = 0f
         Sound.otherworld = false
