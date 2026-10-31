@@ -17,8 +17,8 @@ Something else is down there with them. It has no eyes. It finds you by how you 
 talk them through it, *left, right, hide, don't breathe*, and you keep them calm, because fear
 is loud.
 
-**[Answer the phone](https://deeptelar.github.io/scary-truc/)**. Headphones on, lights off. It plays
-on a phone.
+**[Answer the phone](https://deeptelar.github.io/scary-truc/)**. Headphones on, lights off, and say
+it out loud. It plays on a phone.
 
 <p align="center">
   <img src="docs/call.gif" width="300" alt="A call in The Hedge with Gemma as the caller: the phone unlocks, the cards of the six calls slide past, the caller's short, scared lines appear under a notebook, midnight turns the screen dark, the Hollow speaks on the line, and the caller is taken mid-word">
@@ -76,15 +76,23 @@ to do.
 
 ## Talking to them
 
+It's a phone call, so it's best played out loud: tap **Talk** and speak, and what you said goes when
+you pause. You can type instead. (Speech recognition is the browser's own, and most browsers do it
+on their maker's servers; the page only receives the text.)
+
 There are no options to pick. They ask, and you answer, the way you'd talk to a stranger who is
 terrified. Gemma reads how you said it as well as where you said to go. A kind word costs a turn,
-and something is still walking, so say both at once. Once a call, when they are already panicking,
-a kind word and nothing else is a breather, and no turn at all: nothing moves, and your time starts
-again. Joke with them and they'll wonder who you really are. Go quiet and they'll beg you to say
-something, then choose for themselves. A bare word works when there's no time: "left", "hide",
-"take it", or the arrow keys. It's best played out loud: tap **Talk** and speak, and what you said goes
-when you pause. You can type instead. (Speech recognition is the browser's own, and most browsers do it on their maker's
-servers; the page only receives the text.)
+and something is still walking, so say both at once.
+
+Tell them two things in one breath, "take it and go back" or "go right and hide", and they do both,
+one after the other, and it costs two turns. If they can't, they say so: a stone that isn't there
+doesn't end up in their pocket because you asked for it.
+
+The same kind words wear thin while all is quiet, and no one down there is ever really calm. Once
+a call, when they are already panicking, a kind word and nothing else is a breather, and no turn at
+all: nothing moves, and your time starts again. Joke with them and they'll wonder who you really
+are. Go quiet and they'll beg you to say something, then choose for themselves. A bare word works
+when there's no time: "left", "hide", "take it", or the arrow keys.
 
 They speak English or Spanish: the language of your browser at first, or whichever you pick on the
 lock screen. Talk to them in the wrong one and you'll get *"I don't understand what you're
@@ -99,9 +107,9 @@ who can't call anyone else and doesn't know more than they can see.
 you can set the language and the model.
 
 Without a model, the caller knows only a few words (left, right, ahead, back, stay, hide, mark,
-take, use). With one, they understand you in your own words: Gemma 4 on [OpenRouter](https://openrouter.ai) with
-your own key, or your own [Ollama](https://ollama.com). The key stays in your browser and goes
-from it straight to the server. A friend's proxy works too: its address, and your token as the
+take, use), one at a time. With one, they understand you in your own words: Gemma 4 on
+[OpenRouter](https://openrouter.ai) with your own key, or your own [Ollama](https://ollama.com). The
+key stays in your browser and goes from it straight to the server. A friend's proxy works too: its address, and your token as the
 key.
 
 On the desktop, run `./gradlew run`, or `./gradlew run --args='--call ship'`. With Ollama running
@@ -117,7 +125,8 @@ link and no more, so give the key a credit limit and delete it when the test end
 The phone keeps a log of every call: what the player said, what the caller understood and answered,
 and how the call stood after each turn (battery, panic, trust, how far the Hollow was, walks that
 found nothing new). **Menu > Export play log**, or **Log** at the end of a call, hands it over as a
-text file. It stays on the device until then, holds what the player typed, and never holds a key.
+text file. It stays on the device until then, holds what the player said or typed, and never holds
+a key.
 
 Each call that ends is also kept on its own, and **Menu > Statistics** counts them, just for fun:
 how many got out, what took the others, how many steps from the way out, and how often panic was
@@ -135,11 +144,15 @@ A call is a [Telar](https://github.com/deeptelar/telar) graph that pauses for yo
 |---|---|
 | `speak` | Gemma voices the caller, from the facts `walk` gave it and nothing else |
 | `listen` | Gemma reads your words: the way you said to go, and how they made the caller feel |
-| `walk` | The maze answers in code: the caller obeys, refuses or bolts, walks a corridor, the Hollow hunts |
+| `walk` | The maze answers in code: the caller obeys, refuses or bolts, walks a corridor, the Hollow hunts, for each of two things said at once |
 | `whisper` | When the Hollow is close, it speaks on the line, to you |
 
 Gemma never decides what is true. The maze does, so the caller can't invent a door that isn't
-there, and can't be talked out of a wall that is.
+there, can't be talked out of a wall that is, and can't claim a stone they never picked up.
+
+## The challenge
+
+Built for the [DEV Hacktoberfest Open-Source AI Challenge, week 4](https://dev.to/challenges/hacktoberfest-week4-2026-10-26), with [Gemma 4](https://ai.google.dev/gemma) by Google.
 
 ## Build
 
