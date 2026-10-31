@@ -196,6 +196,8 @@ data class Call(
     val up: Dir = facing,
     val said: String = "",
     val heard: Heard? = null,
+    /** How many seconds the stranger took to start answering: down there, time isn't free. */
+    val hesitated: Int = 0,
     /** What the caller understood the last time they spoke, for the play log. */
     val understood: Heard? = null,
     val facts: List<String> = emptyList(),
@@ -280,6 +282,7 @@ data class Call(
             facts = emptyList(),
             hunch = null,
             said = "",
+            hesitated = 0,
             heard = null,
             understood = heard,
         )
@@ -345,6 +348,9 @@ fun Call.walk(maze: Maze, haunt: Haunt): Call {
     var panic = panic
     var trust = trust
     fun chance(salt: Int) = Random(seed * 31 + turn * 131L + salt).nextDouble()
+    // Every moment they spend waiting in the dark for an answer costs light and nerve, and it keeps walking.
+    val lost = if (turn == 0) 0 else (hesitated - THINK_FREE).coerceAtLeast(0) / THINK_COST
+    panic += lost * 2
     if (said.isBlank()) {
         facts += lang.t("You said nothing for a long time.", "No has dicho nada en mucho rato.")
         panic += 8
@@ -482,9 +488,20 @@ fun Call.walk(maze: Maze, haunt: Haunt): Call {
         return !meet()
     }
 
+    if (lost > 0 && end == null) {
+        battery -= lost
+        if (lost >= 2) facts += lang.t("You took so long. I can hear things moving out there.", "Cuánto has tardado. Oigo cosas moviéndose ahí fuera.")
+        repeat(lost / 2) {
+            if (end == null) {
+                hunt()
+                meet()
+            }
+        }
+    }
+
     // What the caller did comes first in what they say, after the stranger's silence or their refusal.
     val did = facts.size
-    when (order) {
+    if (end == null) when (order) {
         Order.AHEAD, Order.RIGHT, Order.BACK, Order.LEFT -> {
             val dir = facing.turned(order.turn!!)
             if (!maze.canGo(at, dir)) {
@@ -880,6 +897,14 @@ private val CALLERS =
         "Clara" to true, "Eli" to false, "Tess" to true, "Rafa" to false, "June" to true, "Milo" to false,
     )
 
+/** How much of [Call.patience] they have left for a word, from the moment they stop talking. */
+private const val PATIENT = 0.45f
+private const val AFRAID = 0.27f
+
+/** The seconds of thinking that cost nothing, and how many more cost the caller something. */
+private const val THINK_FREE = 5
+private const val THINK_COST = 5
+
 /** At or above it, the caller may bolt down any corridor, whatever they were told. */
 const val BOLT: Int = 85
 
@@ -924,6 +949,12 @@ private const val WHISPER_EVERY = 3
 private const val WHISPER_REACH = 3
 private const val WHISPER_HURTS = 10
 
+/** How much of their full patience they have now in [maze]: all of it for the first answer, little with something near. */
+fun Call.patience(maze: Maze): Float {
+    val near = hollow?.takeIf { it.awake }?.let { (maze.distances(at)[it.at] ?: 99) <= HEARING } == true
+    return if (turn == 0) 1f else if (near) AFRAID else PATIENT
+}
+
 /** The ways open to this caller in [maze]. */
 fun Call.ways(maze: Maze): List<Order> =
     listOf(Order.AHEAD, Order.LEFT, Order.RIGHT, Order.BACK).filter { maze.canGo(at, facing.turned(it.turn!!)) }
@@ -965,7 +996,7 @@ fun Call.act(mazeOf: (Call) -> Maze, haunt: Haunt): Call {
     // They ran, or wouldn't go: the rest of it didn't reach them.
     val refused = told.order.turn != null && first.walked == 0 && !first.bumped
     if (first.over || first.ran || refused) return first
-    val second = first.copy(heard = Heard(next, 0, told.item, told.toward)).walk(mazeOf(first), haunt)
+    val second = first.copy(heard = Heard(next, 0, told.item, told.toward), hesitated = 0).walk(mazeOf(first), haunt)
     val asked = lang.t("Which way do I go", "¿Por dónde voy")
     // One question of which way, last: a deed where they stand doesn't ask it again.
     val (question, seen) = first.facts.partition { it.startsWith(asked) }

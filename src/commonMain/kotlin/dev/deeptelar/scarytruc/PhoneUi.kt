@@ -658,7 +658,7 @@ private val LESSONS =
         ),
         // The bar under what you type empties while they wait for you.
         Lesson(
-            "Don't leave them in silence. Wait too long and they choose for themselves. They choose badly.",
+            "While you think, my pet walks. Wait too long and they choose for themselves. They choose badly.",
             null,
             listOf(
                 "...#############.....",
@@ -706,7 +706,7 @@ private val LESSONS_ES: List<Lesson> =
         "Los que vinieron antes dejaron notas. Ninguna te dice qué mata. Eso lo aprendes perdiendo a alguien." to "¿qué pone?",
         "Mi mascota es ciega. Oye el miedo. Mantenlos en calma y, cuando esté cerca, que se escondan." to "escóndete. no te muevas. estoy aquí.",
         "Dejo cosas en los rincones. Una batería da tiempo. Una bengala lo asusta. Una piedra, lanzada, lo atrae." to "cógela",
-        "No los dejes en silencio. Si esperas demasiado, eligen ellos. Y eligen mal." to null,
+        "Mientras piensas, mi mascota camina. Si esperas demasiado, eligen ellos. Y eligen mal." to null,
         "A medianoche muevo las paredes, y tu libreta miente. La salida está fría. Mi frío nunca miente." to "¿dónde hace más frío?",
     ).mapIndexed { i, (line, example) ->
         Lesson(

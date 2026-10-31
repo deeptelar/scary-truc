@@ -6,7 +6,8 @@ import kotlin.test.Test
 /**
  * How the nights play for a guide who knows only what the caller says: they follow arrows and the
  * cold, keep to the right wall, stay away from anything strange, and say hide when it's close.
- * Prints the outcomes, nothing to pass: ./gradlew test --tests '*Balance*' -Pbalance=40
+ * Prints the outcomes, nothing to pass: ./gradlew test --tests '*Balance*' -Pbalance=40, and
+ * -Pthink=10 for a guide who takes that many seconds to start answering.
  */
 class Balance {
     @Test
@@ -20,7 +21,8 @@ class Balance {
             for (seed in 1L..seeds) {
                 val run = CallRun(plan, seed, Keywords, Script)
                 var call = run.begin()
-                while (!call.over) call = run.say(explore(call, run.maze, run.haunt))
+                val think = (System.getProperty("think") ?: "0").toInt()
+                while (!call.over) call = run.say(explore(call, run.maze, run.haunt), hesitated = think)
                 val end = call.end!!.name
                 ends[end] = (ends[end] ?: 0) + 1
                 if (call.end == End.OUT) turns += call.turn

@@ -489,7 +489,8 @@ class CallTest {
                 (1L..12L).map { seed ->
                     val run = CallRun(night, seed, Keywords, Script)
                     var call = run.begin()
-                    while (!call.over) call = run.say(guide(call, run.maze))
+                    val think = (System.getProperty("think") ?: "0").toInt()
+                    while (!call.over) call = run.say(guide(call, run.maze), hesitated = think)
                     call
                 }
             val out = ends.count { it.end == End.OUT }

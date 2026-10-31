@@ -58,6 +58,10 @@ kills by losing someone.
 **Midnight comes.** A bell tolls, the walls move, the screen goes dark, and the place starts to
 sound like something else. What's in your notebook is only a memory now.
 
+**Time isn't yours.** The first few seconds of thinking are free. After that, every moment they
+wait in the dark costs battery and nerve, and if you take long enough, it keeps walking. With
+something close, they won't wait long at all.
+
 **The light is running out.** Every step and every word costs battery. Things were left in the
 dead ends for whoever came next: a spare battery, a road flare, a stone that makes its noise where
 it lands, not where it was thrown from.

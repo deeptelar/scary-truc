@@ -65,14 +65,15 @@ class CallRun(
 
     /**
      * The stranger says [words], or nothing when they are blank, and the caller answers. What the
-     * caller said meanwhile, when the line went quiet, is their [nudge].
+     * caller said meanwhile, when the line went quiet, is their [nudge]; [hesitated] is how many
+     * seconds the stranger took to start.
      */
-    suspend fun say(words: String, nudge: String? = null): Call {
+    suspend fun say(words: String, nudge: String? = null, hesitated: Int = 0): Call {
         if (call.over) return call
         val said = words.trim()
         call =
             graph.resume(config) {
-                it.copy(said = said, lines = it.lines + listOfNotNull(nudge?.let { words -> Line(Who.CALLER, words) }) + Line(Who.YOU, said.ifEmpty { "…" }))
+                it.copy(said = said, hesitated = hesitated, lines = it.lines + listOfNotNull(nudge?.let { words -> Line(Who.CALLER, words) }) + Line(Who.YOU, said.ifEmpty { "…" }))
             }.state
         return call
     }

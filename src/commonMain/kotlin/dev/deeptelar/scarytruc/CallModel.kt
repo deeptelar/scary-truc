@@ -314,6 +314,7 @@ class CallModel(
             heard = { type(it) },
             done = { problem ->
                 listening = false
+                lastKey = now()
                 if (problem != null) log.fault("microphone", problem)
                 if (problem != null) failure = problem else if (!thinking) send()
             },
@@ -348,6 +349,9 @@ class CallModel(
         private set
 
     private var lastKey = 0L
+
+    /** When the player started answering, on this turn. */
+    private var firstKey: Long? = null
 
     /** Why the last turn failed, in words. */
     var failure: String? by mutableStateOf(null)
@@ -394,9 +398,9 @@ class CallModel(
      * they are done speaking, and since the player last typed. `null` when they don't wait.
      */
     fun waited(now: Long): Float? {
-        if (!clock || ringing || thinking || call.over) return null
+        if (!clock || ringing || thinking || listening || call.over) return null
         val since = maxOf(spokeAt + speaking(), lastKey)
-        return ((now - since).toFloat() / silence).coerceIn(0f, 1f)
+        return ((now - since).toFloat() / (silence * call.patience(maze))).coerceIn(0f, 1f)
     }
 
     /** Unlocks the phone, from inside a tap: its sound opens, and it rings at once. */
@@ -420,6 +424,7 @@ class CallModel(
     fun type(text: String) {
         typed = text
         lastKey = now()
+        if (firstKey == null && text.isNotBlank()) firstKey = lastKey
     }
 
     fun send() {
@@ -433,7 +438,10 @@ class CallModel(
         if (thinking) return
         val nudged = nudge
         nudge = null
-        command { run.say(words, nudged) }
+        // Thinking costs, saying it doesn't: time runs until the first word, however long the rest takes.
+        val hesitated = (((firstKey ?: now()) - (spokeAt + speaking())) / 1000).coerceAtLeast(0).toInt()
+        firstKey = null
+        command { run.say(words, nudged, hesitated) }
     }
 
     /** What the caller said because the line went quiet, until the player answers. */
@@ -463,6 +471,7 @@ class CallModel(
         run = newRun(plan, seed)
         call = run.call
         typed = ""
+        firstKey = null
         nudge = null
         ringing = true
         Sound.danger = 0f
