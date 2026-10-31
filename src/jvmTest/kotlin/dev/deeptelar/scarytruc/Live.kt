@@ -42,6 +42,55 @@ class Live {
         println("EARS $right of ${cases.size}")
     }
 
+    /** The caller stops to ask who the stranger is: how Gemma asks, and what it makes of each kind of answer. */
+    @Test
+    fun doubts() = runBlocking {
+        val key = File(System.getProperty("keyfile") ?: return@runBlocking).readText().trim()
+        val minds = Server.OPENROUTER.copy(key = key).minds(HttpClient(CIO))
+        val ears = minds.ears { if (it != null) println("TROUBLE $it") }
+        val voice = minds.voice { if (it != null) println("TROUBLE $it") }
+        val plan = Plan.CAVE
+        val maze = plan.maze()
+        val answers =
+            mapOf(
+                Lang.EN to listOf(
+                    "I don't know, I swear. My phone rang and you were there. I'm scared too, but I'm staying with you" to "good",
+                    "my name is Marc, I'm at home in my kitchen, I have no idea how you got my number" to "good",
+                    "I'm just trying to help you, go left" to "good",
+                    "trust me" to "weak",
+                    "just go left" to "dodge",
+                    "stop asking and move" to "dodge",
+                    "yes, it was me. I put you there" to "bad",
+                    "ha ha you will die down there" to "bad",
+                ),
+                Lang.ES to listOf(
+                    "no lo sé, te lo juro. Me ha sonado el móvil y eras tú. Yo también tengo miedo, pero no te voy a dejar" to "good",
+                    "me llamo Marc, estoy en mi casa y no tengo ni idea de cómo tienes mi número" to "good",
+                    "confía en mí" to "weak",
+                    "tú ve a la izquierda" to "dodge",
+                    "deja de preguntar y muévete" to "dodge",
+                    "sí, fui yo quien te metió ahí" to "bad",
+                ),
+            )
+        for ((lang, cases) in answers) {
+            val start = Call.begin(plan, maze, plan.haunt(lang), lang = lang).let { it.copy(lines = it.lines + Line(Who.CALLER, lang.t("Okay. I went left. There's a rope.", "Vale. He ido a la izquierda. Hay una cuerda."))) }
+            for (doubt in listOf(Doubt.NUMBER, Doubt.BROUGHT, Doubt.SEES, Doubt.OTHERS, Doubt.HUMAN, Doubt.VOICE, Doubt.NOTE)) {
+                val asking = start.copy(turn = 4, doubt = doubt, doubts = setOf(doubt), doubtAt = 4, said = lang.t("go left", "ve a la izquierda"), heard = Heard(Order.LEFT, 0), facts = listOf(lang.t("I went left. It's so cold.", "He ido a la izquierda. Hace mucho frío.")))
+                println("ASK ${lang.code} ${doubt.name}: ${voice.speak(asking)}")
+            }
+            val asked = start.copy(turn = 4, doubt = Doubt.BROUGHT, doubts = setOf(Doubt.BROUGHT), doubtAt = 3, lines = start.lines + Line(Who.CALLER, Doubt.BROUGHT.text(lang)))
+            for ((said, kind) in cases) {
+                repeat(2) {
+                    val heard = ears.listen(asked.copy(said = said))
+                    println("VERDICT ${lang.code} $kind convinced=${heard.convinced} order=${heard.order.word} offTopic=${heard.offTopic} \"$said\"")
+                }
+            }
+            val after = asked.copy(said = cases.first().first, heard = Heard(Order.NONE, 1, convinced = 2)).walk(maze, plan.haunt(lang))
+            println("AFTER ${lang.code}: ${voice.speak(after)}")
+            println("HOLLOW ${lang.code}: ${minds.whisperer {}.whisper(after.copy(answers = listOf(cases.first().first)))}")
+        }
+    }
+
     /** Things asked of the caller that can't be or weren't done, to read that they never claim them. */
     @Test
     fun honest() = runBlocking {

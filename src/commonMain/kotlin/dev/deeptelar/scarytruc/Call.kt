@@ -78,6 +78,8 @@ data class Heard(
     val foreign: Boolean = false,
     /** Whether the stranger's words had nothing to do with getting out: a joke, trivia, nonsense. */
     val offTopic: Boolean = false,
+    /** How much their answer to a [Doubt] convinced the caller, from -2 to 2: an order alone is no answer. */
+    val convinced: Int = 0,
 )
 
 /** What lies in a maze to pick up, and is used once. [code] is its letter in a drawn maze. */
@@ -110,8 +112,8 @@ enum class Who { CALLER, YOU, HOLLOW, LINE }
 @Serializable
 data class Line(val who: Who, val text: String)
 
-/** How a call ends: [ALONE] when the stranger hung up, and no one gets out alone. */
-enum class End { OUT, TAKEN, DOOM, BATTERY, ALONE }
+/** How a call ends: [ALONE] when the stranger hung up, [TRUST] when the caller did, and no one gets out alone. */
+enum class End { OUT, TAKEN, DOOM, BATTERY, ALONE, TRUST }
 
 /** Something the caller saw from next to it, which the notebook keeps: strange, or the light of the way out. */
 enum class Glimpse { STRANGE, LIGHT }
@@ -198,6 +200,14 @@ data class Call(
     val heard: Heard? = null,
     /** How many seconds the stranger took to start answering: down there, time isn't free. */
     val hesitated: Int = 0,
+    /** What the caller asked about the stranger and won't go on without knowing. */
+    val doubt: Doubt? = null,
+    /** What the caller asked about the stranger in this call: once each. */
+    val doubts: Set<Doubt> = emptySet(),
+    /** The turn of the last doubt. */
+    val doubtAt: Int = -99,
+    /** What the stranger answered: the caller remembers, and so does the Hollow. */
+    val answers: List<String> = emptyList(),
     /** What the caller understood the last time they spoke, for the play log. */
     val understood: Heard? = null,
     val facts: List<String> = emptyList(),
@@ -309,7 +319,7 @@ data class Call(
                     lang.t("I just woke up here. I don't know how I got here.", "Me acabo de despertar aquí. No sé cómo he llegado."),
                     lang.t("My name is ${call.name}.", "Me llamo ${call.name}."),
                     plan.text(lang).setting,
-                    lang.t("It's dark. My phone is my only light, and you're the only one who picked up.", "Está oscuro. Mi móvil es mi única luz, y eres la única persona que ha contestado."),
+                    lang.t("It's dark. My phone is my only light, and yours is the only number in it.", "Está oscuro. Mi móvil es mi única luz, y el tuyo es el único número que tiene."),
                 )
             return call.look(maze, haunt, opening)
         }
@@ -329,7 +339,7 @@ fun Call.walk(maze: Maze, haunt: Haunt): Call {
     // Only kind words, to a caller in a panic: they catch their breath, and the maze waits for them.
     // It is no turn: no step, no battery, the Hollow doesn't move, and the stranger's time starts again.
     // Its voice waits too: a whisper would undo the breath. Once a call.
-    if (!breathed && said.isNotBlank() && heard.order == Order.NONE && heard.calm >= 1 && !heard.offTopic && !heard.again && panic >= CALM_ENOUGH) {
+    if (!breathed && doubt == null && said.isNotBlank() && heard.order == Order.NONE && heard.calm >= 1 && !heard.offTopic && !heard.again && panic >= CALM_ENOUGH) {
         val breath = lang.t("Okay. Okay... I'm breathing. I'm staying right here until I can think.", "Vale. Vale... Estoy respirando. Me quedo aquí hasta que pueda pensar.")
         return copy(
             panic = (panic - heard.calm * 6 - BREATHER).coerceIn(CALMEST, 100),
@@ -369,6 +379,25 @@ fun Call.walk(maze: Maze, haunt: Haunt): Call {
         panic += minOf(STRAY_PANIC * strays, STRAY_PANIC * 2)
     }
 
+    // What they asked comes first. Any honest try will do; an order alone is no answer.
+    val verdict = if (doubt == null) null else if (said.isBlank()) -2 else heard.convinced
+    val hunted = hollow?.takeIf { it.awake }?.let { (maze.distances(at)[it.at] ?: 99) <= 2 } == true
+    when {
+        verdict == null -> Unit
+        verdict > 0 -> {
+            trust += verdict * 6
+            panic -= verdict * 4
+            facts += lang.t("Okay. I believe you. For now.", "Vale. Te creo. De momento.")
+        }
+        verdict == 0 -> {
+            trust -= 5
+            facts += lang.t("That's not really an answer. But you're all I have.", "Eso no es una respuesta. Pero eres lo único que tengo.")
+        }
+        else -> trust += verdict * 15
+    }
+    val gaveUp = verdict != null && verdict < 0 && trust <= 0
+    val waiting = verdict != null && verdict < 0 && said.isNotBlank() && !hunted && !gaveUp
+
     var order = heard.order
     var bolted = false
     // Left without an answer, they choose for themselves.
@@ -377,6 +406,11 @@ fun Call.walk(maze: Maze, haunt: Haunt): Call {
         if (order != Order.NONE) facts += lang.t("So I chose myself.", "Así que he elegido yo.")
     }
     when {
+        gaveUp -> order = Order.NONE
+        waiting -> {
+            facts += lang.t("You didn't answer me. I'm not going anywhere until you do.", "No me has contestado. No voy a ninguna parte hasta que lo hagas.")
+            order = Order.NONE
+        }
         // Kind words hold them for a turn; anything else, and they may run.
         panic >= BOLT && heard.calm <= 0 && chance(1) < 0.6 -> {
             bolted = true
@@ -488,6 +522,11 @@ fun Call.walk(maze: Maze, haunt: Haunt): Call {
         return !meet()
     }
 
+    if (gaveUp) {
+        end = End.TRUST
+        death = "the dark"
+        facts += lang.t("I can't do this. Whoever you are, you're not here to help me. I'm hanging up.", "No puedo más. Seas quien seas, no estás aquí para ayudarme. Voy a colgar.")
+    }
     if (lost > 0 && end == null) {
         battery -= lost
         if (lost >= 2) facts += lang.t("You took so long. I can hear things moving out there.", "Cuánto has tardado. Oigo cosas moviéndose ahí fuera.")
@@ -676,6 +715,10 @@ fun Call.walk(maze: Maze, haunt: Haunt): Call {
             bumped = bumped,
             panic = panic.coerceIn(CALMEST, 100),
             trust = trust.coerceIn(0, 100),
+            doubt = doubt.takeIf { waiting },
+            answers = if (doubt != null && said.isNotBlank()) answers + said else answers,
+            // Answering them is no reason to leave them without knowing what's around.
+            heard = if (doubt != null) this.heard?.copy(again = true) else this.heard,
         )
     if (end == null && next.battery <= 0) {
         next = next.copy(end = End.BATTERY, battery = 0)
@@ -762,7 +805,6 @@ private fun Call.look(maze: Maze, haunt: Haunt, facts: List<String>): Call {
     // A note read out once is only mentioned again when they come back to it.
     haunt.notes[at]?.takeIf { at !in read || walked > 0 }?.let {
         seen += if (at in read) lang.t("The note I already read is here.", "Aquí está la nota que ya he leído.") else lang.t("A note on the floor here, in pencil: \"$it\"", "Una nota en el suelo, a lápiz: \"$it\"")
-        if (walked > 0 || turn == 0) panic -= 6
     }
     haunt.oddities[at]?.let { seen += lang.t("Here, on the floor: $it.", "Aquí, en el suelo: $it.") }
     haunt.items[at]?.takeIf { at !in taken }?.let { seen += lang.t("Here, on the floor: ${it.thing}. I could take it.", "Aquí, en el suelo: ${it.thing(lang)}. Podría cogerla.") }
@@ -975,6 +1017,8 @@ fun Call.nudge(maze: Maze): String {
             lang.t("Hello? Don't go quiet on me. Not now.", "¿Hola? No te calles ahora, por favor."),
             lang.t("I can't hear you. Are you there?", "No te oigo. ¿Estás ahí?"),
         )
+    // They asked who you are, and that is all they want to hear.
+    if (doubt != null) return lang.t("Answer me. Please. I need to know.", "Contéstame. Por favor. Necesito saberlo.")
     val names = ways(maze).map { way -> lang.t(way.word, listOf("delante", "derecha", "atrás", "izquierda")[way.turn!!]) }
     val asked = (names.dropLast(1).joinToString(", ").ifEmpty { null }?.let { "$it ${lang.t("or", "o")} " }.orEmpty() + names.lastOrNull().orEmpty()).replaceFirstChar { it.uppercase() }
     return listOf(pleas[turn % pleas.size], if (asked.isEmpty()) "" else lang.t("$asked?", "¿$asked?")).filter { it.isNotEmpty() }.joinToString(" ")
@@ -990,12 +1034,25 @@ fun Call.hello(): String = lang.t("Hello? Hello?! Oh thank god, someone picked u
  * After a way comes no other way: the caller stops to say what is there, and the stranger chooses.
  */
 fun Call.act(mazeOf: (Call) -> Maze, haunt: Haunt): Call {
+    val done = deeds(mazeOf, haunt)
+    return done.doubting(mazeOf(done), done.at in haunt.notes && done.at != origin && done.at !in read)
+}
+
+/** The call with the caller stopped to ask what they can't go on without knowing, if anything, in place of which way to go. */
+private fun Call.doubting(maze: Maze, read: Boolean): Call {
+    if (over) return this
+    val asked = doubt ?: Doubt.of(this, maze, read) ?: return this
+    val question = lang.t("Which way do I go", "¿Por dónde voy")
+    return copy(doubt = asked, doubts = doubts + asked, doubtAt = turn, facts = facts.filterNot { it.startsWith(question) }, hunch = null)
+}
+
+private fun Call.deeds(mazeOf: (Call) -> Maze, haunt: Haunt): Call {
     val first = walk(mazeOf(this), haunt)
     val told = heard ?: return first
     val next = told.then?.takeIf { told.order in DEEDS || (told.order.turn != null && it.turn == null) } ?: return first
     // They ran, or wouldn't go: the rest of it didn't reach them.
     val refused = told.order.turn != null && first.walked == 0 && !first.bumped
-    if (first.over || first.ran || refused) return first
+    if (first.over || first.ran || refused || first.doubt != null) return first
     val second = first.copy(heard = Heard(next, 0, told.item, told.toward), hesitated = 0).walk(mazeOf(first), haunt)
     val asked = lang.t("Which way do I go", "¿Por dónde voy")
     // One question of which way, last: a deed where they stand doesn't ask it again.

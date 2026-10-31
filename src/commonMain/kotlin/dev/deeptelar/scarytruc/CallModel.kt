@@ -666,6 +666,10 @@ class CallModel(
                     Sound.play(Cue.HANGUP)
                 }
                 End.ALONE -> Unit
+                End.TRUST -> {
+                    delay(speaking())
+                    Sound.play(Cue.HANGUP)
+                }
                 End.OUT -> {
                     Sound.play(Cue.DOOR)
                     delay(2400)

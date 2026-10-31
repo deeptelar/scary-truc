@@ -40,6 +40,11 @@ When the line goes dead, you learn how many steps they were from the way out.
 
 ## What the builder of the mazes wants you to know
 
+**They don't know you.** Yours is the only number in their phone, and they never saved it. Sooner
+or later they'll stop and ask who you are, or whether you're the one who put them there, and they
+won't take another step until you answer. An order is no answer. Keep dodging and they stop
+listening, and then they hang up on you.
+
 **They see. You don't.** Every way is said from where *they* face, so their left is not always
 your left.
 
@@ -97,6 +102,10 @@ a call, when they are already panicking, a kind word and nothing else is a breat
 all: nothing moves, and your time starts again. Joke with them and they'll wonder who you really
 are. Go quiet and they'll beg you to say something, then choose for themselves. A bare word works
 when there's no time: "left", "hide", "take it", or the arrow keys.
+
+When they ask who you are, tell them something. "I don't know, I'm scared too" works better than
+"trust me". Gemma judges what you said, it remembers what you told them, and the Hollow heard it
+too.
 
 They speak English or Spanish: the language of your browser at first, or whichever you pick on the
 lock screen. Talk to them in the wrong one and you'll get *"I don't understand what you're

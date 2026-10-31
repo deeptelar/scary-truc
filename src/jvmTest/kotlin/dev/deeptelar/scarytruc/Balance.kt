@@ -34,7 +34,9 @@ class Balance {
         }
     }
 
-    fun explore(call: Call, maze: Maze, haunt: Haunt): String {
+    fun explore(call: Call, maze: Maze, haunt: Haunt): String = (if (call.doubt != null) "I'm here with you, I promise. " else "") + explored(call, maze, haunt)
+
+    private fun explored(call: Call, maze: Maze, haunt: Haunt): String {
         val said = call.lines.lastOrNull { it.who == Who.CALLER }?.text.orEmpty()
         if ("still here" in said || "I can hear it" in said && ("close" in said || "corner" in said)) return "Shh. Hide. Breathe slowly, I'm here with you."
         val words = listOf("ahead", "right", "back", "left")

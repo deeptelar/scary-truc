@@ -92,7 +92,7 @@ class CallTest {
         val first = waiting.walk(maze, rock)
         assertEquals(Thought.STONE_HERE.en, first.hunch)
         assertEquals("Fine. ${Thought.STONE_HERE.en}", first.spoke("Fine.").lines.last().text)
-        assertEquals(null, waiting.copy(thoughts = setOf(Thought.STONE_HERE)).walk(maze, rock).hunch, "once in a call")
+        assertEquals(null, waiting.copy(thoughts = setOf(Thought.STONE_HERE, Thought.SO_SURE, Thought.A_VOICE)).walk(maze, rock).hunch, "once in a call")
         assertEquals(null, waiting.copy(thoughtAt = 3).walk(maze, rock).hunch, "not two turns running")
         assertEquals(null, Call.begin(plan, maze, rock).hunch, "not before they have said anything")
         assertEquals("Esa piedra podría venirnos bien.", waiting.copy(lang = Lang.ES).walk(maze, rock).hunch)
@@ -467,7 +467,9 @@ class CallTest {
     }
 
     /** The way a perfect guide would go: along a safe way out, from where the caller faces. */
-    private fun guide(call: Call, maze: Maze): String {
+    private fun guide(call: Call, maze: Maze): String = (if (call.doubt != null) "I'm here with you, I promise. " else "") + guided(call, maze)
+
+    private fun guided(call: Call, maze: Maze): String {
         val near = call.lines.lastOrNull { it.who == Who.CALLER }?.text.orEmpty()
         // A few steps from the way out, run for it, whatever is behind.
         maze.way(call.at, maze.gate, maze.dooms.map { it.at }.toSet())?.takeIf { it.second <= 3 && "I can hear it" !in near }?.let { (dir, _) ->

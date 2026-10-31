@@ -89,7 +89,8 @@ class PlayLog(private val store: Store? = null) {
                 "calm ${heard.calm}",
                 "foreign".takeIf { heard.foreign },
                 "off topic".takeIf { heard.offTopic },
-                "asked again".takeIf { heard.again },
+                "asked again".takeIf { heard.again && before.doubt == null },
+                "convinced ${heard.convinced}".takeIf { before.doubt != null },
             ).joinToString(", ")
         }
         val said = lines.filter { it.who == Who.YOU }.joinToString(" ") { it.text }.ifEmpty { if (before.lines.isEmpty()) "(answered)" else "(silence)" }
@@ -100,6 +101,7 @@ class PlayLog(private val store: Store? = null) {
             append("  turn ${after.turn}: at ${after.at.x},${after.at.y} facing ${after.facing.word}, walked ${after.walked}, battery ${after.battery}, panic ${after.panic}, trust ${after.trust}, walks with nothing new ${after.stale}")
             after.hollow?.let { append(", hollow ${maze.distances(after.at)[it.at] ?: "?"} steps ${if (it.awake) "awake" else "asleep"}") }
             if (after.hidden) append(", hidden")
+            after.doubt?.let { append(", doubting ${it.name.lowercase()}") }
             if (after.lostTrack) append(", lost")
             if (after.afterMidnight) append(", after midnight")
             if (after.bumped) append(", hit a wall")

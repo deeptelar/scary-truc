@@ -1,6 +1,7 @@
 package dev.deeptelar.scarytruc
 
 import kotlinx.serialization.Serializable
+import kotlin.random.Random
 
 /**
  * Something the caller thinks aloud, once in a call. It never says what to do: it names something
@@ -22,6 +23,9 @@ enum class Thought(val en: String, val es: String) {
     DRAFT("I can feel the air moving. It has to be going somewhere.", "Noto que se mueve el aire. Tiene que ir a algún sitio."),
     DRAIN("My battery is going. Every step and every word costs me.", "Se me va la batería. Cada paso y cada palabra me cuestan."),
     LOOKALIKE("It all looks the same. I wish I could tell these walls apart.", "Todo parece igual. Ojalá pudiera distinguir estas paredes."),
+    SO_SURE("You sound so sure. I don't know why I'm listening to you.", "Hablas con tanta seguridad. No sé por qué te hago caso."),
+    A_VOICE("I don't even know your name. I'm doing what a voice tells me.", "Ni siquiera sé cómo te llamas. Estoy haciendo lo que me dice una voz."),
+    IF_YOU_WANTED("If you wanted me dead, this is exactly how it would sound.", "Si quisieras verme morir, sonaría exactamente así."),
     ;
 
     fun text(lang: Lang): String = lang.t(en, es)
@@ -54,8 +58,54 @@ enum class Thought(val en: String, val es: String) {
                     DRAFT.takeIf { (steps[maze.gate] ?: 99) <= 3 },
                     DRAIN.takeIf { call.battery <= 30 },
                     LOOKALIKE.takeIf { call.turn >= 5 && call.marks.isEmpty() },
+                    // They don't know who this is, and it comes back to them.
+                    IF_YOU_WANTED.takeIf { call.trust < 40 },
+                    SO_SURE.takeIf { call.turn >= 2 && call.trust < 70 },
+                    A_VOICE.takeIf { call.turn >= 4 },
                 )
             return wanted.firstOrNull { it !in call.thoughts }
         }
+    }
+}
+
+/**
+ * What the caller can't go on without asking. They don't know who picked up, why that number was
+ * the only one in their phone, or if the voice is the one who put them here: every so often they
+ * stop and ask, and until the stranger answers they won't take another step.
+ */
+@Serializable
+enum class Doubt(val en: String, val es: String) {
+    NUMBER("Yours is the only number in this phone, and I never saved it. Who are you?", "El tuyo es el único número de este móvil, y yo nunca lo guardé. ¿Quién eres?"),
+    BROUGHT("How do I know it wasn't you who put me here? Why should I listen to you?", "¿Cómo sé que no has sido tú quien me ha metido aquí? ¿Por qué debería hacerte caso?"),
+    SEES("You can't see me. Or can you? How do you know where I should go?", "No puedes verme. ¿O sí? ¿Cómo sabes por dónde tengo que ir?"),
+    OTHERS("There were others here before me. Did they call you too? What happened to them?", "Aquí hubo otros antes que yo. ¿También te llamaron a ti? ¿Qué les pasó?"),
+    HUMAN("Say something that thing could never say. Is there even a person on this phone?", "Di algo que esa cosa nunca diría. ¿Hay siquiera una persona al teléfono?"),
+    VOICE("That voice on the line. It talks to you. Do you know it? Are you with it?", "Esa voz en la línea. Te habla a ti. ¿La conoces? ¿Vas con ella?"),
+    NOTE("This note. It's about you, isn't it? Is that you, the voice on the phone?", "Esta nota. Habla de ti, ¿verdad? ¿Eres tú, la voz del teléfono?"),
+    ;
+
+    fun text(lang: Lang): String = lang.t(en, es)
+
+    companion object {
+        /** What [call] can't go on without asking now in [maze], if anything: having just [read] a note, after the Hollow spoke, or when enough time passed. */
+        fun of(call: Call, maze: Maze, read: Boolean): Doubt? {
+            if (call.turn < 2 || call.hidden || call.doubts.size >= MOST || call.turn - call.doubtAt < EVERY) return null
+            val hollow = call.hollow?.takeIf { it.awake }
+            val close = hollow != null && (maze.distances(call.at)[hollow.at] ?: 99) <= 2
+            val random = Random(call.seed + 3)
+            return when {
+                VOICE !in call.doubts && call.lines.takeLast(4).any { it.who == Who.HOLLOW } -> VOICE
+                close -> null
+                read && NOTE !in call.doubts -> NOTE
+                call.turn >= 3 + random.nextInt(2) -> listOf(NUMBER, BROUGHT, SEES, OTHERS, HUMAN).shuffled(random).firstOrNull { it !in call.doubts }
+                else -> null
+            }
+        }
+
+        /** The most a caller asks in a call. */
+        private const val MOST = 3
+
+        /** The fewest turns between two doubts. */
+        private const val EVERY = 4
     }
 }

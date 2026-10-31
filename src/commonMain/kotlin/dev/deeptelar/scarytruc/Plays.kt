@@ -32,6 +32,7 @@ data class Play(
             End.TAKEN -> lang.t("Taken by the Hollow", "Se lo llevó el Hueco")
             End.BATTERY -> lang.t("Battery died", "Sin batería")
             End.ALONE -> lang.t("You hung up", "Colgaste")
+            End.TRUST -> lang.t("They hung up on you", "Te colgó")
             End.DOOM -> DoomKind.entries.firstOrNull { it.word == death }?.word(lang) ?: lang.t("Something in the dark", "Algo en la oscuridad")
         }
 

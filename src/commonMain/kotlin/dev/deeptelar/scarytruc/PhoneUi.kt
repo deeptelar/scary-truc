@@ -656,6 +656,26 @@ private val LESSONS =
                 ".....................",
             ),
         ),
+        // A question on the line, and the phone it came from.
+        Lesson(
+            "They don't know you. Sooner or later they'll ask who you are. An order is no answer.",
+            "i don't know. i'm scared too.",
+            listOf(
+                "......#######........",
+                ".....##.....##.......",
+                ".....##.....##.......",
+                "..........###........",
+                ".........##..........",
+                ".........##..........",
+                ".....................",
+                ".........##..........",
+                ".....................",
+                "..aaaaaaaaaaaaaaaaa..",
+                "..a...............a..",
+                "..aaaaaaaaaaaaaaaaa..",
+                ".....................",
+            ),
+        ),
         // The bar under what you type empties while they wait for you.
         Lesson(
             "While you think, my pet walks. Wait too long and they choose for themselves. They choose badly.",
@@ -706,6 +726,7 @@ private val LESSONS_ES: List<Lesson> =
         "Los que vinieron antes dejaron notas. Ninguna te dice qué mata. Eso lo aprendes perdiendo a alguien." to "¿qué pone?",
         "Mi mascota es ciega. Oye el miedo. Mantenlos en calma y, cuando esté cerca, que se escondan." to "escóndete. no te muevas. estoy aquí.",
         "Dejo cosas en los rincones. Una batería da tiempo. Una bengala lo asusta. Una piedra, lanzada, lo atrae." to "cógela",
+        "No te conocen. Tarde o temprano te preguntarán quién eres. Una orden no es una respuesta." to "no lo sé. yo también tengo miedo.",
         "Mientras piensas, mi mascota camina. Si esperas demasiado, eligen ellos. Y eligen mal." to null,
         "A medianoche muevo las paredes, y tu libreta miente. La salida está fría. Mi frío nunca miente." to "¿dónde hace más frío?",
     ).mapIndexed { i, (line, example) ->
@@ -1137,6 +1158,7 @@ private fun Ending(model: CallModel, lcd: Lcd) {
                 End.OUT -> lang.t("${call.name} got out.", "${call.name} ha salido.")
                 End.BATTERY -> lang.t("The battery died.", "Se acabó la batería.")
                 End.ALONE -> lang.t("You hung up. Alone, ${call.name} never found the way out.", "Has colgado. Sin ti, ${call.name} nunca encontró la salida.")
+                End.TRUST -> lang.t("${call.name} stopped believing you, and hung up. Alone, they never found the way out.", "${call.name} dejó de creerte y colgó. Sin ti, nunca encontró la salida.")
                 else -> lang.t("Taken by ${call.death}.", "${if (call.woman) "Se la llevó" else "Se lo llevó"} ${death(call.death, lang)}.")
             },
             size = SMALL,
